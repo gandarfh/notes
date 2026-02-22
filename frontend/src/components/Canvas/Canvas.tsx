@@ -306,8 +306,6 @@ export function Canvas({ onEditBlock }: CanvasProps) {
     }, [])
 
     // ── Wheel: native listener ──
-    // Track zoom direction to filter macOS momentum scroll bounce
-    const zoomDirRef = useRef<{ dir: number; time: number }>({ dir: 0, time: 0 })
 
     useEffect(() => {
         const container = containerRef.current
@@ -357,40 +355,30 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             e.preventDefault()
             const v = viewportRef.current
 
-            if (e.shiftKey) {
-                const dx = e.deltaX || e.deltaY
-                const newV = { ...v, x: v.x - dx }
-                viewportRef.current = newV
-                applyViewport(newV)
-                commitViewport(newV)
-            } else if (e.ctrlKey || e.metaKey) {
-                const newV = { ...v, y: v.y - e.deltaY }
-                viewportRef.current = newV
-                applyViewport(newV)
-                commitViewport(newV)
-            } else {
-                // Ignore tiny deltas (macOS inertia tail / noise)
+            if (e.ctrlKey) {
+                // Pinch-to-zoom (macOS trackpad sets ctrlKey for pinch gestures)
                 if (Math.abs(e.deltaY) < 1) return
-
-                // Direction lock: ignore quick reversals (macOS momentum bounce)
-                const now = performance.now()
-                const dir = Math.sign(e.deltaY)
-                const prev = zoomDirRef.current
-                if (prev.dir !== 0 && dir !== prev.dir && now - prev.time < 150) {
-                    return // Ignore bounce — same direction must hold for 150ms
-                }
-                zoomDirRef.current = { dir, time: now }
 
                 const rect = container.getBoundingClientRect()
                 const cx = e.clientX - rect.left
                 const cy = e.clientY - rect.top
-                const delta = -e.deltaY * 0.001
+                const delta = -e.deltaY * 0.005
                 const newZoom = Math.min(5, Math.max(0.1, v.zoom * (1 + delta)))
                 const ratio = newZoom / v.zoom
                 const newV = {
                     x: cx - (cx - v.x) * ratio,
                     y: cy - (cy - v.y) * ratio,
                     zoom: newZoom,
+                }
+                viewportRef.current = newV
+                applyViewport(newV)
+                commitViewport(newV)
+            } else {
+                // Two-finger scroll → Pan (standard macOS/trackpad behavior)
+                const newV = {
+                    x: v.x - e.deltaX,
+                    y: v.y - e.deltaY,
+                    zoom: v.zoom,
                 }
                 viewportRef.current = newV
                 applyViewport(newV)

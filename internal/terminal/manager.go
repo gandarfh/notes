@@ -28,12 +28,47 @@ type Manager struct {
 	cursorFile  string // temp file where Neovim writes cursor position
 }
 
+// resolveEditor finds the absolute path for the editor binary.
+// macOS GUI apps (like Wails) don't inherit the shell's $PATH,
+// so we probe common installation paths as a fallback.
+func resolveEditor(name string) string {
+	// If it's already an absolute path, use it directly
+	if filepath.IsAbs(name) {
+		return name
+	}
+	// Try the process PATH first
+	if p, err := exec.LookPath(name); err == nil {
+		return p
+	}
+	// Probe common macOS paths
+	candidates := []string{
+		filepath.Join("/opt/homebrew/bin", name),          // Apple Silicon Homebrew
+		filepath.Join("/usr/local/bin", name),             // Intel Homebrew / manual installs
+		filepath.Join("/run/current-system/sw/bin", name), // NixOS
+	}
+	// Also check the user's shell PATH via login shell
+	if home, err := os.UserHomeDir(); err == nil {
+		candidates = append(candidates,
+			filepath.Join(home, ".local/bin", name),
+			filepath.Join(home, ".nix-profile/bin", name),
+		)
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	// Last resort: return the name as-is and let exec.Command fail with a clear error
+	return name
+}
+
 // New creates a new terminal manager.
 func New(onData func(data []byte), onExit func(exitLine int)) *Manager {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "nvim"
 	}
+	editor = resolveEditor(editor)
 	cursorFile := filepath.Join(os.TempDir(), "notes_nvim_cursor")
 	return &Manager{
 		onData:      onData,
