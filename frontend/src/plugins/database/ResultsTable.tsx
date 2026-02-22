@@ -158,6 +158,7 @@ export function ResultsTable({ result, loading, isCached, onFetchMore, onApplyMu
         setPendingEdits(new Map())
         setPendingDeletes(new Set())
         setEditingCell(null)
+        setExpandedRow(null)
     }
 
     async function saveAll() {

@@ -369,13 +369,15 @@ function UtilityPanel({ elements, onUpdate, onReorder, onAlign, multiSelected }:
 export function StylePanel({ elements, onUpdate, onReorder, onAlign, multiSelected }: Props) {
     if (elements.length === 0) return null
 
-    const hasText = new Set(elements.map(e => e.type)).has('text') || elements.some(e => e.text || e.label)
+    const types = new Set(elements.map(e => e.type))
+    const hasText = types.has('text') || elements.some(e => e.text || e.label)
+    const onlyText = types.size === 1 && types.has('text')
 
     return (
         <>
             {/* Two horizontal bars stacked at bottom-center */}
             <div className="style-panel" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-                <ElementPanel elements={elements} onUpdate={onUpdate} />
+                {!onlyText && <ElementPanel elements={elements} onUpdate={onUpdate} />}
                 {hasText && <TextPanel elements={elements} onUpdate={onUpdate} />}
             </div>
 

@@ -7,7 +7,7 @@ import { IconEdit, IconX } from '@tabler/icons-react'
 // ── Font-size helpers ──────────────────────────────────────
 
 const FONT_SIZE_KEY = 'md-font-size:'
-const DEFAULT_FONT_SIZE = 13
+const DEFAULT_FONT_SIZE = 15
 const MIN_FONT_SIZE = 10
 const MAX_FONT_SIZE = 48
 

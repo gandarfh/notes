@@ -2,9 +2,10 @@ import { marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.min.css'
-import { useState, useEffect, useMemo, memo } from 'react'
+import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 import { getBlockFontSize } from '../../components/Block/BlockContainer'
+import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
 
 // ── Configure marked ───────────────────────────────────────
 
@@ -160,10 +161,20 @@ const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: Bl
         block.content ? renderMarkdownWithLines(block.content) : '<p style="color: var(--color-text-muted); font-style: italic;">Empty — double-click to edit</p>'
         , [block.content])
 
+    const handleClick = useCallback((e: React.MouseEvent) => {
+        const anchor = (e.target as HTMLElement).closest('a')
+        if (anchor && anchor.href) {
+            e.preventDefault()
+            e.stopPropagation()
+            BrowserOpenURL(anchor.href)
+        }
+    }, [])
+
     return (
         <div
-            className={`markdown-preview leading-relaxed text-text-primary ${isEditing ? '' : 'cursor-text select-text'}`}
+            className={`markdown-preview ${isEditing ? '' : 'cursor-text select-text'}`}
             style={{ fontSize: `${fontSize}px` }}
+            onClick={handleClick}
             dangerouslySetInnerHTML={{ __html: html }}
         />
     )
