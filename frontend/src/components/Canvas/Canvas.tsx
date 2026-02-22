@@ -324,20 +324,19 @@ export function Canvas({ onEditBlock }: CanvasProps) {
                     const isFocused = blockEl ? blockEl.contains(document.activeElement) : false
                     if (isFocused) {
                         e.preventDefault()
-                        // Shift+scroll → horizontal scroll on the table/content wrapper (skip cells)
-                        if (e.shiftKey) {
+                        // Horizontal scroll: use native deltaX from trackpad
+                        if (Math.abs(e.deltaX) > 0 && isHScrollable) {
                             let hTarget: HTMLElement | null = el
                             // Walk up past cells to find the actual scroll container
                             while (hTarget && (hTarget.tagName === 'TD' || hTarget.tagName === 'TH' || hTarget.tagName === 'TR' || hTarget.tagName === 'TBODY' || hTarget.tagName === 'THEAD' || hTarget.tagName === 'TABLE')) {
                                 hTarget = hTarget.parentElement
                             }
                             if (hTarget && hTarget.scrollWidth > hTarget.clientWidth + 2) {
-                                hTarget.scrollLeft += e.deltaY || e.deltaX
+                                hTarget.scrollLeft += e.deltaX
                             }
-                            return
                         }
-                        // Normal vertical scroll within block
-                        if (isScrollable) {
+                        // Vertical scroll within block
+                        if (Math.abs(e.deltaY) > 0 && isScrollable) {
                             const canScrollDown = e.deltaY > 0 && el.scrollTop < el.scrollHeight - el.clientHeight - 1
                             const canScrollUp = e.deltaY < 0 && el.scrollTop > 1
                             if (canScrollDown || canScrollUp) {

@@ -150,7 +150,7 @@ function navigateBlocks(direction: 1 | -1) {
 }
 
 function alignBlockInViewport(blockId: string, align: 'left' | 'center' | 'right') {
-    const { blocks, setViewport } = useAppStore.getState()
+    const { blocks, setViewport, resizeBlock, saveBlockPosition } = useAppStore.getState()
     const block = blocks.get(blockId)
     if (!block) return
 
@@ -161,13 +161,21 @@ function alignBlockInViewport(blockId: string, align: 'left' | 'center' | 'right
     const canvasH = canvas.clientHeight
     const pad = 40
 
+    // Resize: 45% width for sides, 60% for center; 95% height for all
+    const widthPct = align === 'center' ? 0.6 : 0.45
+    const newW = snap(canvasW * widthPct)
+    const newH = snap(canvasH * 0.98)
+    resizeBlock(blockId, newW, newH)
+    saveBlockPosition(blockId)
+
+    // Viewport (camera): zoom 1, position to show block at left/center/right of screen
     let x: number
     switch (align) {
         case 'left': x = -block.x + pad; break
-        case 'center': x = -(block.x + block.width / 2) + canvasW / 2; break
-        case 'right': x = -(block.x + block.width) + canvasW - pad; break
+        case 'center': x = -(block.x + newW / 2) + canvasW / 2; break
+        case 'right': x = -(block.x + newW) + canvasW - pad; break
     }
-    const y = -block.y + canvasH * 0.05
+    const y = -block.y + canvasH * 0.01
 
     setViewport(x, y, 1)
 }
