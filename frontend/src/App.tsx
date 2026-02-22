@@ -97,14 +97,16 @@ export function App() {
 
     return (
         <div className="w-full h-full relative">
-            <Breadcrumb onOpenPalette={() => setShowPalette(true)} />
-            <CommandPalette isOpen={showPalette} onClose={() => setShowPalette(false)} />
-
-            <main className="w-full h-full flex flex-col relative overflow-hidden pt-[38px]">
+            <header className="app-header">
+                <Breadcrumb onOpenPalette={() => setShowPalette(true)} />
                 <Toolbar
                     showUndoPanel={showUndoPanel}
                     onToggleUndoPanel={() => setShowUndoPanel(p => !p)}
                 />
+            </header>
+            <CommandPalette isOpen={showPalette} onClose={() => setShowPalette(false)} />
+
+            <main className="w-full h-full flex flex-col relative overflow-hidden pt-[72px]">
                 <div className="flex-1 flex relative overflow-hidden">
                     <Canvas onEditBlock={editBlock} />
                     {showUndoPanel && <UndoPanel />}

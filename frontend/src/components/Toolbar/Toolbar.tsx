@@ -57,7 +57,7 @@ export function Toolbar({ showUndoPanel, onToggleUndoPanel }: {
         ))
 
     return (
-        <div className="toolbar-container">
+        <>
             <div className="toolbar-pill">
                 {renderGroup(GROUP_1)}
                 <div className="toolbar-divider" />
@@ -91,6 +91,6 @@ export function Toolbar({ showUndoPanel, onToggleUndoPanel }: {
                 </button>
                 <ZoomDisplay />
             </div>
-        </div>
+        </>
     )
 }

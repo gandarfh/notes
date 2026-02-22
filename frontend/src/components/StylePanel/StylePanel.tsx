@@ -1,3 +1,4 @@
+import React from 'react'
 import type { DrawingElement } from '../../drawing/types'
 import { isArrowType } from '../../drawing/types'
 import { useAppStore } from '../../store'
@@ -373,10 +374,30 @@ export function StylePanel({ elements, onUpdate, onReorder, onAlign, multiSelect
     const hasText = types.has('text') || elements.some(e => e.text || e.label)
     const onlyText = types.size === 1 && types.has('text')
 
+    const panelRef = React.useRef<HTMLDivElement>(null)
+
+    React.useEffect(() => {
+        const el = panelRef.current
+        if (!el) return
+        const onWheel = (e: WheelEvent) => {
+            // Find the scrollable .sp-row child
+            const row = el.querySelector('.sp-row') as HTMLElement
+            if (row && row.scrollWidth > row.clientWidth) {
+                e.preventDefault()
+                e.stopPropagation()
+                row.scrollLeft += e.deltaY || e.deltaX
+            } else {
+                e.stopPropagation()
+            }
+        }
+        el.addEventListener('wheel', onWheel, { passive: false })
+        return () => el.removeEventListener('wheel', onWheel)
+    }, [])
+
     return (
         <>
             {/* Two horizontal bars stacked at bottom-center */}
-            <div className="style-panel" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+            <div ref={panelRef} className="style-panel" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                 {!onlyText && <ElementPanel elements={elements} onUpdate={onUpdate} />}
                 {hasText && <TextPanel elements={elements} onUpdate={onUpdate} />}
             </div>
