@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bgZ" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeZ" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <filter id="shadowZ" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="20" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+
+    <mask id="cutMaskZ">
+      <rect x="-50" y="-50" width="300" height="300" fill="white"/>
+      <!-- The Terminal Cut -->
+      <path d="M -10,120 L 70,160 L -10,200" stroke="black" stroke-width="24" fill="none" stroke-linejoin="round"/>
+      <!-- The Canvas Sweep Cut -->
+      <path d="M 80,-20 C 140,80 80,140 220,160" stroke="black" stroke-width="28" fill="none" stroke-linecap="round"/>
+    </mask>
+
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgZ)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeZ)" stroke-width="2"/>
+
+  <!-- Concept Z: The Architect's Canvas -->
+  <!-- A single massive perfectly rounded square block, cut by the tools -->
+  <g transform="translate(35, 35) scale(0.65)" filter="url(#shadowZ)">
+    
+    <!-- The Heavy Workspace Block -->
+    <rect mask="url(#cutMaskZ)" x="0" y="0" width="200" height="200" rx="40" fill="#faf9f5"/>
+    
+    <!-- Data Connection Node (floating in the negative space) -->
+    <circle cx="140" cy="110" r="14" fill="#6366f1"/>
+
+  </g>
+</svg>

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Premium dark aesthetic -->
+    <radialGradient id="bgAB" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeAB" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <filter id="shadowAB" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#000000" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgAB)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeAB)" stroke-width="2"/>
+
+  <!-- Concept AB: Isometric Floating Cards -->
+  <!-- Takes the 'floating cards' from Concept S, but renders them with the strict architectural isometric projection of Concept AA, and adds the Terminal/Notes UI from Concept U -->
+  <g transform="translate(100, 75) scale(0.65)" stroke-linejoin="round">
+    
+    <!-- Card 1: The Base (Database / Structure) -->
+    <!-- Drawn as a perfect isometric polygon with rounded-looking corners via stroke -->
+    <g filter="url(#shadowAB)">
+      <path d="M 0,100 L 90,55 L 0,10 L -90,55 Z" fill="#2a2a35" stroke="#4338ca" stroke-width="8"/>
+    </g>
+
+    <!-- Card 2: The Logic (Markdown / Code lines) -->
+    <!-- Staggered upwards and slightly rotated in isometric space -->
+    <g filter="url(#shadowAB)">
+      <path d="M 0,60 L 90,15 L 0,-30 L -90,15 Z" fill="#312e81" stroke="#6366f1" stroke-width="8"/>
+      <!-- UI elements (Lines of code) rendered isometrically -->
+      <path d="M -50,15 L 10,-15" stroke="#4f46e5" stroke-width="10" stroke-linecap="round"/>
+      <path d="M -30,35 L 30,5" stroke="#4f46e5" stroke-width="10" stroke-linecap="round"/>
+    </g>
+
+    <!-- Card 3: The Hero Interface (Canvas + Terminal from Command Board) -->
+    <!-- Strict geometric plane -->
+    <g filter="url(#shadowAB)">
+      <path d="M 0,20 L 90,-25 L 0,-70 L -90,-25 Z" fill="#faf9f5" stroke="#faf9f5" stroke-width="8"/>
+      
+      <!-- Inside the Hero Interface: Terminal Symbol (>) mapped isometrically -->
+      <!-- Pointing down-right in iso perspective -->
+      <path d="M -40,-25 L -10,-10 L -30,10" fill="none" stroke="#4338ca" stroke-width="10" stroke-linecap="round"/>
+      
+      <!-- Inside the Hero Interface: The Canvas sweep -->
+      <!-- A smooth vector line intersecting the strict geometry -->
+      <path d="M 20,-30 C 60,-30 60,30 20,30" fill="none" stroke="#6366f1" stroke-width="12" stroke-linecap="round"/>
+      <circle cx="20" cy="30" r="10" fill="#6366f1"/>
+    </g>
+
+  </g>
+</svg>

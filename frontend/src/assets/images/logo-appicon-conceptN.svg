@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Background squircle gradients -->
+    <radialGradient id="bgN" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeN" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <filter id="shadowN" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- Container -->
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgN)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeN)" stroke-width="2"/>
+
+  <!-- The Mark: The Command Graph -->
+  <!-- A massive 'Terminal Command' symbol (>) organically converging into a single solid Node -->
+  <!-- Visually implies Notes + Terminal + Graph nodes -->
+  <g transform="translate(45, 45) scale(0.55)" filter="url(#shadowN)" stroke="#faf9f5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- The Command Left Bracket ( > ) -->
+    <path d="M 20,20 L 100,100 L 20,180" stroke-width="28"/>
+    
+    <!-- The Graph Connection ( - ) -->
+    <line x1="100" y1="100" x2="160" y2="100" stroke-width="28"/>
+    
+    <!-- The Solid Node ( O ) -->
+    <!-- Positioned precisely at the end of the command -->
+    <circle cx="160" cy="100" r="30" fill="#faf9f5" stroke-width="0"/>
+
+  </g>
+</svg>

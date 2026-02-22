@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 160" width="380" height="160" role="img" aria-labelledby="logo-custom-title">
+  <title id="logo-custom-title">Notes Premium Custom Vector</title>
+  <defs>
+    <!-- The exact Concept B Sketch Stroke gradient -->
+    <linearGradient id="stroke-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4338ca"/>
+      <stop offset="50%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#a5b4fc"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="380" height="160" fill="#0d0d12"/>
+
+  <!-- The Custom Wordmark: n-o-t-e-s meticulously crafted for high legibility -->
+  <g transform="translate(10, 5)">
+    <!-- Main Continuous Stroke -->
+    <path d="
+        M 30,140
+        C 35,80  65,80  70,140
+        C 80,80  100,80 110,140
+        
+        C 125,140 125,100 145,100
+        C 115,100 115,140 145,140
+        C 175,140 175,100 145,100
+        C 145,115 155,110 160,105
+        
+        C 165,80  170,40  175,40
+        C 175,40  175,140 195,140
+        
+        C 210,140 215,90  230,90
+        C 200,90  200,140 240,140
+        
+        C 255,140 260,95  275,95
+        C 285,105 295,125 270,140
+        C 260,140 300,140 320,95
+      " 
+      fill="none" 
+      stroke="url(#stroke-grad)" 
+      stroke-width="14" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"
+      filter="url(#glow)"/>
+
+    <!-- 't' Crossbar -->
+    <line x1="160" y1="80" x2="195" y2="80" 
+          stroke="url(#stroke-grad)" 
+          stroke-width="14" 
+          stroke-linecap="round" 
+          filter="url(#glow)"/>
+          
+    <!-- Geometric Square Anchor identical to Concept B -->
+    <rect x="312" y="87" width="16" height="16" rx="3" fill="#faf9f5" transform="rotate(15 320 95)"/>
+  </g>
+</svg>

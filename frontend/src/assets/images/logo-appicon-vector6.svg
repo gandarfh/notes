@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bgX" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeX" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <filter id="shadowX" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="15" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgX)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeX)" stroke-width="2"/>
+
+  <!-- Concept X: Plural Layers + Cursor -->
+  <!-- Modifies Concept S (Layers) by making the top layer an explicit drawing canvas being scribbled on -->
+  <g transform="translate(30, 30) scale(0.70)" filter="url(#shadowX)" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- Bottom Card (Terminal/Code) -->
+    <path d="M 10,60 C 20,50 50,40 70,50 C 80,80 85,120 70,150 C 40,160 10,150 0,140 C -20,120 -10,80 10,60 Z" fill="#2a2a35" stroke="#a5b4fc" stroke-width="8" transform="rotate(-25 40 100)"/>
+    <path d="M 20,70 L 40,80 L 20,90" fill="none" stroke="#a5b4fc" stroke-width="6" transform="rotate(-25 40 100)"/>
+
+    <!-- Middle Card (Notes/Data) -->
+    <path d="M 120,60 C 130,50 160,40 180,50 C 190,80 195,120 180,150 C 150,160 120,150 110,140 C 90,120 100,80 120,60 Z" fill="#2a2a35" stroke="#818cf8" stroke-width="8" transform="rotate(25 150 100)"/>
+    <path d="M 120,80 L 160,75" fill="none" stroke="#818cf8" stroke-width="6" transform="rotate(25 150 100)"/>
+    <path d="M 125,100 L 165,105" fill="none" stroke="#818cf8" stroke-width="6" transform="rotate(25 150 100)"/>
+
+    <!-- Top Card (The Freeform Canvas) -->
+    <!-- Perfectly centered, drawing canvas -->
+    <path d="M 50,10 C 70,5 110,10 130,20 C 140,50 145,130 130,170 C 100,180 70,175 50,160 C 30,140 40,50 50,10 Z" fill="#faf9f5" stroke="#faf9f5" stroke-width="10"/>
+
+    <!-- The Excalidraw Element: An active drawing being made -->
+    <path d="M 60,60 Q 110,50 120,90 T 70,130" fill="none" stroke="#4f46e5" stroke-width="12"/>
+    
+    <!-- Vector Drawn Pen Tool -->
+    <g transform="translate(60, 120) rotate(45)">
+      <!-- Hand-drawn vector marker pencil -->
+      <path d="M 0,0 L 10,30 L 40,40 L 50,10 Z" fill="#13131a" stroke="#13131a" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M 0,0 L -20,-20 L 10,-10 Z" fill="#13131a" stroke="#13131a" stroke-width="4" stroke-linejoin="round"/>
+    </g>
+
+  </g>
+</svg>

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bgAE" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeAE" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    
+    <!-- Deeper, more dramatic shadow for the 'Deep Stack' -->
+    <filter id="shadowAE" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000000" flood-opacity="0.95"/>
+    </filter>
+    <filter id="lightShadowAE" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgAE)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeAE)" stroke-width="2"/>
+
+  <!-- Concept AE: The Deep Stack -->
+  <!-- Takes Concept AD and drastically increases the 3D spacing, spreading the background cards wider and scaling up the front Hero card for massive impact. -->
+  <g transform="translate(30, 30) scale(0.70)" stroke-linejoin="round">
+    
+    <!-- Background Card 1 (Dark structure) -->
+    <!-- Pushed further left and deeper rotation -->
+    <g filter="url(#shadowAE)">
+      <rect x="-10" y="40" width="140" height="160" rx="20" fill="#2a2a35" stroke="#4338ca" stroke-width="6" transform="rotate(-25 60 120)"/>
+    </g>
+
+    <!-- Background Card 2 (Blue accent) -->
+    <!-- Pushed further right -->>
+    <g filter="url(#shadowAE)">
+      <rect x="50" y="10" width="140" height="160" rx="20" fill="#4f46e5" stroke-width="0" transform="rotate(20 120 90)"/>
+    </g>
+
+    <!-- Foreground Card (The Command Workspace) -->
+    <!-- Scaled up completely to dominate the composition -->
+    <g filter="url(#shadowAE)">
+      <rect x="30" y="30" width="140" height="150" rx="18" fill="#faf9f5" stroke-width="0"/>
+      
+      <!-- Inside the Workspace Card -->
+      <!-- Massive Terminal Angle -->
+      <path d="M 50,65 L 75,80 L 50,95" fill="none" stroke="#4338ca" stroke-width="12" stroke-linecap="round"/>
+      
+      <!-- Inside the Workspace Card: The Canvas Node/Line -->
+      <!-- Smooth, thicker loop -->
+      <path d="M 85,130 C 130,140 140,50 160,65" fill="none" stroke="#6366f1" stroke-width="14" stroke-linecap="round"/>
+      <circle cx="160" cy="65" r="12" fill="#6366f1"/>
+
+      <!-- Top bar UI dots (Frame concept) -->
+      <circle cx="55" cy="45" r="6" fill="#4338ca" opacity="0.3"/>
+      <circle cx="75" cy="45" r="6" fill="#4338ca" opacity="0.3"/>
+    </g>
+
+  </g>
+</svg>

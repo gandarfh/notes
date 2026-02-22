@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bgAA" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeAA" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <filter id="shadowAA" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgAA)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeAA)" stroke-width="2"/>
+
+  <!-- Concept AA: The Isometric Node Stack -->
+  <!-- A mature, architectural approach to the 'plurality' concept -->
+  <g transform="translate(100, 70) scale(0.65)" filter="url(#shadowAA)" stroke-linejoin="round">
+    
+    <!-- Plane 1: The Base (Data/Terminal) -->
+    <!-- Drawn as a perfect isometric polygon -->
+    <path d="M 0,100 L 80,60 L 0,20 L -80,60 Z" fill="#312e81" stroke="#4338ca" stroke-width="4"/>
+
+    <!-- Plane 2: The Logic (Markdown/Structure) -->
+    <!-- Staggered upwards -->
+    <path d="M 0,60 L 80,20 L 0,-20 L -80,20 Z" fill="#4f46e5" stroke="#6366f1" stroke-width="4"/>
+    <!-- Structural cut to represent code/text lines -->
+    <path d="M -40,30 L 20,0" stroke="#312e81" stroke-width="8" fill="none"/>
+    <path d="M -20,50 L 40,20" stroke="#312e81" stroke-width="8" fill="none"/>
+
+    <!-- Plane 3: The Canvas (Freeform/Drawing) -->
+    <!-- The hero layer -->
+    <path d="M 0,20 L 80,-20 L 0,-60 L -80,-20 Z" fill="#faf9f5"/>
+    
+    <!-- Canvas interaction: A smooth, abstract curve intersecting the top plane -->
+    <path d="M -50,-20 C -20,-50 30,-30 50,0" fill="none" stroke="#4f46e5" stroke-width="12" stroke-linecap="round"/>
+    
+    <!-- A central node connecting all three planes vertically -->
+    <path d="M 0,-40 L 0,80" fill="none" stroke="#2a2a35" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="0" cy="-40" r="14" fill="#faf9f5"/>
+
+  </g>
+</svg>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect x="10" y="10" width="180" height="180" rx="42" fill="#13131a"/>
+  
+  <!-- Path 2: Solid Core + Sketched Outline -->
+  <!-- Solid core guarantees legibility at 16px -->
+  <polygon points="100,30 170,100 100,170 30,100" fill="#faf9f5" opacity="0.9"/>
+  <!-- The Solid Sliced Wave Element (Negative space) -->
+  <path d="M 15,185 C 25,105 175,105 185,15" fill="none" stroke="#13131a" stroke-width="20" />
+
+  <g stroke="#faf9f5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Sketched, slightly offset wireframe hovering over the solid block -->
+    <path d="M 95,20 L 180,105 L 95,190 L 10,105 Z" stroke-width="4" stroke-dasharray="20 10 40 5"/>
+    <path d="M 105,40 L 160,95 L 105,150 L 50,95 Z" stroke-width="2" stroke-dasharray="10 5" opacity="0.7"/>
+
+    <!-- Sketched wave outline offsetting the solid negative space cut -->
+    <path d="M 5,175 C 20,95 180,95 195,5" stroke-width="3"/>
+    
+    <!-- The Geometric Anchor Node -->
+    <g transform="rotate(20 160 40)">
+      <rect x="160" y="32" width="14" height="14" stroke-width="4"/>
+    </g>
+  </g>
+</svg>

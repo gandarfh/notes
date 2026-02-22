@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Background squircle gradients -->
+    <radialGradient id="bgT" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeT" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <filter id="shadowT" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="15" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgT)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeT)" stroke-width="2"/>
+
+  <!-- Concept T: The Connected Canvas (Mindmap) -->
+  <!-- Represents the Canvas aspect connecting the different tools -->
+  <g transform="translate(30, 30) scale(0.70)" filter="url(#shadowT)" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- Connection Lines (Wobbly arrows acting like Excalidraw connectors) -->
+    <path d="M 100,100 C 60,80 40,50 30,30" fill="none" stroke="#6366f1" stroke-width="8"/>
+    <path d="M 100,100 C 130,80 150,40 170,20" fill="none" stroke="#6366f1" stroke-width="8"/>
+    <path d="M 100,100 C 120,130 140,160 160,180" fill="none" stroke="#6366f1" stroke-width="8"/>
+    <path d="M 100,100 C 70,140 40,160 20,170" fill="none" stroke="#6366f1" stroke-width="8"/>
+
+    <!-- Central Core (The Workspace / Outline) -->
+    <path d="M 80,80 C 100,75 120,85 125,100 C 130,120 110,135 90,125 C 70,115 75,90 80,80 Z" fill="#2a2a35" stroke="#faf9f5" stroke-width="12"/>
+    <path d="M 77,77 C 97,72 117,82 122,97 C 127,117 107,132 87,122 C 67,112 72,87 77,77 Z" fill="#faf9f5"/>
+
+    <!-- Top Left Tool (Notes) -->
+    <path d="M 10,10 C 30,5 50,15 50,30 C 50,50 30,60 10,50 C -10,40 0,15 10,10 Z" fill="#4f46e5" />
+    
+    <!-- Top Right Tool (Terminal/Command) -->
+    <path d="M 150,0 C 170,0 200,10 190,30 C 180,60 150,50 140,40 C 130,20 140,5 150,0 Z" fill="#4338ca" />
+    <!-- Terminal `>` hand-drawn -->
+    <path d="M 155,15 L 175,25 L 150,35" fill="none" stroke="#faf9f5" stroke-width="4"/>
+
+    <!-- Bottom Tool (Database/Kanban Frame) -->
+    <path d="M 140,150 C 170,145 190,160 180,180 C 170,210 140,200 130,190 C 110,170 120,155 140,150 Z" fill="#312e81" />
+    
+    <!-- Bottom Left Tool -->
+    <path d="M 0,160 C 20,150 40,160 40,180 C 30,200 10,210 0,190 C -10,170 -10,160 0,160 Z" fill="#3730a3" />
+
+  </g>
+</svg>

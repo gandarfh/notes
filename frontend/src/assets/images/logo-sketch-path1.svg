@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect x="10" y="10" width="180" height="180" rx="42" fill="#13131a"/>
+  
+  <g stroke="#faf9f5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- Path 1: Bold Marker Sketch -->
+    <!-- Massive, heavy strokes that overlap slightly but read clearly at 16px -->
+    
+    <!-- Diamond Base -->
+    <path d="M 100,25 L 175,100 L 100,175 L 25,100 Z" stroke-width="12" stroke-linecap="square"/>
+    
+    <!-- Messy Overlaps (The marker bleeding past the corners) -->
+    <line x1="15" y1="90" x2="35" y2="110" stroke-width="10"/>
+    <line x1="85" y1="15" x2="115" y2="45" stroke-width="10"/>
+    <line x1="85" y1="185" x2="115" y2="155" stroke-width="10"/>
+    <line x1="185" y1="110" x2="165" y2="90" stroke-width="10"/>
+
+    <!-- The Sliced Wave Element (Heavy marker swoop) -->
+    <path d="M 5,185 C 20,110 170,105 195,15" stroke-width="14"/>
+
+    <!-- The Geometric Anchor Node (A heavy sketched block) -->
+    <g transform="rotate(20 160 40)">
+      <rect x="156" y="36" width="14" height="14" fill="#faf9f5" stroke-width="0"/>
+      <!-- A messy marker stroke nearby -->
+      <line x1="152" y1="48" x2="178" y2="48" stroke-width="6"/>
+    </g>
+
+  </g>
+</svg>

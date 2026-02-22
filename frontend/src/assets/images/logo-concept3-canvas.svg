@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-labelledby="logo-title">
+  <title id="logo-title">Notes App Logo</title>
+  <defs>
+    <linearGradient id="pageR" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#818cf8"/>
+      <stop offset="100%" style="stop-color:#6366f1"/>
+    </linearGradient>
+    <linearGradient id="pageL" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#4338ca"/>
+    </linearGradient>
+    <linearGradient id="pen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c7d2fe"/>
+      <stop offset="100%" style="stop-color:#a5b4fc"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Left page (drawing side) -->
+  <path d="M36,42 Q36,30 48,30 L97,30 L97,158 L48,158 Q36,158 36,146 Z" fill="url(#pageL)"/>
+
+  <!-- Right page (notes side) -->
+  <path d="M103,30 L152,30 Q164,30 164,42 L164,146 Q164,158 152,158 L103,158 Z" fill="url(#pageR)"/>
+
+  <!-- Spine -->
+  <rect x="97" y="30" width="6" height="128" fill="#4338ca" opacity="0.5"/>
+
+  <!-- Left page: simple pen stroke (one clean curve) -->
+  <path d="M54,72 C62,58 76,82 86,66" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Right page: 3 minimal text lines -->
+  <line x1="116" y1="72" x2="150" y2="72" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="116" y1="86" x2="146" y2="86" stroke="rgba(255,255,255,0.25)" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="116" y1="100" x2="140" y2="100" stroke="rgba(255,255,255,0.25)" stroke-width="1.8" stroke-linecap="round"/>
+
+  <!-- Floating pen (minimal, slightly above-right of book) -->
+  <g transform="translate(156,24) rotate(135)">
+    <rect x="-2" y="0" width="4" height="16" rx="1" fill="url(#pen)"/>
+    <polygon points="-2,16 2,16 0,20" fill="#e8e8f0"/>
+  </g>
+
+  <!-- "Notes" handwritten text below -->
+  <text x="100" y="186" 
+    font-family="'Architects Daughter', Caveat, cursive" 
+    font-size="24" 
+    fill="#e8e8f0" 
+    text-anchor="middle"
+    letter-spacing="2"
+    opacity="0.85">Notes</text>
+</svg>

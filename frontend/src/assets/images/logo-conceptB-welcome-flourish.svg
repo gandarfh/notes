@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" width="300" height="120" role="img" aria-labelledby="logo-fl-title">
+  <title id="logo-fl-title">Notes Welcome - Flourish</title>
+  <defs>
+    <linearGradient id="fl-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4338ca"/>
+      <stop offset="50%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#a5b4fc"/>
+    </linearGradient>
+    <filter id="glow-fl">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="300" height="120" fill="transparent"/>
+
+  <!-- Typography (Hero element) -->
+  <text x="150" y="75" 
+    font-family="'Architects Daughter', Caveat, cursive" 
+    font-size="64" 
+    fill="#e8e8f0" 
+    text-anchor="middle"
+    letter-spacing="4"
+    opacity="0.95">Notes</text>
+
+  <!-- The dynamic sketch stroke transformed into an expressive flourish/underline -->
+  <path d="M 60,95 Q 150,115 220,75 C 240,65 250,55 255,45" 
+        fill="none" 
+        stroke="url(#fl-grad)" 
+        stroke-width="10" 
+        stroke-linecap="round" 
+        filter="url(#glow-fl)"/>
+        
+  <!-- The precise geometric square anchor -->
+  <rect x="249" y="38" width="12" height="12" rx="2" fill="#e8e8f0" transform="rotate(25 255 44)"/>
+</svg>

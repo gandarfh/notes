@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-labelledby="logo-icon-title">
+  <title id="logo-icon-title">Notes App Icon</title>
+  <defs>
+    <linearGradient id="pageR" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#818cf8"/>
+      <stop offset="100%" style="stop-color:#6366f1"/>
+    </linearGradient>
+    <linearGradient id="pageL" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#4338ca"/>
+    </linearGradient>
+    <linearGradient id="pen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c7d2fe"/>
+      <stop offset="100%" style="stop-color:#a5b4fc"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#16161e"/>
+      <stop offset="100%" style="stop-color:#0f0f14"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background (macOS icon shape) -->
+  <rect x="4" y="4" width="192" height="192" rx="40" fill="url(#bg)"/>
+  <rect x="4" y="4" width="192" height="192" rx="40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+
+  <!-- Left page (drawing side) -->
+  <path d="M42,50 Q42,38 54,38 L97,38 L97,162 L54,162 Q42,162 42,150 Z" fill="url(#pageL)"/>
+
+  <!-- Right page (notes side) -->
+  <path d="M103,38 L146,38 Q158,38 158,50 L158,150 Q158,162 146,162 L103,162 Z" fill="url(#pageR)"/>
+
+  <!-- Spine -->
+  <rect x="97" y="38" width="6" height="124" fill="#4338ca" opacity="0.5"/>
+
+  <!-- Left page: pen stroke -->
+  <path d="M58,80 C66,66 80,90 90,74" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Right page: text lines -->
+  <line x1="116" y1="80" x2="148" y2="80" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="116" y1="94" x2="144" y2="94" stroke="rgba(255,255,255,0.25)" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="116" y1="108" x2="138" y2="108" stroke="rgba(255,255,255,0.25)" stroke-width="1.8" stroke-linecap="round"/>
+
+  <!-- Floating pen -->
+  <g transform="translate(152,30) rotate(135)">
+    <rect x="-2" y="0" width="4" height="16" rx="1" fill="url(#pen)"/>
+    <polygon points="-2,16 2,16 0,20" fill="#e8e8f0"/>
+  </g>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Concept D: The "httui / Clean Tech" Icon -->
+  <!-- Solid clean dark background squircle -->
+  <rect x="10" y="10" width="180" height="180" rx="40" fill="#13131a"/>
+  <rect x="10" y="10" width="180" height="180" rx="40" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+
+  <!-- Thick, bold, highly geometric lowercase 'n' -->
+  <path d="M 60,140 L 60,80 C 60,60 110,50 130,70 C 140,80 140,100 140,140" 
+        fill="none" 
+        stroke="#e8e8f0" 
+        stroke-width="24" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+        
+  <!-- The striking accent dot (the node/data point) -->
+  <circle cx="140" cy="140" r="12" fill="#6366f1"/>
+</svg>

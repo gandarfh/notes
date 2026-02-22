@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect x="10" y="10" width="180" height="180" rx="42" fill="#13131a"/>
+  
+  <g stroke="#faf9f5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- Outer Diamond Wireframe (Messy Architecture Sketch) -->
+    <!-- Top Left Edge (Multiple strokes extending past the corners) -->
+    <line x1="25" y1="105" x2="110" y2="20" stroke-width="2" opacity="0.9"/>
+    <line x1="20" y1="100" x2="100" y2="20" stroke-width="1.5" opacity="0.6"/>
+    <path d="M 35,95 Q 65,65 105,25" stroke-width="1" opacity="0.4"/>
+
+    <!-- Top Right Edge -->
+    <line x1="95" y1="20" x2="180" y2="105" stroke-width="2" opacity="0.9"/>
+    <line x1="100" y1="28" x2="175" y2="103" stroke-width="1.5" opacity="0.6"/>
+    <path d="M 105,35 Q 135,65 170,100" stroke-width="1" opacity="0.4"/>
+
+    <!-- Bottom Right Edge -->
+    <line x1="175" y1="95" x2="90" y2="180" stroke-width="2" opacity="0.9"/>
+    <line x1="180" y1="100" x2="100" y2="180" stroke-width="1.5" opacity="0.6"/>
+    
+    <!-- Bottom Left Edge -->
+    <line x1="105" y1="180" x2="20" y2="95" stroke-width="2" opacity="0.9"/>
+    <line x1="100" y1="172" x2="25" y2="97" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- The Sliced Wave Element (Drawn with messy intersecting curves) -->
+    <path d="M 10,185 C 30,120 160,110 185,10" stroke-width="2" opacity="0.9"/>
+    <path d="M 15,190 C 25,115 155,105 190,15" stroke-width="1" opacity="0.6"/>
+    <path d="M 5,180 C 35,125 165,115 180,5" stroke-width="1.5" opacity="0.4"/>
+
+    <!-- Additional Cross-hatching / Blueprint Construction Lines -->
+    <line x1="20" y1="100" x2="180" y2="100" stroke-width="0.5" stroke-dasharray="2 4" opacity="0.5"/>
+    <line x1="100" y1="20" x2="100" y2="180" stroke-width="0.5" stroke-dasharray="2 4" opacity="0.5"/>
+    <line x1="15" y1="185" x2="185" y2="15" stroke-width="0.5" opacity="0.3"/>
+
+    <!-- The Geometric Anchor Node (Slightly sketchy rendering) -->
+    <g transform="rotate(20 160 40)">
+      <rect x="153" y="33" width="14" height="14" stroke-width="2"/>
+      <rect x="151" y="31" width="15" height="13" stroke-width="1" opacity="0.6"/>
+      <!-- Scratch fill inside the node -->
+      <line x1="154" y1="35" x2="165" y2="45" stroke-width="1"/>
+      <line x1="155" y1="35" x2="166" y2="46" stroke-width="0.8"/>
+      <line x1="158" y1="33" x2="167" y2="42" stroke-width="1"/>
+    </g>
+
+  </g>
+</svg>

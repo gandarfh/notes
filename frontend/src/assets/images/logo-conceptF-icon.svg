@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Concept F: The "Solid Structure / Notion" Icon -->
+  <rect x="10" y="10" width="180" height="180" rx="40" fill="#13131a"/>
+  
+  <g transform="translate(10, 10)">
+      <!-- A massive, highly structured, heavy block 'N' -->
+      <!-- Left Stem -->
+      <rect x="45" y="45" width="28" height="90" fill="#e8e8f0"/>
+      <!-- Right Stem -->
+      <rect x="107" y="45" width="28" height="90" fill="#e8e8f0"/>
+      <!-- Heavy Diagonal -->
+      <polygon points="45,45 73,45 135,135 107,135" fill="#e8e8f0"/>
+  </g>
+</svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect x="10" y="10" width="180" height="180" rx="42" fill="#0f0f14"/>
+  <rect x="10" y="10" width="180" height="180" rx="42" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+  
+  <g transform="translate(60, 60)">
+    <!-- Row 1 -->
+    <rect x="0" y="0" width="16" height="16" fill="none" stroke="#e8e8f0" stroke-width="3"/>
+    <rect x="32" y="0" width="16" height="16" fill="none" stroke="#e8e8f0" stroke-width="3"/>
+    <rect x="64" y="0" width="16" height="16" fill="none" stroke="#e8e8f0" stroke-width="3"/>
+    <!-- Row 2 -->
+    <rect x="0" y="32" width="16" height="16" fill="none" stroke="#e8e8f0" stroke-width="3"/>
+    <!-- Focal Point: Solid and larger impact -->
+    <rect x="32" y="32" width="16" height="16" fill="#e8e8f0"/>
+    <rect x="64" y="32" width="16" height="16" fill="none" stroke="#e8e8f0" stroke-width="3"/>
+    <!-- Row 3 -->
+    <rect x="0" y="64" width="16" height="16" fill="none" stroke="#e8e8f0" stroke-width="3"/>
+    <rect x="32" y="64" width="16" height="16" fill="none" stroke="#e8e8f0" stroke-width="3"/>
+    <rect x="64" y="64" width="16" height="16" fill="none" stroke="#e8e8f0" stroke-width="3"/>
+  </g>
+</svg>

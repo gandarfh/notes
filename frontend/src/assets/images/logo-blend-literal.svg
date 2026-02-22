@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect x="10" y="10" width="180" height="180" rx="42" fill="#13131a"/>
+  
+  <g stroke-linejoin="round" stroke-linecap="round">
+    
+    <!-- Bottom-Right Solid Shape (Clarity/Structure) -->
+    <!-- Base is a rigid triangle corner, but the hypotenuse is a perfect S-curve -->
+    <path d="M 80,160 L 160,160 L 160,80 C 160,120 80,120 80,160 Z" fill="#faf9f5"/>
+
+    <!-- Top-Left Outline Shape (Chaos/Unstructured) -->
+    <!-- Identical shape but outlined, and shifted diagonally by (-40, -40) -->
+    <path d="M 40,120 L 40,40 L 120,40 C 120,80 40,80 40,120 Z" fill="none" stroke="#faf9f5" stroke-width="12"/>
+
+    <!-- Intersection & Dot (Concept B / Concept 3 Core) -->
+    <!-- Placed right at the point where the organic stroke ends structurally -->
+    <rect x="135" y="32" width="16" height="16" rx="3" fill="#faf9f5" transform="rotate(15 143 40)"/>
+  
+  </g>
+</svg>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 200" width="500" height="200" role="img" aria-labelledby="logo-welcome-title">
+  <title id="logo-welcome-title">Notes Welcome - Legible Cursive Wordmark</title>
+  <defs>
+    <linearGradient id="word-grad" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#d97757"/>
+      <stop offset="33%" style="stop-color:#818cf8"/>
+      <stop offset="66%" style="stop-color:#6a9bcc"/>
+      <stop offset="100%" style="stop-color:#788c5d"/>
+    </linearGradient>
+    <filter id="glow-word">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Pacifico&amp;display=swap');
+      .logo-text {
+        font-family: 'Pacifico', cursive;
+        font-size: 120px;
+        fill: url(#word-grad);
+        filter: url(#glow-word);
+      }
+    </style>
+  </defs>
+
+  <rect width="500" height="200" fill="transparent"/>
+
+  <g transform="translate(0, -10)">
+      <!-- The word "notes" fully legible, stylized with the icon's exact neon gradient -->
+      <text x="250" y="145" class="logo-text" text-anchor="middle">notes</text>
+      
+      <!-- Tiny aesthetic dot matching the icon -->
+      <circle cx="250" cy="170" r="4.5" fill="#faf9f5"/>
+  </g>
+</svg>

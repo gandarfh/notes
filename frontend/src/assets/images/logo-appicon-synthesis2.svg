@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bgAC" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeAC" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <filter id="shadowAC" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="15" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgAC)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeAC)" stroke-width="2"/>
+
+  <!-- Concept AC: The Framed Stack (The IDE) -->
+  <!-- Uses the strong container frame from Concept U, but houses perfectly structured geometric overlapping layers from AA/S -->
+  <g transform="translate(30, 30) scale(0.70)" stroke-linejoin="round">
+    
+    <!-- Outer Workspace Frame (Concept U/Z influence) -->
+    <!-- Very strict, geometric, thick frame acting as the overall container -->
+    <rect x="0" y="0" width="200" height="200" rx="36" fill="#13131a" filter="url(#shadowAC)"/>
+    <!-- Inner bright bezel -->
+    <rect x="0" y="0" width="200" height="200" rx="36" fill="none" stroke="#faf9f5" stroke-width="12"/>
+
+    <!-- Inside the Frame: Overlapping Tool Layers -->
+    
+    <!-- Layer 1: Left solid block (Structure/DB) -->
+    <path d="M 20,40 L 100,20 L 130,120 L 50,160 Z" fill="#312e81" stroke-width="0"/>
+
+    <!-- Layer 2: Right bright block (Code/Notes) -->
+    <path d="M 160,20 L 220,90 L 160,180 L 100,110 Z" fill="#4f46e5" stroke-width="0" filter="url(#shadowAC)"/>
+
+    <!-- Layer 3: The Canvas Overlay (Top Frame) -->
+    <!-- A massive solid white block cutting across the others, carrying the Terminal > prompt -->
+    <path d="M 40,80 L 180,60 L 150,180 L 10,200 Z" fill="#faf9f5" filter="url(#shadowAC)"/>
+    
+    <!-- The Interaction elements on the Canvas Layer -->
+    <!-- 1. The Explicit Terminal Prompt (>) -->
+    <path d="M 45,120 L 65,110 L 40,100" fill="none" stroke="#4338ca" stroke-width="10" stroke-linecap="round"/>
+    
+    <!-- 2. The Abstract Canvas Stroke -->
+    <path d="M 90,140 C 130,140 130,80 160,90" fill="none" stroke="#6366f1" stroke-width="12" stroke-linecap="round"/>
+    
+    <!-- 3. Geometric UI Dots (App window metaphor) -->
+    <circle cx="30" cy="30" r="10" fill="#faf9f5" opacity="0.3"/>
+    <circle cx="60" cy="30" r="10" fill="#faf9f5" opacity="0.1"/>
+
+  </g>
+</svg>

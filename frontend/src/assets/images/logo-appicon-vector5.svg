@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bgW" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeW" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <filter id="shadowW" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgW)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeW)" stroke-width="2"/>
+
+  <!-- Concept W: The Drawing Board -->
+  <!-- A frame where the dominant element is an enormous drawn shape and a simple vector pencil/cursor -->
+  <g transform="translate(30, 30) scale(0.70)" filter="url(#shadowW)" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- Whiteboard Frame (Concept U) -->
+    <path d="M 5,20 C 50,15 150,15 195,10 C 200,60 195,140 190,190 C 140,195 50,195 10,190 C 0,140 0,60 5,20 Z" fill="#13131a" stroke="#faf9f5" stroke-width="12"/>
+    <path d="M 10,25 C 55,20 145,20 190,15 C 195,65 190,135 185,185 C 135,190 55,190 15,185 C 5,135 5,65 10,25 Z" fill="#faf9f5"/>
+
+    <!-- Small Terminal Layer (Background integration) -->
+    <path d="M 20,40 L 40,55 L 20,70" fill="none" stroke="#a5b4fc" stroke-width="8"/>
+    <line x1="50" y1="70" x2="70" y2="70" stroke="#a5b4fc" stroke-width="8"/>
+
+    <!-- Small Notes Layer (Background integration) -->
+    <path d="M 25,150 C 50,145 80,160 100,150" fill="none" stroke="#c7d2fe" stroke-width="8"/>
+    <path d="M 25,170 C 40,165 70,180 90,170" fill="none" stroke="#c7d2fe" stroke-width="8"/>
+
+    <!-- The Excalidraw Element: A massive, prominent drawn loop -->
+    <path d="M 120,40 C 180,30 200,120 160,160 C 120,200 40,140 60,80 C 70,50 110,40 120,40" fill="#e0e7ff" stroke="#6366f1" stroke-width="12" opacity="0.8"/>
+    
+    <!-- Hand-drawn Excalidraw-style cursor actively drawing the line -->
+    <g transform="translate(120, 30)">
+      <path d="M 0,0 L 25,10 L 15,15 L 25,30 L 20,35 L 10,20 L 5,30 Z" fill="#13131a" stroke="#13131a" stroke-width="4"/>
+    </g>
+
+  </g>
+</svg>

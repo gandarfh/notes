@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Premium dark aesthetic -->
+    <radialGradient id="bgY" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeY" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    
+    <filter id="shadowY" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="15" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+
+    <!-- The Triple Cut Mask -->
+    <mask id="cutMaskY">
+      <!-- Start with pure white (everything visible) -->
+      <rect x="-50" y="-50" width="300" height="300" fill="white"/>
+      
+      <!-- Cut 1: The 'Canvas' Sweep (Organic, smooth Bezier) -->
+      <path d="M 0,110 C 60,70 140,150 200,80" stroke="black" stroke-width="24" fill="none" stroke-linecap="round"/>
+      
+      <!-- Cut 2: The 'Markdown/Structure' Line (Strict, straight) -->
+      <line x1="120" y1="20" x2="60" y2="180" stroke="black" stroke-width="20" stroke-linecap="round"/>
+    </mask>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgY)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeY)" stroke-width="2"/>
+
+  <!-- Concept Y: The Triple Axis Diamond -->
+  <!-- A central geometric diamond block, brutally sliced into 3 interlocking parts by abstract paths symbolizing the tools -->
+  <g transform="translate(45, 45) scale(0.55)" filter="url(#shadowY)">
+    
+    <!-- The Heavy Diamond Base (representing the solid Database/System) -->
+    <path mask="url(#cutMaskY)" 
+          d="M 100,0 L 200,100 L 100,200 L 0,100 Z" 
+          fill="#faf9f5" />
+
+    <!-- A single anchor node representing connection -->
+    <circle cx="100" cy="100" r="16" fill="#faf9f5" />
+    
+    <!-- Terminal constraint representation: A detached node -->
+    <circle cx="160" cy="40" r="12" fill="#faf9f5" opacity="0.8"/>
+  </g>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Concept E: The "ReScript / Primitives" Icon -->
+  <rect x="10" y="10" width="180" height="180" rx="40" fill="#13131a"/>
+  
+  <g transform="translate(10, 10)">
+      <!-- Three distinct interlocking pills creating an 'N' -->
+      <!-- Left Pill -->
+      <rect x="40" y="40" width="24" height="100" rx="12" fill="#6366f1"/>
+      
+      <!-- Right Pill -->
+      <rect x="116" y="40" width="24" height="100" rx="12" fill="#818cf8"/>
+      
+      <!-- Diagonal Pill -->
+      <path d="M 52,60 L 128,120" stroke="#a5b4fc" stroke-width="24" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- The True App Icon Container -->
+  <!-- Premium dark background with a subtle ambient glow -->
+  <defs>
+    <radialGradient id="bgGlow1" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeGlow1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <filter id="dropShadowPath1" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- The MacOS/iOS Squircle Base -->
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgGlow1)"/>
+  <!-- Subtle 1px inner rim light -->
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeGlow1)" stroke-width="2"/>
+
+  <!-- The Mark (Properly Proportioned & Padded) -->
+  <!-- Scaled down to 55% of the canvas and centered, simulating safe-zones -->
+  <g transform="translate(45, 45) scale(0.55)" filter="url(#dropShadowPath1)" stroke="#faf9f5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- Path 1: Bold Marker Sketch -->
+    <path d="M 100,25 L 175,100 L 100,175 L 25,100 Z" stroke-width="14" stroke-linecap="square"/>
+    
+    <!-- Overlaps -->
+    <line x1="15" y1="90" x2="35" y2="110" stroke-width="12"/>
+    <line x1="85" y1="15" x2="115" y2="45" stroke-width="12"/>
+    <line x1="85" y1="185" x2="115" y2="155" stroke-width="12"/>
+    <line x1="185" y1="110" x2="165" y2="90" stroke-width="12"/>
+
+    <!-- The Sliced Wave Element -->
+    <path d="M 0,190 C 20,110 180,105 200,10" stroke-width="16"/>
+
+    <!-- The Geometric Anchor Node -->
+    <g transform="rotate(20 160 40)">
+      <rect x="156" y="36" width="14" height="14" fill="#faf9f5" stroke-width="0"/>
+      <line x1="150" y1="48" x2="180" y2="48" stroke-width="6"/>
+    </g>
+
+  </g>
+</svg>

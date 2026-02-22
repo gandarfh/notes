@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Background squircle gradients -->
+    <radialGradient id="bgP" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeP" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <!-- Chalk / Crayon texture filter to make edges legitimately rough -->
+    <filter id="roughP" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" />
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgP)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeP)" stroke-width="2"/>
+
+  <!-- Concept P: The Sharpie Wireframe -->
+  <!-- A hand-drawn wireframe drawn with massive 28px markers, using a rough filter -->
+  <g transform="translate(45, 45) scale(0.55)" filter="url(#roughP)" stroke="#faf9f5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- Top-Left to Top-Right -->
+    <path d="M 15,60 
+             Q 100,20 185,50" 
+          stroke-width="28"/>
+    
+    <!-- Top-Right to Bottom-Right -->
+    <path d="M 150,15 
+             Q 180,100 135,185" 
+          stroke-width="28"/>
+          
+    <!-- Bottom-Right to Bottom-Left -->
+    <path d="M 185,140 
+             Q 100,180 15,150" 
+          stroke-width="28"/>
+          
+    <!-- Bottom-Left to Top-Left -->
+    <path d="M 50,185 
+             Q 20,100 65,15" 
+          stroke-width="28"/>
+
+    <!-- A rough, heavy wave crossing the middle -->
+    <path d="M -10,195 
+             C 40,80 160,110 210,-5" 
+          stroke-width="24"/>
+
+    <!-- Hand-drawn anchor dot -->
+    <circle cx="165" cy="35" r="16" fill="#faf9f5" stroke-width="0"/>
+
+  </g>
+</svg>

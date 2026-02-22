@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" width="300" height="120" role="img" aria-labelledby="logo-brand-title">
+  <title id="logo-brand-title">Notes Welcome - Brand Aligned</title>
+  <defs>
+    <!-- Brand colors from guidelines: Orange, Blue, Green -->
+    <linearGradient id="brand-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#d97757"/>
+      <stop offset="50%" style="stop-color:#6a9bcc"/>
+      <stop offset="100%" style="stop-color:#788c5d"/>
+    </linearGradient>
+    <filter id="glow-brand">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="300" height="120" fill="transparent"/>
+
+  <!-- Typography (Hero element) using Poppins (or fallback) -->
+  <text x="150" y="70" 
+    font-family="'Poppins', Arial, sans-serif" 
+    font-size="48" 
+    font-weight="600"
+    fill="#faf9f5" 
+    text-anchor="middle"
+    letter-spacing="1">Notes</text>
+
+  <!-- The dynamic sketch stroke using the distinct brand accent colors -->
+  <path d="M 60,95 Q 150,115 220,75 C 240,65 250,55 255,45" 
+        fill="none" 
+        stroke="url(#brand-grad)" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        filter="url(#glow-brand)"/>
+        
+  <!-- The precise geometric square anchor -->
+  <rect x="249" y="38" width="12" height="12" rx="2" fill="#faf9f5" transform="rotate(25 255 44)"/>
+</svg>

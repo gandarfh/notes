@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <!-- Welcome Lockup E -->
+  <g transform="translate(10, 10)">
+    <!-- Icon scaled down on the left -->
+    <g transform="scale(0.5)">
+      <rect x="10" y="10" width="180" height="180" rx="40" fill="#13131a"/>
+      <g transform="translate(10, 10)">
+          <rect x="40" y="40" width="24" height="100" rx="12" fill="#6366f1"/>
+          <rect x="116" y="40" width="24" height="100" rx="12" fill="#818cf8"/>
+          <path d="M 52,60 L 128,120" stroke="#a5b4fc" stroke-width="24" stroke-linecap="round"/>
+      </g>
+    </g>
+
+    <!-- Typography: Architects Daughter on the right -->
+    <text x="130" y="70" 
+      font-family="'Architects Daughter', cursive" 
+      font-size="52" 
+      fill="#e8e8f0" 
+      letter-spacing="2">notes</text>
+  </g>
+</svg>

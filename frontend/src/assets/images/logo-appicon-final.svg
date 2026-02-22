@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bgFinal" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeFinal" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    
+    <!-- Deep dramatic shadow -->
+    <filter id="shadowFinal" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#000000" flood-opacity="0.9"/>
+    </filter>
+
+    <!-- Subtle dot grid for the hero card -->
+    <pattern id="dotGrid" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.5" fill="#c7d2fe" opacity="0.6"/>
+    </pattern>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgFinal)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeFinal)" stroke-width="2"/>
+
+  <!-- Concept AH: The Definitive Stack -->
+  <!-- Rotated cascading cards (AE) + Lines on the back card + Dot-grid on the front card (AF) -->
+  <g transform="translate(30, 30) scale(0.70)" stroke-linejoin="round">
+    
+    <!-- Background Card 1 (The Back Card / 'Ultimo') -->
+    <!-- Rotated left, dark structure, with structural lines representing code/text -->
+    <g filter="url(#shadowFinal)">
+      <!-- The base card -->
+      <rect x="-10" y="40" width="140" height="160" rx="20" fill="#2a2a35" stroke="#4338ca" stroke-width="6" transform="rotate(-25 60 120)"/>
+      
+      <!-- Inside the Back Card: The Lines requested by the user -->
+      <g transform="rotate(-25 60 120)">
+        <path d="M 10,70 L 110,70 M 10,95 L 80,95 M 10,120 L 110,120 M 10,145 L 60,145" fill="none" stroke="#4f46e5" stroke-width="8" stroke-linecap="round" opacity="0.7"/>
+      </g>
+    </g>
+
+    <!-- Background Card 2 (Blue accent) -->
+    <!-- Rotated right -->
+    <g filter="url(#shadowFinal)">
+      <rect x="50" y="10" width="140" height="160" rx="20" fill="#4f46e5" stroke-width="0" transform="rotate(20 120 90)"/>
+    </g>
+
+    <!-- Foreground Card (The Command Workspace / 'Primeiro') -->
+    <!-- Straight, scaled up, with the dot-grid inside -->
+    <g filter="url(#shadowFinal)">
+      <!-- Solid base to block shadows from behind -->
+      <rect x="30" y="30" width="140" height="150" rx="18" fill="#faf9f5" stroke-width="0"/>
+      
+      <!-- The inner dotted grid representing the Canvas background -->
+      <rect x="30" y="30" width="140" height="150" rx="18" fill="url(#dotGrid)"/>
+      
+      <!-- Outer clean bezel to clip the dots cleanly from the edge -->
+      <rect x="30" y="30" width="140" height="150" rx="18" fill="none" stroke="#faf9f5" stroke-width="16"/>
+      
+      <!-- Inside the Workspace Card -->
+      <!-- Clean, sharp Terminal Angle -->
+      <path d="M 50,65 L 75,80 L 50,95" fill="none" stroke="#4338ca" stroke-width="12" stroke-linecap="round"/>
+      
+      <!-- The Canvas Sweep. Fluid, premium curve overlapping the terminal -->
+      <path d="M 85,130 C 130,140 140,50 160,65" fill="none" stroke="#6366f1" stroke-width="14" stroke-linecap="round"/>
+      <!-- Canvas cursor/node point -->
+      <circle cx="160" cy="65" r="12" fill="#6366f1"/>
+
+      <!-- Top bar UI dots (Frame concept) -->
+      <circle cx="55" cy="45" r="6" fill="#4338ca" opacity="0.3"/>
+      <circle cx="75" cy="45" r="6" fill="#4338ca" opacity="0.3"/>
+    </g>
+
+  </g>
+</svg>

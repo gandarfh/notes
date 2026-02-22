@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect x="10" y="10" width="180" height="180" rx="42" fill="#0f0f14"/>
+  <rect x="10" y="10" width="180" height="180" rx="42" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+  
+  <!-- Outer Box -->
+  <rect x="52" y="52" width="96" height="96" fill="none" stroke="#e8e8f0" stroke-width="4"/>
+  
+  <!-- Central Diamond (The Core) -->
+  <g transform="translate(100, 100)">
+    <rect x="-18" y="-18" width="36" height="36" fill="#e8e8f0" transform="rotate(45)"/>
+  </g>
+</svg>

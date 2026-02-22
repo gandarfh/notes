@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Background squircle gradients -->
+    <radialGradient id="bgS" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#2a2a35"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </radialGradient>
+    <linearGradient id="edgeS" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <!-- A clean shadow, not a texture filter -->
+    <filter id="shadowS" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="15" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <!-- Container -->
+  <rect x="0" y="0" width="200" height="200" rx="46" fill="url(#bgS)"/>
+  <rect x="1" y="1" width="198" height="198" rx="45" fill="none" stroke="url(#edgeS)" stroke-width="2"/>
+
+  <!-- Concept S: The Workspace Layers -->
+  <!-- Flat vector hand-drawn style. Multiple overlapping cards representing different app features. -->
+  <g transform="translate(30, 30) scale(0.70)" filter="url(#shadowS)" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- Left Card (Database / Kanban) -->
+    <!-- Wobbly outline -->
+    <path d="M 20,40 Q 30,10 50,0 Q 80,10 90,40 Q 95,90 80,140 Q 60,165 40,160 Q 15,140 10,90 Z" fill="#13131a" stroke="#a5b4fc" stroke-width="8" transform="rotate(-15 50 80)"/>
+    <!-- Imperfect fill (offset slightly) -->
+    <path d="M 22,42 Q 32,12 52,2 Q 82,12 92,42 Q 97,92 82,142 Q 62,167 42,162 Q 17,142 12,92 Z" fill="#4338ca" opacity="0.6" transform="rotate(-15 50 80)"/>
+
+    <!-- Bottom Right Card (Terminal / Code) -->
+    <!-- Wobbly outline -->
+    <path d="M 120,60 C 130,50 160,40 180,50 C 190,80 195,120 180,150 C 150,160 120,150 110,140 C 90,120 100,80 120,60 Z" fill="#13131a" stroke="#818cf8" stroke-width="8" transform="rotate(10 150 100)"/>
+    <!-- Imperfect fill -->
+    <path d="M 115,65 C 125,55 155,45 175,55 C 185,85 190,125 175,155 C 145,165 115,155 105,145 C 85,125 95,85 115,65 Z" fill="#4f46e5" opacity="0.8" transform="rotate(10 150 100)"/>
+
+    <!-- Top Center Card (Notes / Canvas) -->
+    <!-- Wobbly outline (over the others) -->
+    <path d="M 60,20 C 80,15 120,20 140,30 C 150,60 155,100 140,140 C 110,150 80,145 60,130 C 40,110 50,60 60,20 Z" fill="#2a2a35" stroke="#faf9f5" stroke-width="12"/>
+    <!-- Core white fill offset -->
+    <path d="M 64,24 C 84,19 124,24 144,34 C 154,64 159,104 144,144 C 114,154 84,149 64,134 C 44,114 54,64 64,24 Z" fill="#faf9f5"/>
+    
+    <!-- Imperfect doodle inside the top card to sell the "Notes" metaphor -->
+    <path d="M 75,50 Q 100,60 125,50" fill="none" stroke="#0f0f14" stroke-width="8"/>
+    <path d="M 75,80 Q 90,75 110,85" fill="none" stroke="#0f0f14" stroke-width="8"/>
+    <circle cx="85" cy="115" r="8" fill="#0f0f14"/>
+
+  </g>
+</svg>

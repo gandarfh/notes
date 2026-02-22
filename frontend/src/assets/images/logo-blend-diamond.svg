@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect x="10" y="10" width="180" height="180" rx="42" fill="#13131a"/>
+  
+  <!-- Outer Solid Geometric Diamond (Concept 3 base / Notion weight) -->
+  <polygon points="100,30 170,100 100,170 30,100" fill="#faf9f5"/>
+
+  <!-- Concept 4 (Shift) + Concept B (Stroke) cutting through it -->
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <!-- A massive negative-space organic wave slicing the diamond -->
+    <!-- This creates two interlocking wedges (Intersection) separated by logic -->
+    <path d="M 20,180 C 30,100 170,100 180,20" 
+          fill="none" 
+          stroke="#13131a" 
+          stroke-width="18" />
+          
+    <!-- Geometric anchor inside the wave path -->
+    <rect x="162" y="30" width="14" height="14" rx="2" fill="#faf9f5" transform="rotate(20 169 37)"/>
+  </g>
+</svg>
