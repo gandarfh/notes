@@ -28,6 +28,8 @@ function findElById(elements: DrawingElement[], id?: string): DrawingElement | u
 
 export class ArrowHandler implements InteractionHandler {
     private s: ArrowState = { pending: null, hoveredAnchor: null, hoveredElement: null }
+    private lastRouteTime = 0
+    private readonly ROUTE_THROTTLE = 32  // ms (~30fps cap for routing)
 
     deactivate(ctx: DrawingContext) {
         this.s = { pending: null, hoveredAnchor: null, hoveredElement: null }
@@ -132,7 +134,12 @@ export class ArrowHandler implements InteractionHandler {
             const sRect = elRect(startEl, ctx.currentElement.x, ctx.currentElement.y, ctx.elements)
             const eRect = elRect(endEl, ctx.currentElement.x, ctx.currentElement.y, ctx.elements)
 
-            ctx.currentElement.points = computeOrthoRoute(dx, dy, sSide, eSide, sRect, eRect)
+            // Throttle expensive routing computation
+            const now = performance.now()
+            if (now - this.lastRouteTime >= this.ROUTE_THROTTLE) {
+                this.lastRouteTime = now
+                ctx.currentElement.points = computeOrthoRoute(dx, dy, sSide, eSide, sRect, eRect)
+            }
         }
 
         // Always render to show anchor hover feedback

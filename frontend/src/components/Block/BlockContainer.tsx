@@ -2,7 +2,8 @@ import { useRef, useState, useCallback, useMemo, useEffect, memo } from 'react'
 import { useAppStore } from '../../store'
 import { BlockRegistry } from '../../plugins'
 import { clearDrawingSelectionGlobal, closeEditorGlobal } from '../../input/drawingBridge'
-import { IconEdit, IconX } from '@tabler/icons-react'
+import { IconEdit, IconX, IconLink } from '@tabler/icons-react'
+import { api } from '../../bridge/wails'
 
 // ── Font-size helpers ──────────────────────────────────────
 
@@ -25,7 +26,7 @@ function setBlockFontSize(blockId: string, size: number) {
 
 // ── Block Header ───────────────────────────────────────────
 
-const BlockHeader = memo(function BlockHeader({ type, blockId, onDelete, onEdit }: { type: string; blockId: string; onDelete: () => void; onEdit?: () => void }) {
+const BlockHeader = memo(function BlockHeader({ type, blockId, filePath, onDelete, onEdit, onLinkFile }: { type: string; blockId: string; filePath?: string; onDelete: () => void; onEdit?: () => void; onLinkFile?: () => void }) {
     const plugin = BlockRegistry.get(type)
     const label = plugin?.headerLabel || type.toUpperCase()
     const isMarkdown = type === 'markdown'
@@ -60,7 +61,14 @@ const BlockHeader = memo(function BlockHeader({ type, blockId, onDelete, onEdit 
             className="block-header flex items-center justify-between gap-1.5 cursor-move"
             style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--color-border-subtle)', fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 500 }}
         >
-            <span className="flex items-center gap-1">{label}</span>
+            <span className="flex items-center gap-1" title={filePath || undefined}>
+                {label}
+                {isMarkdown && filePath && (
+                    <span style={{ opacity: 0.5, fontWeight: 400, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        — {filePath.split('/').pop()}
+                    </span>
+                )}
+            </span>
             <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-100">
                 {isMarkdown && (
                     <div className="relative" ref={popupRef}>
@@ -105,6 +113,13 @@ const BlockHeader = memo(function BlockHeader({ type, blockId, onDelete, onEdit 
                             </div>
                         )}
                     </div>
+                )}
+                {onLinkFile && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onLinkFile() }}
+                        className="w-[22px] h-[22px] flex items-center justify-center border-none bg-transparent text-text-muted rounded cursor-pointer text-[0.846rem] hover:bg-hover hover:text-text-primary"
+                        title="Link external file"
+                    ><IconLink size={14} /></button>
                 )}
                 {onEdit && (
                     <button
@@ -359,8 +374,15 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                     <BlockHeader
                         type={block.type}
                         blockId={blockId}
+                        filePath={block.filePath}
                         onDelete={() => deleteBlock(blockId)}
                         onEdit={block.type === 'markdown' ? () => onEditBlock(blockId, 1) : undefined}
+                        onLinkFile={block.type === 'markdown' ? async () => {
+                            const path = await api.pickMarkdownFile()
+                            if (!path) return
+                            const content = await api.updateBlockFilePath(blockId, path)
+                            updateBlock(blockId, { content, filePath: path })
+                        } : undefined}
                     />
                 </div>
             )}

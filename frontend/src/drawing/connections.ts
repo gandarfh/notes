@@ -48,6 +48,10 @@ export function findNearestAnchor(elements: DrawingElement[], x: number, y: numb
 
     for (const el of elements) {
         if (el.id === excludeId) continue
+        // Early-exit: skip elements whose bounding box is too far
+        const margin = bestDist + 10
+        if (x < el.x - margin || x > el.x + el.width + margin ||
+            y < el.y - margin || y > el.y + el.height + margin) continue
         for (const a of getAnchors(el)) {
             const d = Math.hypot(x - a.x, y - a.y)
             if (d < bestDist) {
@@ -59,87 +63,54 @@ export function findNearestAnchor(elements: DrawingElement[], x: number, y: numb
     return best
 }
 
-/** Update arrows connected to a moved element */
+/** Update arrows connected to a moved element.
+ *  Always does a full path rebuild via computeOrthoRoute with all shapes as obstacles.
+ */
 export function updateConnectedArrows(elements: DrawingElement[], movedElementId: string) {
+    // Collect all non-arrow shape rects once (reused for every arrow)
+    const shapeElements = elements.filter(e => !isArrowType(e))
+
     for (const el of elements) {
         if (!isArrowType(el)) continue
-        let changed = false
 
-        if (el.startConnection?.elementId === movedElementId) {
-            const pt = resolveAnchor(elements, el.startConnection)
-            if (pt && el.points && el.points.length >= 2) {
-                if (el.type === 'ortho-arrow' && el.points.length > 3) {
-                    // Preserve custom routing — only move start point
-                    const oldStartAbs = { x: el.x + el.points[0][0], y: el.y + el.points[0][1] }
-                    el.x = pt.x; el.y = pt.y
-                    for (const p of el.points) {
-                        p[0] = p[0] + oldStartAbs.x - pt.x
-                        p[1] = p[1] + oldStartAbs.y - pt.y
-                    }
-                    el.points[0] = [0, 0]
-                    if (el.points.length >= 2) {
-                        const p1 = el.points[1]
-                        if (Math.abs(el.points[0][1] - p1[1]) > 1) {
-                            p1[0] = 0
-                        }
-                    }
-                } else {
-                    // Simple arrow or basic 3-point ortho — rebuild
-                    const endAbs = { x: el.x + el.points[el.points.length - 1][0], y: el.y + el.points[el.points.length - 1][1] }
-                    el.x = pt.x; el.y = pt.y
-                    el.points[0] = [0, 0]
-                    if (el.type === 'ortho-arrow') {
-                        const dx = endAbs.x - pt.x, dy = endAbs.y - pt.y
-                        const sEl = elements.find(e => e.id === el.startConnection?.elementId)
-                        const eEl = elements.find(e => e.id === el.endConnection?.elementId)
-                        const sR: Rect | undefined = sEl ? { x: sEl.x - pt.x, y: sEl.y - pt.y, w: sEl.width, h: sEl.height } : undefined
-                        const eR: Rect | undefined = eEl ? { x: eEl.x - pt.x, y: eEl.y - pt.y, w: eEl.width, h: eEl.height } : undefined
-                        el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, el.endConnection?.side, sR, eR)
-                    } else {
-                        el.points[el.points.length - 1] = [endAbs.x - pt.x, endAbs.y - pt.y]
-                    }
-                }
-                changed = true
-            }
+        const startMoved = el.startConnection?.elementId === movedElementId
+        const endMoved = el.endConnection?.elementId === movedElementId
+        if (!startMoved && !endMoved) continue
+        if (!el.points || el.points.length < 2) continue
+
+        // Resolve current anchor positions
+        const startPt = el.startConnection ? resolveAnchor(elements, el.startConnection) : null
+        const endPt = el.endConnection ? resolveAnchor(elements, el.endConnection) : null
+
+        // Determine absolute start/end positions
+        const absStart = startPt ?? { x: el.x + el.points[0][0], y: el.y + el.points[0][1] }
+        const absEnd = endPt ?? { x: el.x + el.points[el.points.length - 1][0], y: el.y + el.points[el.points.length - 1][1] }
+
+        // Update arrow origin to new start
+        el.x = absStart.x
+        el.y = absStart.y
+
+        if (el.type === 'ortho-arrow') {
+            const dx = absEnd.x - absStart.x
+            const dy = absEnd.y - absStart.y
+
+            // Build obstacle rects relative to arrow origin (all shapes, not just start/end)
+            const sR: Rect | undefined = el.startConnection
+                ? (() => { const s = shapeElements.find(e => e.id === el.startConnection!.elementId); return s ? { x: s.x - absStart.x, y: s.y - absStart.y, w: s.width, h: s.height } : undefined })()
+                : undefined
+            const eR: Rect | undefined = el.endConnection
+                ? (() => { const s = shapeElements.find(e => e.id === el.endConnection!.elementId); return s ? { x: s.x - absStart.x, y: s.y - absStart.y, w: s.width, h: s.height } : undefined })()
+                : undefined
+
+            el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, el.endConnection?.side, sR, eR)
+            enforceOrthogonality(el)
+        } else {
+            // Simple arrow — just update endpoints
+            el.points[0] = [0, 0]
+            el.points[el.points.length - 1] = [absEnd.x - absStart.x, absEnd.y - absStart.y]
         }
 
-        if (el.endConnection?.elementId === movedElementId) {
-            const pt = resolveAnchor(elements, el.endConnection)
-            if (pt && el.points) {
-                if (el.type === 'ortho-arrow' && el.points.length > 3) {
-                    // Preserve custom routing — only move end point
-                    const lastIdx = el.points.length - 1
-                    const newEndRel = [pt.x - el.x, pt.y - el.y]
-                    el.points[lastIdx] = newEndRel
-                    if (lastIdx >= 2) {
-                        const pPrev = el.points[lastIdx - 1]
-                        if (Math.abs(pPrev[1] - newEndRel[1]) > 1) {
-                            pPrev[0] = newEndRel[0]
-                        } else {
-                            pPrev[1] = newEndRel[1]
-                        }
-                    }
-                } else {
-                    // Simple arrow or basic 3-point ortho — rebuild
-                    if (el.type === 'ortho-arrow') {
-                        const dx = pt.x - el.x, dy = pt.y - el.y
-                        const sEl = elements.find(e => e.id === el.startConnection?.elementId)
-                        const eEl = elements.find(e => e.id === el.endConnection?.elementId)
-                        const sR: Rect | undefined = sEl ? { x: sEl.x - el.x, y: sEl.y - el.y, w: sEl.width, h: sEl.height } : undefined
-                        const eR: Rect | undefined = eEl ? { x: eEl.x - el.x, y: eEl.y - el.y, w: eEl.width, h: eEl.height } : undefined
-                        el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, el.endConnection?.side, sR, eR)
-                    } else if (el.points.length >= 2) {
-                        el.points[el.points.length - 1] = [pt.x - el.x, pt.y - el.y]
-                    }
-                }
-                changed = true
-            }
-        }
-
-        if (changed) {
-            if (el.type === 'ortho-arrow') enforceOrthogonality(el)
-            el.width = Math.abs((el.points?.[el.points.length - 1]?.[0] ?? 0))
-            el.height = Math.abs((el.points?.[el.points.length - 1]?.[1] ?? 0))
-        }
+        el.width = Math.abs((el.points[el.points.length - 1]?.[0] ?? 0))
+        el.height = Math.abs((el.points[el.points.length - 1]?.[1] ?? 0))
     }
 }

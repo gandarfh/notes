@@ -426,6 +426,47 @@ func (a *App) DeleteBlock(blockID string) error {
 	return a.blocks.DeleteBlock(blockID)
 }
 
+// PickMarkdownFile opens a native file picker for selecting a markdown file.
+func (a *App) PickMarkdownFile() (string, error) {
+	path, err := wailsRuntime.OpenFileDialog(a.ctx, wailsRuntime.OpenDialogOptions{
+		Title: "Select Markdown File",
+		Filters: []wailsRuntime.FileFilter{
+			{DisplayName: "Markdown Files", Pattern: "*.md"},
+			{DisplayName: "All Files", Pattern: "*.*"},
+		},
+	})
+	return path, err
+}
+
+// UpdateBlockFilePath points a markdown block to an external file.
+// It reads the file content and updates both filePath and content in the DB.
+// Returns the file content so the frontend can update the preview.
+func (a *App) UpdateBlockFilePath(blockID, newPath string) (string, error) {
+	b, err := a.blocks.GetBlock(blockID)
+	if err != nil {
+		return "", err
+	}
+	if b.Type != domain.BlockTypeMarkdown {
+		return "", fmt.Errorf("block %s is not a markdown block", blockID)
+	}
+
+	// Read the external file
+	data, err := os.ReadFile(newPath)
+	if err != nil {
+		return "", fmt.Errorf("read file: %w", err)
+	}
+
+	content := strings.TrimSpace(string(data))
+	b.FilePath = newPath
+	b.Content = content
+
+	if err := a.blocks.UpdateBlock(b); err != nil {
+		return "", err
+	}
+
+	return content, nil
+}
+
 // GetImageData reads an image file and returns it as a base64 data URL.
 // Called lazily by the frontend for each image block.
 func (a *App) GetImageData(blockID string) (string, error) {

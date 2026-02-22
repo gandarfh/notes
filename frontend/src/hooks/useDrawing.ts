@@ -46,6 +46,7 @@ export function useDrawing(
     const selectedElementsRef = useRef<Set<string>>(new Set())
     const clipboardRef = useRef<DrawingElement[]>([])
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const rafRef = useRef<number | null>(null)
     const drawingDataLoadedRef = useRef('')
     const lastClickTimeRef = useRef(0)
     const lastClickPosRef = useRef({ x: 0, y: 0 })
@@ -105,56 +106,60 @@ export function useDrawing(
 
     // ── Render SVG ──
     const render = useCallback(() => {
-        const svg = svgRef.current
-        if (!svg) return
+        if (rafRef.current !== null) return  // already scheduled
+        rafRef.current = requestAnimationFrame(() => {
+            rafRef.current = null
+            const svg = svgRef.current
+            if (!svg) return
 
-        const elements = [...elementsRef.current]
-        if (currentElementRef.current) elements.push(currentElementRef.current)
+            const elements = [...elementsRef.current]
+            if (currentElementRef.current) elements.push(currentElementRef.current)
 
-        let svgContent = ''
+            let svgContent = ''
 
-        // Board style mode
-        const sketchy = useAppStore.getState().boardStyle === 'sketchy'
-        if (sketchy) svgContent += getSketchyDefs()
+            // Board style mode
+            const sketchy = useAppStore.getState().boardStyle === 'sketchy'
+            if (sketchy) svgContent += getSketchyDefs()
 
-        // Handler overlay (anchors, previews, etc.)
-        const handler = activeHandlerRef.current
-        if (handler?.renderOverlay) {
-            svgContent += handler.renderOverlay(buildContext()) ?? ''
-        }
-
-        const selected = selectedElementRef.current
-        const multiSelected = selectedElementsRef.current
-
-        for (const el of elements) {
-            const isEditingThis = editorRequest?.elementId === el.id
-            const isSel = selected?.id === el.id || multiSelected.has(el.id)
-            svgContent += renderElement(el, isSel, isEditingThis, sketchy)
-        }
-
-        // Selection UI for single selected element
-        if (selected && multiSelected.size <= 1) {
-            svgContent += renderSelectionUI(selected)
-        }
-
-        // Multi-selection bounding box
-        if (multiSelected.size > 1) {
-            const selEls = elements.filter(e => multiSelected.has(e.id))
-            if (selEls.length > 0) {
-                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-                for (const el of selEls) {
-                    const b = getElementBounds(el)
-                    minX = Math.min(minX, b.x)
-                    minY = Math.min(minY, b.y)
-                    maxX = Math.max(maxX, b.x + b.w)
-                    maxY = Math.max(maxY, b.y + b.h)
-                }
-                const pad = 6
-                svgContent += `<rect x="${minX - pad}" y="${minY - pad}" width="${maxX - minX + pad * 2}" height="${maxY - minY + pad * 2}" fill="none" stroke="var(--color-accent)" stroke-width="1" stroke-dasharray="4 3" rx="3" />`
+            // Handler overlay (anchors, previews, etc.)
+            const handler = activeHandlerRef.current
+            if (handler?.renderOverlay) {
+                svgContent += handler.renderOverlay(buildContext()) ?? ''
             }
-        }
 
-        svg.innerHTML = svgContent
+            const selected = selectedElementRef.current
+            const multiSelected = selectedElementsRef.current
+
+            for (const el of elements) {
+                const isEditingThis = editorRequest?.elementId === el.id
+                const isSel = selected?.id === el.id || multiSelected.has(el.id)
+                svgContent += renderElement(el, isSel, isEditingThis, sketchy)
+            }
+
+            // Selection UI for single selected element
+            if (selected && multiSelected.size <= 1) {
+                svgContent += renderSelectionUI(selected)
+            }
+
+            // Multi-selection bounding box
+            if (multiSelected.size > 1) {
+                const selEls = elements.filter(e => multiSelected.has(e.id))
+                if (selEls.length > 0) {
+                    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+                    for (const el of selEls) {
+                        const b = getElementBounds(el)
+                        minX = Math.min(minX, b.x)
+                        minY = Math.min(minY, b.y)
+                        maxX = Math.max(maxX, b.x + b.w)
+                        maxY = Math.max(maxY, b.y + b.h)
+                    }
+                    const pad = 6
+                    svgContent += `<rect x="${minX - pad}" y="${minY - pad}" width="${maxX - minX + pad * 2}" height="${maxY - minY + pad * 2}" fill="none" stroke="var(--color-accent)" stroke-width="1" stroke-dasharray="4 3" rx="3" />`
+                }
+            }
+
+            svg.innerHTML = svgContent
+        })
     }, [svgRef, editorRequest])
 
     // ── Save (debounced) ──

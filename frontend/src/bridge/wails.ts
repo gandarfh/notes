@@ -25,6 +25,8 @@ declare global {
           SaveImageFile(blockID: string, dataURL: string): Promise<string>
           GetImageData(blockID: string): Promise<string>
           OpenBlockInEditor(blockID: string, lineNumber: number): Promise<void>
+          PickMarkdownFile(): Promise<string>
+          UpdateBlockFilePath(blockID: string, filePath: string): Promise<string>
           CreateConnection(pageID: string, fromID: string, toID: string): Promise<Connection>
           UpdateConnection(id: string, label: string, color: string, style: string): Promise<void>
           DeleteConnection(id: string): Promise<void>
@@ -216,6 +218,8 @@ export const api = {
   saveImageFile: (blockID: string, dataURL: string): Promise<string> => getAPI().SaveImageFile(blockID, dataURL),
   getImageData: (blockID: string): Promise<string> => getAPI().GetImageData(blockID),
   openBlockInEditor: (id: string, lineNumber: number) => getAPI().OpenBlockInEditor(id, lineNumber),
+  pickMarkdownFile: (): Promise<string> => getAPI().PickMarkdownFile(),
+  updateBlockFilePath: (blockID: string, filePath: string): Promise<string> => getAPI().UpdateBlockFilePath(blockID, filePath),
 
   createConnection: (pageID: string, from: string, to: string) => getAPI().CreateConnection(pageID, from, to),
   updateConnection: (id: string, label: string, color: string, style: string) => getAPI().UpdateConnection(id, label, color, style),

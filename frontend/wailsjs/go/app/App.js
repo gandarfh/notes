@@ -106,6 +106,10 @@ export function PickDatabaseFile() {
   return window['go']['app']['App']['PickDatabaseFile']();
 }
 
+export function PickMarkdownFile() {
+  return window['go']['app']['App']['PickMarkdownFile']();
+}
+
 export function PushUndoNode(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['PushUndoNode'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -144,6 +148,10 @@ export function TestDatabaseConnection(arg1) {
 
 export function UpdateBlockContent(arg1, arg2) {
   return window['go']['app']['App']['UpdateBlockContent'](arg1, arg2);
+}
+
+export function UpdateBlockFilePath(arg1, arg2) {
+  return window['go']['app']['App']['UpdateBlockFilePath'](arg1, arg2);
 }
 
 export function UpdateBlockPosition(arg1, arg2, arg3, arg4, arg5) {

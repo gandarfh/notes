@@ -35,6 +35,41 @@ function edgeCrossesRect(a: Pt, b: Pt, r: Rect): boolean {
     return false
 }
 
+// ── MinHeap for Dijkstra ───────────────────────────────────
+
+class MinHeap<T> {
+    private d: T[] = []
+    constructor(private cmp: (a: T, b: T) => number) { }
+    get size() { return this.d.length }
+    push(v: T) { this.d.push(v); this._up(this.d.length - 1) }
+    pop(): T | undefined {
+        if (this.d.length === 0) return undefined
+        const top = this.d[0]
+        const last = this.d.pop()!
+        if (this.d.length > 0) { this.d[0] = last; this._down(0) }
+        return top
+    }
+    private _up(i: number) {
+        while (i > 0) {
+            const p = (i - 1) >> 1
+            if (this.cmp(this.d[i], this.d[p]) >= 0) break
+                ;[this.d[i], this.d[p]] = [this.d[p], this.d[i]]
+            i = p
+        }
+    }
+    private _down(i: number) {
+        const n = this.d.length
+        while (true) {
+            let s = i, l = 2 * i + 1, r = 2 * i + 2
+            if (l < n && this.cmp(this.d[l], this.d[s]) < 0) s = l
+            if (r < n && this.cmp(this.d[r], this.d[s]) < 0) s = r
+            if (s === i) break
+                ;[this.d[i], this.d[s]] = [this.d[s], this.d[i]]
+            i = s
+        }
+    }
+}
+
 // ── Dijkstra on a sparse point graph ───────────────────────
 
 type Dir = 'h' | 'v'
@@ -90,7 +125,7 @@ function buildGraphAndRoute(spots: Pt[], origin: Pt, destination: Pt, shapeRects
         }
     }
 
-    // Dijkstra with bend penalty
+    // Dijkstra with bend penalty (using MinHeap)
     const nodes = new Map<string, GNode>()
     for (const s of spots) nodes.set(key(s), { pt: s, dist: Infinity, prev: null, dir: null })
 
@@ -100,17 +135,11 @@ function buildGraphAndRoute(spots: Pt[], origin: Pt, destination: Pt, shapeRects
 
     originNode.dist = 0
     const visited = new Set<string>()
-    const queue: GNode[] = [originNode]
+    const heap = new MinHeap<GNode>((a, b) => a.dist - b.dist)
+    heap.push(originNode)
 
-    while (queue.length > 0) {
-        // Get node with smallest distance
-        let minIdx = 0
-        for (let i = 1; i < queue.length; i++) {
-            if (queue[i].dist < queue[minIdx].dist) minIdx = i
-        }
-        const cur = queue[minIdx]
-        queue.splice(minIdx, 1)
-
+    while (heap.size > 0) {
+        const cur = heap.pop()!
         const ck = key(cur.pt)
         if (visited.has(ck)) continue
         visited.add(ck)
@@ -132,7 +161,7 @@ function buildGraphAndRoute(spots: Pt[], origin: Pt, destination: Pt, shapeRects
                 neighbor.dist = newDist
                 neighbor.prev = cur
                 neighbor.dir = edge.dir
-                queue.push(neighbor)
+                heap.push(neighbor)
             }
         }
     }

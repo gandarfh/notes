@@ -12,6 +12,20 @@ import { useAppStore } from '../../store'
 const GRID_SIZE = 30
 const snap = (v: number) => Math.round(v / GRID_SIZE) * GRID_SIZE
 
+// Track original dimensions before snap resize (Shift+H/M/L)
+const snapState = new Map<string, { origW: number; origH: number }>()
+
+function restoreSnappedBlock(blockId: string) {
+    const saved = snapState.get(blockId)
+    if (!saved) return
+    snapState.delete(blockId)
+    const { blocks, resizeBlock, saveBlockPosition } = useAppStore.getState()
+    const block = blocks.get(blockId)
+    if (!block) return
+    resizeBlock(blockId, saved.origW, saved.origH)
+    saveBlockPosition(blockId)
+}
+
 type BlockLayerCallbacks = {
     onEditBlock: (blockId: string, lineNumber: number) => void
 }
@@ -117,6 +131,12 @@ export function initLayer4(cb: BlockLayerCallbacks) {
             }
         },
     })
+    // Auto-restore snapped blocks when selection changes
+    useAppStore.subscribe((state, prev) => {
+        if (state.selectedBlockId !== prev.selectedBlockId && prev.selectedBlockId) {
+            restoreSnappedBlock(prev.selectedBlockId)
+        }
+    })
 }
 
 // ── Navigation helpers ──
@@ -161,12 +181,16 @@ function alignBlockInViewport(blockId: string, align: 'left' | 'center' | 'right
     const canvasH = canvas.clientHeight
     const pad = 40
 
-    // Resize: 45% width for sides, 60% for center; 95% height for all
+    // Save original dimensions before snap (only first time)
+    if (!snapState.has(blockId)) {
+        snapState.set(blockId, { origW: block.width, origH: block.height })
+    }
+
+    // Resize: 45% width for sides, 60% for center; 98% height for all
     const widthPct = align === 'center' ? 0.6 : 0.45
     const newW = snap(canvasW * widthPct)
     const newH = snap(canvasH * 0.98)
     resizeBlock(blockId, newW, newH)
-    saveBlockPosition(blockId)
 
     // Viewport (camera): zoom 1, position to show block at left/center/right of screen
     let x: number

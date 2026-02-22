@@ -57,6 +57,8 @@ export function OpenBlockInEditor(arg1:string,arg2:number):Promise<void>;
 
 export function PickDatabaseFile():Promise<string>;
 
+export function PickMarkdownFile():Promise<string>;
+
 export function PushUndoNode(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<storage.UndoNode>;
 
 export function RenameNotebook(arg1:string,arg2:string):Promise<void>;
@@ -76,6 +78,8 @@ export function TerminalWrite(arg1:string):Promise<void>;
 export function TestDatabaseConnection(arg1:string):Promise<void>;
 
 export function UpdateBlockContent(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateBlockFilePath(arg1:string,arg2:string):Promise<string>;
 
 export function UpdateBlockPosition(arg1:string,arg2:number,arg3:number,arg4:number,arg5:number):Promise<void>;
 

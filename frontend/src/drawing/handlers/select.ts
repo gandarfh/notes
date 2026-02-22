@@ -15,6 +15,7 @@ import { computeOrthoRoute, simplifyOrthoPoints, enforceOrthogonality } from '..
 
 interface SelectState {
     isDragging: boolean
+    hasDragged: boolean
     dragOffset: Point
     isResizing: boolean
     resizeHandle: ResizeHandle | null
@@ -39,6 +40,7 @@ interface SelectState {
 function createSelectState(): SelectState {
     return {
         isDragging: false,
+        hasDragged: false,
         dragOffset: { x: 0, y: 0 },
         isResizing: false,
         resizeHandle: null,
@@ -127,6 +129,8 @@ function boxIntersects(el: DrawingElement, x1: number, y1: number, x2: number, y
 
 export class SelectHandler implements InteractionHandler {
     private s = createSelectState()
+    private lastRouteTime = 0
+    private readonly ROUTE_THROTTLE = 32  // ms (~30fps cap for routing)
 
     setShiftKey(shift: boolean) {
         this.s.shiftDown = shift
@@ -214,6 +218,7 @@ export class SelectHandler implements InteractionHandler {
             const isConnected = isArrowType(hit) && (hit.startConnection || hit.endConnection)
             if (!isConnected) {
                 this.s.isDragging = true
+                this.s.hasDragged = false
                 this.s.dragOffset = { x: world.x - hit.x, y: world.y - hit.y }
             }
         } else {
@@ -309,9 +314,14 @@ export class SelectHandler implements InteractionHandler {
         // Single-element drag
         if (this.s.isDragging && ctx.selectedElement) {
             ctx.setCursor('move')
+            this.s.hasDragged = true
             ctx.selectedElement.x = world.x - this.s.dragOffset.x
             ctx.selectedElement.y = world.y - this.s.dragOffset.y
-            updateConnectedArrows(ctx.elements, ctx.selectedElement.id)
+            const now = performance.now()
+            if (now - this.lastRouteTime >= this.ROUTE_THROTTLE) {
+                this.lastRouteTime = now
+                updateConnectedArrows(ctx.elements, ctx.selectedElement.id)
+            }
             ctx.render()
             return
         }
@@ -438,10 +448,13 @@ export class SelectHandler implements InteractionHandler {
         // Drag release → snap
         if (this.s.isDragging && ctx.selectedElement) {
             this.s.isDragging = false
-            ctx.selectedElement.x = ctx.snap(ctx.selectedElement.x)
-            ctx.selectedElement.y = ctx.snap(ctx.selectedElement.y)
-            updateConnectedArrows(ctx.elements, ctx.selectedElement.id)
-            ctx.render(); ctx.save()
+            if (this.s.hasDragged) {
+                ctx.selectedElement.x = ctx.snap(ctx.selectedElement.x)
+                ctx.selectedElement.y = ctx.snap(ctx.selectedElement.y)
+                updateConnectedArrows(ctx.elements, ctx.selectedElement.id)
+                ctx.render(); ctx.save()
+            }
+            this.s.hasDragged = false
             return
         }
         ctx.setCursor('default')
