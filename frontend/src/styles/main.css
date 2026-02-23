@@ -6,141 +6,141 @@
    ============================================================ */
 
 :root {
-  /* ── Surfaces ── */
-  --color-app: #0f0f14;
-  --color-sidebar: #13131a;
-  --color-surface: #1a1a24;
-  --color-elevated: #22222e;
-  --color-hover: #2a2a38;
-  --color-active: #333346;
+  /* ── Surfaces (warm dark) ── */
+  --color-app: #151310;
+  --color-sidebar: #1a1714;
+  --color-surface: #201d19;
+  --color-elevated: #272420;
+  --color-hover: #2e2b26;
+  --color-active: #38342e;
 
   /* ── Borders ── */
-  --color-border-subtle: rgba(255, 255, 255, 0.06);
-  --color-border-default: rgba(255, 255, 255, 0.1);
-  --color-border-strong: rgba(255, 255, 255, 0.16);
+  --color-border-subtle: rgba(220, 205, 180, 0.06);
+  --color-border-default: rgba(220, 205, 180, 0.10);
+  --color-border-strong: rgba(220, 205, 180, 0.16);
 
-  /* ── Text ── */
-  --color-text-primary: #e8e8f0;
-  --color-text-secondary: #8888a0;
-  --color-text-muted: #5a5a72;
-  --color-text-accent: #7c8bff;
+  /* ── Text (warm off-white) ── */
+  --color-text-primary: #e6e2dc;
+  --color-text-secondary: #9a9590;
+  --color-text-muted: #635e58;
+  --color-text-accent: #d4a94e;
 
-  /* ── Accent ── */
-  --color-accent: #6366f1;
-  --color-accent-hover: #818cf8;
-  --color-accent-muted: rgba(99, 102, 241, 0.15);
+  /* ── Accent (warm gold) ── */
+  --color-accent: #c49a3c;
+  --color-accent-hover: #d4aa4e;
+  --color-accent-muted: rgba(196, 154, 60, 0.12);
 
   /* ── Status ── */
-  --color-success: #34d399;
-  --color-warning: #fbbf24;
-  --color-error: #f87171;
+  --color-success: #6dba5e;
+  --color-warning: #daa030;
+  --color-error: #d4604e;
 
   /* ── Canvas / blocks ── */
-  --color-canvas-bg: #0d0d12;
-  --color-block-bg: #1a1a26;
-  --color-block-border: rgba(255, 255, 255, 0.08);
-  --color-block-selected: #6366f1;
-  --color-connector: #4a4a66;
-  --color-connector-hover: #6366f1;
+  --color-canvas-bg: #121010;
+  --color-block-bg: #1e1b17;
+  --color-block-border: rgba(220, 205, 180, 0.07);
+  --color-block-selected: #c49a3c;
+  --color-connector: #4a4640;
+  --color-connector-hover: #c49a3c;
 
-  /* ── Overlay helpers (replace hardcoded rgba(255,255,255,...)) ── */
-  --overlay-2: rgba(255, 255, 255, 0.02);
-  --overlay-4: rgba(255, 255, 255, 0.04);
-  --overlay-5: rgba(255, 255, 255, 0.05);
-  --overlay-6: rgba(255, 255, 255, 0.06);
-  --overlay-8: rgba(255, 255, 255, 0.08);
-  --overlay-10: rgba(255, 255, 255, 0.10);
-  --overlay-15: rgba(255, 255, 255, 0.15);
-  --overlay-20: rgba(255, 255, 255, 0.20);
-  --overlay-35: rgba(255, 255, 255, 0.35);
-  --overlay-40: rgba(255, 255, 255, 0.40);
-  --overlay-45: rgba(255, 255, 255, 0.45);
-  --overlay-70: rgba(255, 255, 255, 0.70);
-  --overlay-85: rgba(255, 255, 255, 0.85);
+  /* ── Overlay helpers ── */
+  --overlay-2: rgba(220, 205, 180, 0.02);
+  --overlay-4: rgba(220, 205, 180, 0.04);
+  --overlay-5: rgba(220, 205, 180, 0.05);
+  --overlay-6: rgba(220, 205, 180, 0.06);
+  --overlay-8: rgba(220, 205, 180, 0.08);
+  --overlay-10: rgba(220, 205, 180, 0.10);
+  --overlay-15: rgba(220, 205, 180, 0.14);
+  --overlay-20: rgba(220, 205, 180, 0.18);
+  --overlay-35: rgba(220, 205, 180, 0.32);
+  --overlay-40: rgba(220, 205, 180, 0.38);
+  --overlay-45: rgba(220, 205, 180, 0.42);
+  --overlay-70: rgba(220, 205, 180, 0.65);
+  --overlay-85: rgba(220, 205, 180, 0.80);
 
   /* ── Panel glass ── */
-  --panel-bg: rgba(22, 22, 35, 0.92);
-  --panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --panel-border: rgba(255, 255, 255, 0.06);
+  --panel-bg: rgba(26, 23, 20, 0.92);
+  --panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(220, 205, 180, 0.04);
+  --panel-border: rgba(220, 205, 180, 0.06);
 
   /* ── Scrollbar ── */
-  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb: rgba(220, 205, 180, 0.10);
+  --scrollbar-thumb-hover: rgba(220, 205, 180, 0.18);
 
   /* ── Block shadows ── */
-  --block-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  --block-shadow-selected: 0 0 0 2px rgba(99, 102, 241, 0.25), 0 4px 24px rgba(0, 0, 0, 0.4);
-  --block-shadow-editing: 0 0 0 2px rgba(99, 102, 241, 0.3), 0 8px 32px rgba(0, 0, 0, 0.6);
+  --block-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --block-shadow-selected: 0 0 0 2px rgba(196, 154, 60, 0.25), 0 4px 20px rgba(0, 0, 0, 0.35);
+  --block-shadow-editing: 0 0 0 2px rgba(196, 154, 60, 0.35), 0 8px 28px rgba(0, 0, 0, 0.5);
 
   /* ── Backdrop ── */
-  --backdrop-bg: rgba(0, 0, 0, 0.4);
+  --backdrop-bg: rgba(0, 0, 0, 0.45);
 }
 
 :root[data-theme="light"] {
-  /* ── Surfaces ── */
-  --color-app: #f5f5f0;
-  --color-sidebar: #eeeee8;
-  --color-surface: #e8e8e2;
-  --color-elevated: #ffffff;
-  --color-hover: #ddddd6;
-  --color-active: #d0d0c8;
+  /* ── Surfaces (matte paper — low glare) ── */
+  --color-app: #e9e3d9;
+  --color-sidebar: #e2dcd2;
+  --color-surface: #dbd5cb;
+  --color-elevated: #f0ece6;
+  --color-hover: #d5cfc5;
+  --color-active: #cec8be;
 
-  /* ── Borders ── */
-  --color-border-subtle: rgba(0, 0, 0, 0.06);
-  --color-border-default: rgba(0, 0, 0, 0.12);
-  --color-border-strong: rgba(0, 0, 0, 0.18);
+  /* ── Borders (warm brown) ── */
+  --color-border-subtle: rgba(80, 65, 48, 0.06);
+  --color-border-default: rgba(80, 65, 48, 0.10);
+  --color-border-strong: rgba(80, 65, 48, 0.16);
 
-  /* ── Text ── */
-  --color-text-primary: #222222;
-  --color-text-secondary: #555566;
-  --color-text-muted: #888899;
-  --color-text-accent: #4f52d9;
+  /* ── Text (dark brown, slightly cooled) ── */
+  --color-text-primary: #3a3433;
+  --color-text-secondary: #69605b;
+  --color-text-muted: #97908a;
+  --color-text-accent: #7a5e42;
 
-  /* ── Accent ── */
-  --color-accent: #6366f1;
-  --color-accent-hover: #4f46e5;
-  --color-accent-muted: rgba(99, 102, 241, 0.10);
+  /* ── Accent (warm amber/brown) ── */
+  --color-accent: #8b6914;
+  --color-accent-hover: #7a5c10;
+  --color-accent-muted: rgba(139, 105, 20, 0.08);
 
   /* ── Status ── */
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-error: #dc2626;
+  --color-success: #5a8a4a;
+  --color-warning: #c28420;
+  --color-error: #b84233;
 
-  /* ── Canvas / blocks ── */
-  --color-canvas-bg: #f0f0ea;
-  --color-block-bg: #ffffff;
-  --color-block-border: rgba(0, 0, 0, 0.10);
-  --color-connector: #aaaabc;
-  --color-connector-hover: #6366f1;
+  /* ── Canvas / blocks (matte paper) ── */
+  --color-canvas-bg: #e4ddd4;
+  --color-block-bg: #f0ece6;
+  --color-block-border: rgba(80, 65, 48, 0.08);
+  --color-connector: #b5ada0;
+  --color-connector-hover: #8b6914;
 
   /* ── Overlay helpers ── */
-  --overlay-2: rgba(0, 0, 0, 0.02);
-  --overlay-4: rgba(0, 0, 0, 0.04);
-  --overlay-5: rgba(0, 0, 0, 0.04);
-  --overlay-6: rgba(0, 0, 0, 0.06);
-  --overlay-8: rgba(0, 0, 0, 0.06);
-  --overlay-10: rgba(0, 0, 0, 0.08);
-  --overlay-15: rgba(0, 0, 0, 0.10);
-  --overlay-20: rgba(0, 0, 0, 0.14);
-  --overlay-35: rgba(0, 0, 0, 0.45);
-  --overlay-40: rgba(0, 0, 0, 0.50);
-  --overlay-45: rgba(0, 0, 0, 0.55);
-  --overlay-70: rgba(0, 0, 0, 0.70);
-  --overlay-85: rgba(0, 0, 0, 0.85);
+  --overlay-2: rgba(60, 45, 30, 0.02);
+  --overlay-4: rgba(60, 45, 30, 0.03);
+  --overlay-5: rgba(60, 45, 30, 0.04);
+  --overlay-6: rgba(60, 45, 30, 0.05);
+  --overlay-8: rgba(60, 45, 30, 0.06);
+  --overlay-10: rgba(60, 45, 30, 0.07);
+  --overlay-15: rgba(60, 45, 30, 0.09);
+  --overlay-20: rgba(60, 45, 30, 0.12);
+  --overlay-35: rgba(60, 45, 30, 0.35);
+  --overlay-40: rgba(60, 45, 30, 0.40);
+  --overlay-45: rgba(60, 45, 30, 0.45);
+  --overlay-70: rgba(60, 45, 30, 0.62);
+  --overlay-85: rgba(60, 45, 30, 0.75);
 
   /* ── Panel glass ── */
-  --panel-bg: rgba(255, 255, 255, 0.92);
-  --panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.04);
-  --panel-border: rgba(0, 0, 0, 0.08);
+  --panel-bg: rgba(250, 246, 240, 0.90);
+  --panel-shadow: 0 8px 32px rgba(60, 45, 30, 0.08), 0 2px 8px rgba(60, 45, 30, 0.04), inset 0 -1px 0 rgba(60, 45, 30, 0.03);
+  --panel-border: rgba(90, 70, 50, 0.08);
 
   /* ── Scrollbar ── */
-  --scrollbar-thumb: rgba(0, 0, 0, 0.12);
-  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.22);
+  --scrollbar-thumb: rgba(90, 70, 50, 0.12);
+  --scrollbar-thumb-hover: rgba(90, 70, 50, 0.20);
 
   /* ── Block shadows ── */
-  --block-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  --block-shadow-selected: 0 0 0 2px rgba(99, 102, 241, 0.30), 0 2px 12px rgba(0, 0, 0, 0.08);
-  --block-shadow-editing: 0 0 0 2px rgba(99, 102, 241, 0.40), 0 4px 20px rgba(0, 0, 0, 0.12);
+  --block-shadow: 0 1px 6px rgba(60, 45, 30, 0.06), 0 1px 2px rgba(60, 45, 30, 0.04);
+  --block-shadow-selected: 0 0 0 2px rgba(139, 105, 20, 0.25), 0 2px 8px rgba(60, 45, 30, 0.06);
+  --block-shadow-editing: 0 0 0 2px rgba(139, 105, 20, 0.35), 0 4px 14px rgba(60, 45, 30, 0.08);
 
   /* ── Backdrop ── */
   --backdrop-bg: rgba(0, 0, 0, 0.2);
@@ -2134,57 +2134,93 @@
    ============================================================ */
 
 :root[data-theme="light"] .hljs {
-  color: #24292e;
+  color: #3b3330;
   background: transparent;
 }
 
 :root[data-theme="light"] .hljs-keyword,
 :root[data-theme="light"] .hljs-selector-tag {
-  color: #d73a49;
+  color: #9a4a30;
 }
 
 :root[data-theme="light"] .hljs-string,
 :root[data-theme="light"] .hljs-addition {
-  color: #032f62;
+  color: #5a7a3a;
 }
 
 :root[data-theme="light"] .hljs-comment,
 :root[data-theme="light"] .hljs-quote {
-  color: #6a737d;
+  color: #9a8e80;
   font-style: italic;
 }
 
 :root[data-theme="light"] .hljs-number,
 :root[data-theme="light"] .hljs-literal {
-  color: #005cc5;
+  color: #7a5c3e;
 }
 
 :root[data-theme="light"] .hljs-title,
 :root[data-theme="light"] .hljs-section {
-  color: #6f42c1;
+  color: #8b6914;
 }
 
 :root[data-theme="light"] .hljs-built_in {
-  color: #e36209;
+  color: #b06a28;
 }
 
 :root[data-theme="light"] .hljs-type,
 :root[data-theme="light"] .hljs-params {
-  color: #005cc5;
+  color: #6a7a4a;
 }
 
 :root[data-theme="light"] .hljs-attr,
 :root[data-theme="light"] .hljs-variable {
-  color: #e36209;
+  color: #b06a28;
 }
 
 :root[data-theme="light"] .hljs-deletion {
-  color: #b31d28;
-  background: rgba(255, 220, 220, 0.5);
+  color: #9a3a28;
+  background: rgba(200, 160, 140, 0.2);
 }
 
 :root[data-theme="light"] .hljs-addition {
-  background: rgba(220, 255, 228, 0.5);
+  background: rgba(140, 180, 120, 0.2);
+}
+
+/* ============================================================
+   Dark Mode — CodeMirror overrides (warm dark)
+   ============================================================ */
+
+.cm-editor {
+  background: var(--color-block-bg) !important;
+}
+
+.cm-gutters {
+  background: var(--color-surface) !important;
+  border-right-color: var(--color-border-subtle) !important;
+  color: var(--color-text-muted) !important;
+}
+
+.cm-activeLineGutter,
+.cm-activeLine {
+  background: var(--overlay-4) !important;
+}
+
+.cm-cursor {
+  border-left-color: var(--color-text-primary) !important;
+}
+
+.cm-selectionBackground {
+  background: rgba(196, 154, 60, 0.18) !important;
+}
+
+.cm-content {
+  color: var(--color-text-primary);
+  caret-color: var(--color-text-primary);
+}
+
+.cm-line {
+  color: var(--color-text-primary);
 }
 
 /* ============================================================
@@ -2211,7 +2247,7 @@
 }
 
 :root[data-theme="light"] .cm-selectionBackground {
-  background: rgba(99, 102, 241, 0.15) !important;
+  background: rgba(139, 105, 20, 0.15) !important;
 }
 
 :root[data-theme="light"] .cm-content {
