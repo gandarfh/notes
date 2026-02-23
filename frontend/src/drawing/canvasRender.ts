@@ -57,44 +57,25 @@ function getThemeColors() {
 }
 
 /**
- * Remap drawing element colors for the active theme.
- * In light mode: near-white colors → near-black (and vice versa).
- * This is render-time only — stored data is untouched.
+ * Swap white ↔ black drawing colors for the active theme.
+ * Only exact palette matches are swapped — other colors are untouched.
+ * Render-time only; stored data is unchanged.
  */
-function remapForTheme(color: string): string {
+const LIGHT_SWAP: Record<string, string> = {
+    '#e8e8f0': '#1e1e2e',   // near-white → near-black
+    '#e0e0e0': '#2a2a2a',   // default stroke gray → dark gray
+    '#ffffff': '#000000',   // pure white → pure black
+    '#fff': '#000',
+    '#1e1e2e': '#e8e8f0',   // near-black → near-white
+    '#000000': '#ffffff',   // pure black → pure white
+    '#000': '#fff',
+}
+
+export function remapForTheme(color: string): string {
     const { isLight } = getThemeColors()
     if (!isLight) return color
-
-    // Normalize hex
-    let hex = color.trim().toLowerCase()
-    if (hex.startsWith('#')) {
-        if (hex.length === 4) hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-    } else {
-        return color // non-hex (named, rgb, etc.) — leave as-is
-    }
-
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
-    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-
-    // Near-white → near-black
-    if (lum > 0.75) {
-        const nr = Math.round(255 - r * 0.85)
-        const ng = Math.round(255 - g * 0.85)
-        const nb = Math.round(255 - b * 0.85)
-        return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb.toString(16).padStart(2, '0')}`
-    }
-
-    // Near-black → near-white
-    if (lum < 0.2) {
-        const nr = Math.min(255, Math.round(255 - r * 0.85))
-        const ng = Math.min(255, Math.round(255 - g * 0.85))
-        const nb = Math.min(255, Math.round(255 - b * 0.85))
-        return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb.toString(16).padStart(2, '0')}`
-    }
-
-    return color
+    const key = color.trim().toLowerCase()
+    return LIGHT_SWAP[key] ?? color
 }
 
 // ── Sketchy Helpers ──

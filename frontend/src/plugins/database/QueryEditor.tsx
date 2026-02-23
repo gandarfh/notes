@@ -141,7 +141,24 @@ export function QueryEditor({ value, onChange, onExecute, driver, schema, placeh
             const cmSchema = buildCMSchema(schema)
             ext.push(sql({ dialect, schema: cmSchema }))
 
-            // Context-aware autocomplete for SQL
+            // Context-aware autocomplete for SQL (schema + keywords)
+            const SQL_KEYWORDS: Completion[] = [
+                'SELECT', 'FROM', 'WHERE', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET',
+                'DELETE', 'DROP', 'CREATE', 'ALTER', 'TABLE', 'INDEX', 'VIEW',
+                'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'CROSS', 'ON',
+                'AND', 'OR', 'NOT', 'IN', 'EXISTS', 'BETWEEN', 'LIKE', 'IS', 'NULL',
+                'AS', 'ORDER', 'BY', 'GROUP', 'HAVING', 'LIMIT', 'OFFSET',
+                'ASC', 'DESC', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX',
+                'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
+                'UNION', 'ALL', 'INTERSECT', 'EXCEPT',
+                'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES', 'CONSTRAINT',
+                'DEFAULT', 'CHECK', 'UNIQUE', 'CASCADE',
+                'BEGIN', 'COMMIT', 'ROLLBACK', 'TRANSACTION',
+                'GRANT', 'REVOKE', 'TRUNCATE', 'EXPLAIN', 'ANALYZE',
+                'IF', 'REPLACE', 'COALESCE', 'CAST', 'CONVERT',
+                'INTEGER', 'TEXT', 'REAL', 'BLOB', 'VARCHAR', 'BOOLEAN', 'DATE', 'TIMESTAMP',
+            ].map(kw => ({ label: kw, type: 'keyword', detail: 'SQL', boost: -2 }))
+
             if (schema?.tables?.length) {
                 const tableMap = new Map<string, Completion[]>()
                 const tableCompletions: Completion[] = []
@@ -204,12 +221,21 @@ export function QueryEditor({ value, onChange, onExecute, driver, schema, placeh
                                 const cols = tableMap.get(ref)
                                 if (cols) contextCols.push(...cols)
                             }
-                            options = [...contextCols, ...tableCompletions]
+                            options = [...contextCols, ...tableCompletions, ...SQL_KEYWORDS]
                         } else {
-                            options = [...tableCompletions, ...allCols]
+                            options = [...tableCompletions, ...allCols, ...SQL_KEYWORDS]
                         }
 
                         return { from: word.from, options, validFor: /^\w*$/ }
+                    }],
+                }))
+            } else {
+                // No schema yet — still provide SQL keyword completions
+                ext.push(autocompletion({
+                    override: [(context: CompletionContext) => {
+                        const word = context.matchBefore(/\w*/)
+                        if (!word || (word.from === word.to && !context.explicit)) return null
+                        return { from: word.from, options: SQL_KEYWORDS, validFor: /^\w*$/ }
                     }],
                 }))
             }

@@ -1,6 +1,7 @@
 import React from 'react'
 import type { DrawingElement } from '../../drawing/types'
 import { isArrowType } from '../../drawing/types'
+import { remapForTheme } from '../../drawing/canvasRender'
 import { useAppStore } from '../../store'
 
 // ── Color presets ──
@@ -86,7 +87,7 @@ function ElementPanel({ elements, onUpdate }: { elements: DrawingElement[]; onUp
                 <div className="sp-swatches">
                     {STROKE_COLORS.map(c => (
                         <button key={c} className={`sp-swatch ${strokeColor === c ? 'active' : ''}`}
-                            style={{ background: c, border: c === '#1e1e2e' ? '1px solid var(--color-border-strong)' : undefined }}
+                            style={{ background: remapForTheme(c), border: remapForTheme(c) === remapForTheme('#1e1e2e') ? '1px solid var(--color-border-strong)' : undefined }}
                             onClick={() => onUpdate({ strokeColor: c })} />
                     ))}
                     <label className="sp-swatch sp-swatch-custom" title="Custom color">
@@ -270,7 +271,7 @@ function TextPanel({ elements, onUpdate }: { elements: DrawingElement[]; onUpdat
                 <div className="sp-swatches">
                     {STROKE_COLORS.map(c => (
                         <button key={c} className={`sp-swatch ${textColor === c ? 'active' : ''}`}
-                            style={{ background: c, border: c === '#1e1e2e' ? '1px solid var(--color-border-strong)' : undefined }}
+                            style={{ background: remapForTheme(c), border: remapForTheme(c) === remapForTheme('#1e1e2e') ? '1px solid var(--color-border-strong)' : undefined }}
                             onClick={() => onUpdate({ textColor: c })} />
                     ))}
                     <label className="sp-swatch sp-swatch-custom" title="Custom color">
