@@ -233,7 +233,7 @@ export function ResultsTable({ result, loading, isCached, onFetchMore, onApplyMu
                             return (
                                 <React.Fragment key={ri}>
                                     <tr
-                                        className={`transition-colors ${isDeleted
+                                        className={`${isDeleted
                                             ? 'bg-error/8 line-through opacity-60'
                                             : 'hover:bg-hover/60 even:bg-white/[0.01]'
                                             }`}

@@ -170,7 +170,6 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
         if ((e.target as HTMLElement).closest('button')) return
         if (isEditing) return
         e.stopPropagation()
-        // Close editor if editing a different block
         const { editingBlockId } = useAppStore.getState()
         if (editingBlockId && editingBlockId !== blockId) closeEditorGlobal()
         selectBlock(blockId)
@@ -185,14 +184,22 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
             const zoom = useAppStore.getState().viewport.zoom
             const dx = (ev.clientX - d.startX) / zoom
             const dy = (ev.clientY - d.startY) / zoom
-            moveBlock(blockId, d.origX + dx, d.origY + dy)
+            // Direct DOM update — bypass React/Zustand during drag for zero re-renders
+            if (elRef.current) {
+                elRef.current.style.left = `${d.origX + dx}px`
+                elRef.current.style.top = `${d.origY + dy}px`
+            }
         }
 
         const onUp = () => {
             dragRef.current = null
-            // Snap to grid on release
-            const b = useAppStore.getState().blocks.get(blockId)
-            if (b) moveBlock(blockId, snapToGrid(b.x), snapToGrid(b.y))
+            // Read final position from DOM, snap to grid, commit once to store
+            const el = elRef.current
+            if (el) {
+                const finalX = snapToGrid(parseFloat(el.style.left))
+                const finalY = snapToGrid(parseFloat(el.style.top))
+                moveBlock(blockId, finalX, finalY)
+            }
             saveBlockPosition(blockId)
             window.removeEventListener('mousemove', onMove)
             window.removeEventListener('mouseup', onUp)
@@ -242,20 +249,29 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
             const dh = (ev.clientY - r.startY) / zoom
             const bType = useAppStore.getState().blocks.get(blockId)?.type
 
-            if (bType === 'image' && !ev.ctrlKey && !ev.metaKey) {
-                // Proportional resize: use the larger delta to drive the ratio
-                const newW = Math.max(60, r.origW + dw)
-                const newH = newW / aspectRatio
-                resizeBlock(blockId, newW, Math.max(60, newH))
-            } else {
-                resizeBlock(blockId, Math.max(120, r.origW + dw), Math.max(80, r.origH + dh))
+            // Direct DOM update — bypass React/Zustand during resize
+            if (elRef.current) {
+                if (bType === 'image' && !ev.ctrlKey && !ev.metaKey) {
+                    const newW = Math.max(60, r.origW + dw)
+                    const newH = newW / aspectRatio
+                    elRef.current.style.width = `${newW}px`
+                    elRef.current.style.height = `${Math.max(60, newH)}px`
+                } else {
+                    elRef.current.style.width = `${Math.max(120, r.origW + dw)}px`
+                    elRef.current.style.height = `${Math.max(80, r.origH + dh)}px`
+                }
             }
         }
 
         const onUp = () => {
             resizeRef.current = null
-            const b = useAppStore.getState().blocks.get(blockId)
-            if (b) resizeBlock(blockId, snapToGrid(Math.max(60, b.width)), snapToGrid(Math.max(60, b.height)))
+            // Read final size from DOM, snap to grid, commit once to store
+            const el = elRef.current
+            if (el) {
+                const finalW = snapToGrid(Math.max(60, parseFloat(el.style.width)))
+                const finalH = snapToGrid(Math.max(60, parseFloat(el.style.height)))
+                resizeBlock(blockId, finalW, finalH)
+            }
             saveBlockPosition(blockId)
             window.removeEventListener('mousemove', onMove)
             window.removeEventListener('mouseup', onUp)

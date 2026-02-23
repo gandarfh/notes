@@ -583,6 +583,11 @@
     image-rendering: auto;
   }
 
+  /* Block content — layout containment prevents repaint propagation during drag/resize */
+  .block-content {
+    contain: content;
+  }
+
   /* SVG connector styling — must use CSS for SVG attributes */
   .connector-path {
     fill: none;
