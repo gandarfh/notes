@@ -16,6 +16,7 @@ export interface NotebookSlice {
     pages: Page[]
     activeNotebookId: string | null
     activePageId: string | null
+    initializing: boolean
     expandedNotebooks: Set<string>
 
     loadNotebooks: () => Promise<void>

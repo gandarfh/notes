@@ -1111,6 +1111,107 @@
     pointer-events: none;
   }
 
+  /* ── Color Picker Popover ── */
+  .cp-wrapper {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .cp-popover {
+    position: fixed;
+    background: var(--panel-bg);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    z-index: 9999;
+    box-shadow: var(--panel-shadow);
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .cp-label {
+    font-size: 0.615rem;
+    font-weight: 500;
+    color: var(--overlay-35);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
+  .cp-grid,
+  .cp-shades {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .cp-shades {
+    flex-direction: row;
+  }
+
+  .cp-row {
+    display: flex;
+    gap: 4px;
+  }
+
+  .cp-cell {
+    width: 24px;
+    height: 24px;
+    border-radius: 5px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    outline: none;
+    transition: transform 150ms ease, border-color 150ms ease;
+    flex-shrink: 0;
+  }
+
+  .cp-cell:hover {
+    transform: scale(1.15);
+  }
+
+  .cp-cell.active {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px var(--color-accent-muted);
+  }
+
+  .cp-hint {
+    font-size: 0.692rem;
+    color: var(--overlay-35);
+    font-style: italic;
+  }
+
+  .cp-hex-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--overlay-4);
+    border-radius: 6px;
+    padding: 4px 8px;
+  }
+
+  .cp-hash {
+    font-size: 0.77rem;
+    font-weight: 600;
+    color: var(--overlay-40);
+  }
+
+  .cp-hex-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 0.77rem;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--color-text-primary);
+    width: 60px;
+    letter-spacing: 0.04em;
+  }
+
   /* ── Option buttons ── */
   .sp-options {
     display: flex;

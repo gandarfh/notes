@@ -15,6 +15,7 @@ import logoSvg from './assets/images/logo.svg'
 
 export function App() {
     const activePageId = useAppStore(s => s.activePageId)
+    const initializing = useAppStore(s => s.initializing)
     const loadNotebooks = useAppStore(s => s.loadNotebooks)
     const initEventListeners = useAppStore(s => s.initEventListeners)
     const terminal = useTerminal()
@@ -116,7 +117,7 @@ export function App() {
                 </div>
 
                 {/* Empty State */}
-                {!activePageId && (
+                {!activePageId && !initializing && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-text-muted z-1 pointer-events-none">
                         <div className="mb-6 opacity-80"><img src={logoSvg} alt="Notes" width={96} height={96} /></div>
                         <h2 className="text-lg font-semibold text-text-secondary mb-2">Welcome to Notes</h2>

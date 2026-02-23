@@ -2,6 +2,7 @@ import React from 'react'
 import type { DrawingElement } from '../../drawing/types'
 import { isArrowType } from '../../drawing/types'
 import { remapForTheme } from '../../drawing/canvasRender'
+import { ColorPicker } from './ColorPicker'
 import { useAppStore } from '../../store'
 
 // ── Color presets ──
@@ -90,10 +91,7 @@ function ElementPanel({ elements, onUpdate }: { elements: DrawingElement[]; onUp
                             style={{ background: remapForTheme(c), border: remapForTheme(c) === remapForTheme('#1e1e2e') ? '1px solid var(--color-border-strong)' : undefined }}
                             onClick={() => onUpdate({ strokeColor: c })} />
                     ))}
-                    <label className="sp-swatch sp-swatch-custom" title="Custom color">
-                        <input type="color" value={strokeColor} onChange={e => onUpdate({ strokeColor: e.target.value })} />
-                        <span style={{ background: strokeColor }} />
-                    </label>
+                    <ColorPicker color={strokeColor} onChange={c => onUpdate({ strokeColor: c })} />
                 </div>
             </div>
 
@@ -107,10 +105,7 @@ function ElementPanel({ elements, onUpdate }: { elements: DrawingElement[]; onUp
                                 style={{ background: c === 'transparent' ? undefined : c }}
                                 onClick={() => onUpdate({ backgroundColor: c })} />
                         ))}
-                        <label className="sp-swatch sp-swatch-custom" title="Custom color">
-                            <input type="color" value={bgColor === 'transparent' ? '#343446' : bgColor} onChange={e => onUpdate({ backgroundColor: e.target.value })} />
-                            <span style={{ background: bgColor === 'transparent' ? 'transparent' : bgColor }} />
-                        </label>
+                        <ColorPicker color={bgColor === 'transparent' ? '#343446' : bgColor} onChange={c => onUpdate({ backgroundColor: c })} />
                     </div>
                 </div>
             )}
@@ -274,10 +269,7 @@ function TextPanel({ elements, onUpdate }: { elements: DrawingElement[]; onUpdat
                             style={{ background: remapForTheme(c), border: remapForTheme(c) === remapForTheme('#1e1e2e') ? '1px solid var(--color-border-strong)' : undefined }}
                             onClick={() => onUpdate({ textColor: c })} />
                     ))}
-                    <label className="sp-swatch sp-swatch-custom" title="Custom color">
-                        <input type="color" value={textColor} onChange={e => onUpdate({ textColor: e.target.value })} />
-                        <span style={{ background: textColor }} />
-                    </label>
+                    <ColorPicker color={textColor} onChange={c => onUpdate({ textColor: c })} />
                 </div>
             </div>
         </div>

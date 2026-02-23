@@ -41,11 +41,28 @@ export const useAppStore = create<AppState>((set, get) => ({
     pages: [],
     activeNotebookId: null,
     activePageId: null,
+    initializing: !!localStorage.getItem('notes:lastPageId'),
     expandedNotebooks: new Set<string>(),
 
     loadNotebooks: async () => {
         const notebooks = await api.listNotebooks()
         set({ notebooks: notebooks || [] })
+
+        // Restore last active page from localStorage
+        const lastPageId = localStorage.getItem('notes:lastPageId')
+        if (lastPageId && notebooks?.length) {
+            // Verify the page still exists in some notebook
+            for (const nb of notebooks) {
+                const pages = await api.listPages(nb.id)
+                const found = pages?.find((p: any) => p.id === lastPageId)
+                if (found) {
+                    set({ pages, activeNotebookId: nb.id, expandedNotebooks: new Set([nb.id]) })
+                    await get().selectPage(lastPageId)
+                    return
+                }
+            }
+        }
+        set({ initializing: false })
     },
 
     createNotebook: async (name) => {
@@ -130,6 +147,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             await persistBus.flushNow()
         }
         set({ activePageId: id })
+        localStorage.setItem('notes:lastPageId', id)
         await get().loadPageState(id)
     },
 
