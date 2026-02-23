@@ -1,11 +1,50 @@
 import { marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
+import markedKatex from 'marked-katex-extension'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.min.css'
+import 'katex/dist/katex.min.css'
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 import { getBlockFontSize } from '../../components/Block/BlockContainer'
 import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
+
+// ── Footnote pre-processor ─────────────────────────────────
+// Extracts [^id]: definitions and converts [^id] refs into
+// superscript links + appends a footnotes section at the end.
+
+function processFootnotes(src: string): string {
+    const defRegex = /^\[\^([^\]]+)\]:\s*(.+)$/gm
+    const defs = new Map<string, string>()
+    let match: RegExpExecArray | null
+    while ((match = defRegex.exec(src)) !== null) {
+        defs.set(match[1], match[2])
+    }
+    if (defs.size === 0) return src
+
+    // Remove definition lines from source
+    let cleaned = src.replace(/^\[\^([^\]]+)\]:\s*(.+)$/gm, '')
+
+    // Replace inline references [^id] with superscript links
+    let idx = 0
+    const order: string[] = []
+    cleaned = cleaned.replace(/\[\^([^\]]+)\]/g, (_, id: string) => {
+        if (!defs.has(id)) return `[^${id}]`
+        if (!order.includes(id)) order.push(id)
+        const num = order.indexOf(id) + 1
+        return `<sup class="fn-ref"><a href="#fn-${id}" id="fnref-${id}">${num}</a></sup>`
+    })
+
+    // Append footnotes section
+    if (order.length > 0) {
+        cleaned += '\n\n---\n\n<section class="footnotes">\n<ol>\n'
+        for (const id of order) {
+            cleaned += `<li id="fn-${id}">${defs.get(id)} <a href="#fnref-${id}" class="fn-back">↩</a></li>\n`
+        }
+        cleaned += '</ol>\n</section>\n'
+    }
+    return cleaned
+}
 
 // ── Configure marked ───────────────────────────────────────
 
@@ -17,6 +56,12 @@ marked.use(markedHighlight({
         }
         return hljs.highlightAuto(code).value
     },
+}))
+
+// Enable KaTeX math rendering ($...$ inline, $$...$$ block)
+marked.use(markedKatex({
+    throwOnError: false,
+    output: 'html',
 }))
 
 // Enable GFM (tables, strikethrough, task lists) + line breaks
@@ -117,7 +162,8 @@ marked.use({
 // ── Line annotation + rendering ────────────────────────────
 
 function renderMarkdownWithLines(src: string): string {
-    const tokens = marked.lexer(src)
+    const processed = processFootnotes(src)
+    const tokens = marked.lexer(processed)
 
     // Recursively assign sourceLine to tokens and their children
     function annotate(tokenList: any[], startLine: number): number {
@@ -158,7 +204,7 @@ const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: Bl
     }, [block.id])
 
     const html = useMemo(() =>
-        block.content ? renderMarkdownWithLines(block.content) : '<p style="color: var(--color-text-muted); font-style: italic;">Empty — double-click to edit</p>'
+        block.content ? renderMarkdownWithLines(block.content) : '<p style="color: var(--color-text-muted); font-style: italic;">Empty — ⌘+click to edit</p>'
         , [block.content])
 
     const handleClick = useCallback((e: React.MouseEvent) => {
