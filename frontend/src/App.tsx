@@ -98,10 +98,13 @@ export function App() {
     return (
         <div className="w-full h-full relative">
             <header className="app-header">
-                <Breadcrumb onOpenPalette={() => setShowPalette(true)} />
+                <div className="header-left">
+                    <Breadcrumb />
+                </div>
                 <Toolbar
                     showUndoPanel={showUndoPanel}
                     onToggleUndoPanel={() => setShowUndoPanel(p => !p)}
+                    onOpenPalette={() => setShowPalette(true)}
                 />
             </header>
             <CommandPalette isOpen={showPalette} onClose={() => setShowPalette(false)} />

@@ -40,7 +40,7 @@ function RenameInput({ value, onRename, onCancel }: { value: string; onRename: (
     )
 }
 
-export function Breadcrumb({ onOpenPalette }: { onOpenPalette: () => void }) {
+export function Breadcrumb() {
     const notebooks = useAppStore(s => s.notebooks)
     const activeNotebookId = useAppStore(s => s.activeNotebookId)
     const activePageId = useAppStore(s => s.activePageId)
@@ -196,20 +196,6 @@ export function Breadcrumb({ onOpenPalette }: { onOpenPalette: () => void }) {
                 </>
             )}
 
-            {/* Search shortcut hint */}
-            <button
-                className="breadcrumb-search-hint"
-                onClick={onOpenPalette}
-                title="Search & Navigate (⌘K)"
-            >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                    <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.3" />
-                    <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
-                <span>
-                    <kbd className="px-1.5 py-0.5 rounded text-text-secondary text-[14px] font-mono border border-border-subtle">⌘</kbd> <kbd className="px-1.5 py-0.5 rounded text-text-secondary text-[14px] font-mono border border-border-subtle">k</kbd>
-                </span>
-            </button>
         </div>
     )
 }

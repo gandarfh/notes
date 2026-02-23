@@ -34,9 +34,10 @@ function ZoomDisplay() {
     return <span className="toolbar-zoom">{Math.round(zoom * 100)}%</span>
 }
 
-export function Toolbar({ showUndoPanel, onToggleUndoPanel }: {
+export function Toolbar({ showUndoPanel, onToggleUndoPanel, onOpenPalette }: {
     showUndoPanel: boolean
     onToggleUndoPanel: () => void
+    onOpenPalette: () => void
 }) {
     const drawingSubTool = useAppStore(s => s.drawingSubTool)
     const setDrawingSubTool = useAppStore(s => s.setDrawingSubTool)
@@ -69,6 +70,17 @@ export function Toolbar({ showUndoPanel, onToggleUndoPanel }: {
             </div>
 
             <div className="toolbar-right">
+                <button
+                    className="toolbar-btn"
+                    title="Search & Navigate (⌘K)"
+                    onClick={onOpenPalette}
+                >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="9" cy="9" r="5" stroke="currentColor" strokeWidth="1.3" />
+                        <path d="M13 13L17 17" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                    </svg>
+                    <span className="toolbar-key">⌘K</span>
+                </button>
                 <button
                     className={`toolbar-btn ${boardStyle === 'sketchy' ? 'active' : ''}`}
                     title={boardStyle === 'sketchy' ? 'Switch to Clean' : 'Switch to Sketchy'}
