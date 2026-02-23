@@ -358,7 +358,7 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                 background: isImage ? 'transparent' : 'var(--color-block-bg)',
                 border: `1px solid ${borderColor}`,
                 boxShadow: isImage ? 'none' : boxShadow,
-                zIndex: isEditing ? 10 : undefined,
+                zIndex: isEditing ? 100 : isSelected ? 50 : undefined,
                 contentVisibility: 'auto',
                 containIntrinsicSize: `${block.width}px ${block.height}px`,
             }}

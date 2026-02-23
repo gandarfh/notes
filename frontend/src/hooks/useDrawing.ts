@@ -104,7 +104,47 @@ export function useDrawing(
 
     const getZoom = useCallback(() => useAppStore.getState().viewport.zoom, [])
 
-    // ── Render SVG ──
+    // ── Persistent SVG DOM ──
+    // Each drawing element gets a persistent <g> node in the SVG.
+    // Position changes → setAttribute('transform') (1 DOM mutation, zero re-render)
+    // Content changes → g.innerHTML (only that element, not all)
+    const elGroupMapRef = useRef<Map<string, SVGGElement>>(new Map())
+    const elHashMapRef = useRef<Map<string, number>>(new Map())
+    const lastOrderRef = useRef('')
+    const lastBoardStyleRef = useRef('')
+
+    /** Fast numeric fingerprint of all rendering-relevant properties (excludes x, y) */
+    function fastHash(el: DrawingElement, extra: number): number {
+        let h = (el.width * 7 + el.height * 13 + el.strokeWidth * 17 + extra) | 0
+        h = (h * 31 + (el.opacity ?? 1) * 100 + (el.borderRadius ?? 0) * 11 + (el.fontSize ?? 14) * 19) | 0
+        h = (h * 31 + (el.fontWeight ?? 400) + (el.roundness ? 23 : 0)) | 0
+        h = (h * 31 + Math.round((el.labelT ?? 0.5) * 100)) | 0
+        const cc = (s: string | undefined) => { if (!s) return 0; let v = s.length; for (let i = 0; i < Math.min(s.length, 8); i++) v = (v * 31 + s.charCodeAt(i)) | 0; return v }
+        h = (h * 31 + cc(el.strokeColor) + cc(el.backgroundColor) * 3 + cc(el.textColor) * 5) | 0
+        h = (h * 31 + cc(el.fillStyle) + cc(el.strokeDasharray) + cc(el.text) * 7 + cc(el.label) * 11) | 0
+        h = (h * 31 + cc(el.fontFamily) + cc(el.textAlign) + cc(el.verticalAlign)) | 0
+        h = (h * 31 + cc(el.arrowEnd) + cc(el.arrowStart)) | 0
+        if (el.points && el.points.length > 0) {
+            h = (h * 31 + el.points.length * 1000) | 0
+            h = (h * 31 + (el.points[0][0] * 7 + el.points[0][1] * 13) | 0) | 0
+            const last = el.points[el.points.length - 1]
+            h = (h * 31 + (last[0] * 7 + last[1] * 13) | 0) | 0
+        }
+        return h
+    }
+
+    /** Ensure an SVG layer <g> exists with the given id */
+    function ensureLayer(svg: SVGSVGElement, id: string): SVGGElement {
+        let g = svg.getElementById(id) as SVGGElement | null
+        if (!g) {
+            g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+            g.id = id
+            svg.appendChild(g)
+        }
+        return g
+    }
+
+    // ── Render SVG (persistent DOM) ──
     const render = useCallback(() => {
         if (rafRef.current !== null) return  // already scheduled
         rafRef.current = requestAnimationFrame(() => {
@@ -112,36 +152,92 @@ export function useDrawing(
             const svg = svgRef.current
             if (!svg) return
 
+            const sketchy = useAppStore.getState().boardStyle === 'sketchy'
+            const boardStyleKey = sketchy ? 's' : 'n'
+
+            // If board style changed, invalidate all content hashes (forces re-render of all elements)
+            if (lastBoardStyleRef.current !== boardStyleKey) {
+                lastBoardStyleRef.current = boardStyleKey
+                elHashMapRef.current.clear()
+            }
+
+            // ── Layer structure ──
+            const defsLayer = ensureLayer(svg, 'layer-defs')
+            const overlayLayer = ensureLayer(svg, 'layer-overlay')
+            const elementsLayer = ensureLayer(svg, 'layer-elements')
+            const selectionLayer = ensureLayer(svg, 'layer-selection')
+
+            // 1. Defs (sketchy filter defs — only update when style changes)
+            const defsContent = sketchy ? getSketchyDefs() : ''
+            if (defsLayer.innerHTML !== defsContent) defsLayer.innerHTML = defsContent
+
+            // 2. Overlay (handler overlays — anchors, previews. Small, uses innerHTML)
+            const handler = activeHandlerRef.current
+            const overlayContent = handler?.renderOverlay ? (handler.renderOverlay(buildContext()) ?? '') : ''
+            overlayLayer.innerHTML = overlayContent
+
+            // 3. Elements (persistent <g> nodes — the core optimization)
             const elements = [...elementsRef.current]
             if (currentElementRef.current) elements.push(currentElementRef.current)
 
-            let svgContent = ''
-
-            // Board style mode
-            const sketchy = useAppStore.getState().boardStyle === 'sketchy'
-            if (sketchy) svgContent += getSketchyDefs()
-
-            // Handler overlay (anchors, previews, etc.)
-            const handler = activeHandlerRef.current
-            if (handler?.renderOverlay) {
-                svgContent += handler.renderOverlay(buildContext()) ?? ''
-            }
-
             const selected = selectedElementRef.current
             const multiSelected = selectedElementsRef.current
+            const activeIds = new Set<string>()
 
             for (const el of elements) {
+                activeIds.add(el.id)
+                let g = elGroupMapRef.current.get(el.id)
+
+                // Create <g> if new element
+                if (!g) {
+                    g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+                    elementsLayer.appendChild(g)
+                    elGroupMapRef.current.set(el.id, g)
+                }
+
+                // Position: always update (1 setAttribute call — very cheap)
+                g.setAttribute('transform', `translate(${el.x},${el.y})`)
+
+                // Content: only re-render if element properties changed
                 const isEditingThis = editorRequest?.elementId === el.id
-                const isSel = selected?.id === el.id || multiSelected.has(el.id)
-                svgContent += renderElement(el, isSel, isEditingThis, sketchy)
+                const h = fastHash(el, (isEditingThis ? 9999 : 0) + (sketchy ? 77777 : 0))
+                if (elHashMapRef.current.get(el.id) !== h) {
+                    const ox = el.x, oy = el.y
+                    el.x = 0; el.y = 0
+                    const isSel = selected?.id === el.id || multiSelected.has(el.id)
+                    g.innerHTML = renderElement(el, isSel, isEditingThis, sketchy)
+                    el.x = ox; el.y = oy
+                    elHashMapRef.current.set(el.id, h)
+                }
             }
 
-            // Selection UI for single selected element
+            // Remove deleted elements from DOM
+            for (const [id, g] of elGroupMapRef.current) {
+                if (!activeIds.has(id)) {
+                    g.remove()
+                    elGroupMapRef.current.delete(id)
+                    elHashMapRef.current.delete(id)
+                }
+            }
+
+            // Z-order: ensure DOM order matches elements array order
+            const orderKey = elements.map(e => e.id).join(',')
+            if (lastOrderRef.current !== orderKey) {
+                lastOrderRef.current = orderKey
+                for (const el of elements) {
+                    const g = elGroupMapRef.current.get(el.id)
+                    if (g) elementsLayer.appendChild(g)  // appendChild moves existing nodes
+                }
+            }
+
+            // 4. Selection UI (small, uses innerHTML — changes every frame during drag anyway)
+            let selContent = ''
             if (selected && multiSelected.size <= 1) {
-                svgContent += renderSelectionUI(selected)
+                const ox = selected.x, oy = selected.y
+                selected.x = 0; selected.y = 0
+                selContent = `<g transform="translate(${ox},${oy})">${renderSelectionUI(selected)}</g>`
+                selected.x = ox; selected.y = oy
             }
-
-            // Multi-selection bounding box
             if (multiSelected.size > 1) {
                 const selEls = elements.filter(e => multiSelected.has(e.id))
                 if (selEls.length > 0) {
@@ -154,11 +250,10 @@ export function useDrawing(
                         maxY = Math.max(maxY, b.y + b.h)
                     }
                     const pad = 6
-                    svgContent += `<rect x="${minX - pad}" y="${minY - pad}" width="${maxX - minX + pad * 2}" height="${maxY - minY + pad * 2}" fill="none" stroke="var(--color-accent)" stroke-width="1" stroke-dasharray="4 3" rx="3" />`
+                    selContent += `<rect x="${minX - pad}" y="${minY - pad}" width="${maxX - minX + pad * 2}" height="${maxY - minY + pad * 2}" fill="none" stroke="var(--color-accent)" stroke-width="1" stroke-dasharray="4 3" rx="3" />`
                 }
             }
-
-            svg.innerHTML = svgContent
+            selectionLayer.innerHTML = selContent
         })
     }, [svgRef, editorRequest])
 
@@ -257,6 +352,15 @@ export function useDrawing(
         selectedElementRef.current = null
         currentElementRef.current = null
         selectedElementsRef.current.clear()
+        // Clear persistent DOM state for the new page
+        elGroupMapRef.current.clear()
+        elHashMapRef.current.clear()
+        lastOrderRef.current = ''
+        const svg = svgRef.current
+        if (svg) {
+            const elementsLayer = svg.getElementById('layer-elements')
+            if (elementsLayer) elementsLayer.innerHTML = ''
+        }
         render()
     }, [drawingData])
 

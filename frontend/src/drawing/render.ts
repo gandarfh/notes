@@ -1,5 +1,14 @@
 import { type DrawingElement, type AnchorPoint, ANCHOR_RADIUS, HANDLE_SIZE, isArrowType } from './types'
 
+/** Stable numeric hash from element ID — position-independent so sketchy look stays constant during moves */
+function hashId(id: string): number {
+    let h = 0
+    for (let i = 0; i < id.length; i++) {
+        h = ((h << 5) - h + id.charCodeAt(i)) | 0
+    }
+    return Math.abs(h)
+}
+
 /** Render a label along an arrow/line path at position labelT */
 export function renderArrowLabel(el: DrawingElement, color: string, sketchy = false): string {
     if (!el.label || !el.points || el.points.length < 2) return ''
@@ -107,7 +116,7 @@ function renderHead(el: DrawingElement, color: string, sw: number, which: 'start
     const ax = el.x + tip[0], ay = el.y + tip[1]
     const angle = Math.atan2(tip[1] - prev[1], tip[0] - prev[0])
     const size = 6 + sw * 3
-    const seed = Math.round(ax * 7 + ay * 13 + (which === 'start' ? 500 : 0))
+    const seed = hashId(el.id) + (which === 'start' ? 500 : 0)
 
     if (sketchy) {
         // Hand-drawn arrowheads using sketch lines
@@ -295,8 +304,7 @@ function sketchRect(x: number, y: number, w: number, h: number,
         for (let e = 0; e < 4; e++) {
             const [ax, ay] = corners[e]
             const [bx, by] = corners[(e + 1) % 4]
-            const passes = 2 + (sr(seed, e, 99) > 0.5 ? 1 : 0)
-            for (let p = 0; p < passes; p++) {
+            for (let p = 0; p < 2; p++) {
                 svg += sketchLine(ax, ay, bx, by, color, sw, seed + e * 137 + p * 31, p, 6, dash)
             }
         }
@@ -318,8 +326,7 @@ function sketchRect(x: number, y: number, w: number, h: number,
         ]
         for (let e = 0; e < 4; e++) {
             const [ax, ay, bx, by] = edges[e]
-            const passes = 2 + (sr(seed, e, 99) > 0.5 ? 1 : 0)
-            for (let p = 0; p < passes; p++) {
+            for (let p = 0; p < 2; p++) {
                 svg += sketchLine(ax, ay, bx, by, color, sw, seed + e * 137 + p * 31, p, 6, dash)
             }
             // Draw corner arc
@@ -339,7 +346,7 @@ function sketchEllipse(cx: number, cy: number, rx: number, ry: number,
     color: string, sw: number, seed: number, dash = ''): string {
     let svg = ''
     for (let p = 0; p < 2; p++) {
-        const steps = 36
+        const steps = 24
         const points: [number, number][] = []
         // Don't close exactly — leave a small gap or overlap (natural)
         const startOffset = (sr(seed, p, 80) - 0.5) * 0.15
@@ -374,7 +381,7 @@ function sketchDiamond(cx: number, cy: number, w: number, h: number,
     const pts: [number, number][] = [[cx, cy - h / 2], [cx + w / 2, cy], [cx, cy + h / 2], [cx - w / 2, cy]]
     let svg = ''
     for (let e = 0; e < 4; e++) {
-        const passes = 2 + (sr(seed, e, 99) > 0.6 ? 1 : 0)
+        const passes = 2
         for (let p = 0; p < passes; p++) {
             svg += sketchLine(pts[e][0], pts[e][1], pts[(e + 1) % 4][0], pts[(e + 1) % 4][1],
                 color, sw, seed + e * 137 + p * 31, p, 6, dash)
@@ -399,7 +406,7 @@ function sketchFill(x: number, y: number, w: number, h: number,
         const baseAngle = 0.7 + (sr(seed, seed, 50) - 0.5) * 0.2
         const cos = Math.cos(baseAngle), sin = Math.sin(baseAngle)
         const diag = Math.hypot(w, h) + 20
-        const spacing = 8 + sr(seed, seed, 51) * 4
+        const spacing = 14 + sr(seed, seed, 51) * 4
         const numStrokes = Math.ceil(diag / spacing)
 
         for (let i = 0; i < numStrokes; i++) {
@@ -411,7 +418,7 @@ function sketchFill(x: number, y: number, w: number, h: number,
             const ex = cx + cos * (diag / 2) + sin * offset
             const ey = cy + sin * (diag / 2) - cos * offset
 
-            const strokeW = 3 + sr(seed, i, 52) * 2
+            const strokeW = 4 + sr(seed, i, 52) * 3
             const op = 0.2 + sr(seed, i, 53) * 0.15
             // Slight midpoint wobble
             const mx = (sx + ex) / 2 + (sr(seed, i, 54) - 0.5) * 3
@@ -429,7 +436,7 @@ function sketchFill(x: number, y: number, w: number, h: number,
     const baseAngle = 0.5 + (sr(seed, seed, 60) - 0.5) * 0.3
     const cos = Math.cos(baseAngle), sin = Math.sin(baseAngle)
     const diag = Math.hypot(w, h) + 30
-    const spacing = 2.5 + sr(seed, seed, 61) * 1.5
+    const spacing = 5 + sr(seed, seed, 61) * 2
     const numStrokes = Math.ceil(diag / spacing)
     // Expand bounds slightly for bleed
     const bleed = 3 + sr(seed, seed, 62) * 2
@@ -443,7 +450,7 @@ function sketchFill(x: number, y: number, w: number, h: number,
         const ex = cx + cos * (diag / 2 + bleed) + sin * offset
         const ey = cy + sin * (diag / 2 + bleed) - cos * offset
 
-        const strokeW = 2.5 + sr(seed, i, 63) * 2
+        const strokeW = 4 + sr(seed, i, 63) * 3
         const op = 0.05 + sr(seed, i, 64) * 0.06
         svg += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" 
             stroke="${color}" stroke-width="${strokeW}" opacity="${op}" stroke-linecap="round"/>`
@@ -471,8 +478,8 @@ export function renderElement(el: DrawingElement, _selected: boolean, hideText =
     const rx = el.borderRadius ?? (el.roundness ? 8 : 0)
     const opacityAttr = el.opacity != null && el.opacity < 1 ? ` opacity="${el.opacity}"` : ''
     const dashAttr = el.strokeDasharray ? ` stroke-dasharray="${el.strokeDasharray}"` : ''
-    // Seed based on position for deterministic look
-    const seed = Math.round(el.x * 7 + el.y * 13)
+    // Stable seed from element ID — position-independent so sketchy look stays constant during moves
+    const seed = hashId(el.id)
 
     let shapeSvg = ''
 

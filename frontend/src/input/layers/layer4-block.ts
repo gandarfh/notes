@@ -152,13 +152,21 @@ function getSortedBlockIds(): string[] {
         .map(([id]) => id)
 }
 
+function focusBlockElement(blockId: string) {
+    // Focus the DOM element so the block becomes "active" (matches mouse click behavior)
+    const el = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement
+    if (el) el.focus({ preventScroll: true })
+}
+
 function navigateBlocks(direction: 1 | -1) {
     const { selectedBlockId, selectBlock } = useAppStore.getState()
     const ids = getSortedBlockIds()
     if (ids.length === 0) return
 
     if (!selectedBlockId) {
-        selectBlock(ids[direction === 1 ? 0 : ids.length - 1])
+        const id = ids[direction === 1 ? 0 : ids.length - 1]
+        selectBlock(id)
+        focusBlockElement(id)
         return
     }
 
@@ -166,6 +174,7 @@ function navigateBlocks(direction: 1 | -1) {
     const next = idx + direction
     if (next >= 0 && next < ids.length) {
         selectBlock(ids[next])
+        focusBlockElement(ids[next])
     }
 }
 
@@ -219,5 +228,6 @@ function navigateBlocksHorizontal(direction: 1 | -1) {
     const next = idx + direction
     if (next >= 0 && next < sameRow.length) {
         selectBlock(sameRow[next][0])
+        focusBlockElement(sameRow[next][0])
     }
 }

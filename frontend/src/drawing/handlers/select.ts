@@ -595,6 +595,30 @@ export class SelectHandler implements InteractionHandler {
             return true
         }
 
+        // Arrow keys: nudge selected elements (1px, 10px with Shift)
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            const ids = ctx.selectedElements.size > 0
+                ? ctx.selectedElements
+                : ctx.selectedElement ? new Set([ctx.selectedElement.id]) : new Set<string>()
+            if (ids.size === 0) return false
+
+            e.preventDefault()
+            const step = e.shiftKey ? 10 : 1
+            const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+            const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+
+            for (const id of ids) {
+                const el = ctx.elements.find(e => e.id === id)
+                if (el) {
+                    el.x += dx
+                    el.y += dy
+                    updateConnectedArrows(ctx.elements, el.id)
+                }
+            }
+            ctx.render(); ctx.save()
+            return true
+        }
+
         return false
     }
 
