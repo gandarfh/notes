@@ -1,7 +1,44 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../../store'
 import { registerModal } from '../../input'
-import { IconNotebook, IconFile } from '@tabler/icons-react'
+import { IconNotebook, IconFile, IconPencil, IconTrash } from '@tabler/icons-react'
+
+// ── Inline rename input ──
+function RenameInput({ value, onRename, onCancel }: { value: string; onRename: (name: string) => void; onCancel: () => void }) {
+    const inputRef = useRef<HTMLInputElement>(null)
+    const [name, setName] = useState(value)
+
+    useEffect(() => {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+    }, [])
+
+    const commit = useCallback(() => {
+        const trimmed = name.trim()
+        if (trimmed && trimmed !== value) {
+            onRename(trimmed)
+        } else {
+            onCancel()
+        }
+    }, [name, value, onRename, onCancel])
+
+    return (
+        <input
+            ref={inputRef}
+            className="breadcrumb-rename-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') commit()
+                if (e.key === 'Escape') onCancel()
+                e.stopPropagation()
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+        />
+    )
+}
 
 export function Breadcrumb({ onOpenPalette }: { onOpenPalette: () => void }) {
     const notebooks = useAppStore(s => s.notebooks)
@@ -10,7 +47,12 @@ export function Breadcrumb({ onOpenPalette }: { onOpenPalette: () => void }) {
     const pages = useAppStore(s => s.pages)
     const selectNotebook = useAppStore(s => s.selectNotebook)
     const selectPage = useAppStore(s => s.selectPage)
+    const renameNotebook = useAppStore(s => s.renameNotebook)
+    const renamePage = useAppStore(s => s.renamePage)
+    const deleteNotebook = useAppStore(s => s.deleteNotebook)
+    const deletePage = useAppStore(s => s.deletePage)
     const [openDropdown, setOpenDropdown] = useState<'notebook' | 'page' | null>(null)
+    const [renamingId, setRenamingId] = useState<string | null>(null)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     const activeNotebook = notebooks.find(n => n.id === activeNotebookId)
@@ -22,6 +64,7 @@ export function Breadcrumb({ onOpenPalette }: { onOpenPalette: () => void }) {
         const onClick = (e: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
                 setOpenDropdown(null)
+                setRenamingId(null)
             }
         }
         document.addEventListener('mousedown', onClick)
@@ -32,8 +75,12 @@ export function Breadcrumb({ onOpenPalette }: { onOpenPalette: () => void }) {
     useEffect(() => {
         return registerModal({
             isOpen: () => openDropdown !== null,
-            close: () => setOpenDropdown(null),
+            close: () => { setOpenDropdown(null); setRenamingId(null) },
         })
+    }, [openDropdown])
+
+    useEffect(() => {
+        if (!openDropdown) setRenamingId(null)
     }, [openDropdown])
 
     return (
@@ -51,14 +98,38 @@ export function Breadcrumb({ onOpenPalette }: { onOpenPalette: () => void }) {
             {openDropdown === 'notebook' && (
                 <div className="breadcrumb-dropdown">
                     {notebooks.map(nb => (
-                        <button
-                            key={nb.id}
-                            className={`breadcrumb-dropdown-item ${nb.id === activeNotebookId ? 'active' : ''}`}
-                            onClick={() => { selectNotebook(nb.id); setOpenDropdown(null) }}
-                        >
-                            <span className="breadcrumb-dropdown-icon"><IconNotebook size={14} /></span>
-                            {nb.name}
-                        </button>
+                        <div key={nb.id} className={`breadcrumb-dropdown-item ${nb.id === activeNotebookId ? 'active' : ''}`}>
+                            {renamingId === nb.id ? (
+                                <>
+                                    <span className="breadcrumb-dropdown-icon"><IconNotebook size={14} /></span>
+                                    <RenameInput
+                                        value={nb.name}
+                                        onRename={(name) => { renameNotebook(nb.id, name); setRenamingId(null) }}
+                                        onCancel={() => setRenamingId(null)}
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <span
+                                        className="breadcrumb-dropdown-label"
+                                        onClick={() => { selectNotebook(nb.id); setOpenDropdown(null) }}
+                                    >
+                                        <span className="breadcrumb-dropdown-icon"><IconNotebook size={14} /></span>
+                                        {nb.name}
+                                    </span>
+                                    <span className="breadcrumb-dropdown-actions">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setRenamingId(nb.id) }}
+                                            title="Rename"
+                                        ><IconPencil size={12} /></button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); deleteNotebook(nb.id); setOpenDropdown(null) }}
+                                            title="Delete"
+                                        ><IconTrash size={12} /></button>
+                                    </span>
+                                </>
+                            )}
+                        </div>
                     ))}
                     {notebooks.length === 0 && (
                         <div className="breadcrumb-dropdown-empty">No notebooks</div>
@@ -84,14 +155,38 @@ export function Breadcrumb({ onOpenPalette }: { onOpenPalette: () => void }) {
                     {openDropdown === 'page' && (
                         <div className="breadcrumb-dropdown breadcrumb-dropdown-page">
                             {pages.map(p => (
-                                <button
-                                    key={p.id}
-                                    className={`breadcrumb-dropdown-item ${p.id === activePageId ? 'active' : ''}`}
-                                    onClick={() => { selectPage(p.id); setOpenDropdown(null) }}
-                                >
-                                    <span className="breadcrumb-dropdown-icon"><IconFile size={14} /></span>
-                                    {p.name}
-                                </button>
+                                <div key={p.id} className={`breadcrumb-dropdown-item ${p.id === activePageId ? 'active' : ''}`}>
+                                    {renamingId === p.id ? (
+                                        <>
+                                            <span className="breadcrumb-dropdown-icon"><IconFile size={14} /></span>
+                                            <RenameInput
+                                                value={p.name}
+                                                onRename={(name) => { renamePage(p.id, name); setRenamingId(null) }}
+                                                onCancel={() => setRenamingId(null)}
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span
+                                                className="breadcrumb-dropdown-label"
+                                                onClick={() => { selectPage(p.id); setOpenDropdown(null) }}
+                                            >
+                                                <span className="breadcrumb-dropdown-icon"><IconFile size={14} /></span>
+                                                {p.name}
+                                            </span>
+                                            <span className="breadcrumb-dropdown-actions">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setRenamingId(p.id) }}
+                                                    title="Rename"
+                                                ><IconPencil size={12} /></button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); deletePage(p.id); setOpenDropdown(null) }}
+                                                    title="Delete"
+                                                ><IconTrash size={12} /></button>
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
                             ))}
                             {pages.length === 0 && (
                                 <div className="breadcrumb-dropdown-empty">No pages</div>
