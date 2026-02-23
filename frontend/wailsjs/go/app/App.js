@@ -6,6 +6,10 @@ export function ApplyMutations(arg1, arg2, arg3) {
   return window['go']['app']['App']['ApplyMutations'](arg1, arg2, arg3);
 }
 
+export function ChangeBlockFileExt(arg1, arg2) {
+  return window['go']['app']['App']['ChangeBlockFileExt'](arg1, arg2);
+}
+
 export function ClearCachedResult(arg1) {
   return window['go']['app']['App']['ClearCachedResult'](arg1);
 }
@@ -106,8 +110,8 @@ export function PickDatabaseFile() {
   return window['go']['app']['App']['PickDatabaseFile']();
 }
 
-export function PickMarkdownFile() {
-  return window['go']['app']['App']['PickMarkdownFile']();
+export function PickTextFile() {
+  return window['go']['app']['App']['PickTextFile']();
 }
 
 export function PushUndoNode(arg1, arg2, arg3, arg4, arg5) {

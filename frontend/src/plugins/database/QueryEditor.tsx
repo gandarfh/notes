@@ -6,6 +6,7 @@ import { keymap, placeholder as cmPlaceholder } from '@codemirror/view'
 import { autocompletion, type CompletionContext, type Completion } from '@codemirror/autocomplete'
 import { vim } from '@replit/codemirror-vim'
 import { QUERY_OPERATORS, BSON_TYPES, STAGE_OPERATORS, EXPRESSION_OPERATORS, ACCUMULATORS } from '@mongodb-js/mongodb-constants'
+import { useTheme } from '../../hooks/useTheme'
 import type { SchemaInfo } from '../../bridge/wails'
 
 interface QueryEditorProps {
@@ -87,6 +88,7 @@ const MONGO_COMPLETIONS: Completion[] = [
 
 export function QueryEditor({ value, onChange, onExecute, driver, schema, placeholder, selectedCollection }: QueryEditorProps) {
     const isMongo = driver === 'mongodb'
+    const { theme } = useTheme()
 
     const handleChange = useCallback((val: string) => {
         onChange(val)
@@ -221,7 +223,7 @@ export function QueryEditor({ value, onChange, onExecute, driver, schema, placeh
                 value={value}
                 onChange={handleChange}
                 extensions={extensions}
-                theme="dark"
+                theme={theme}
                 basicSetup={{
                     lineNumbers: true,
                     foldGutter: false,

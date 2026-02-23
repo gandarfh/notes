@@ -26,10 +26,43 @@ function setBlockFontSize(blockId: string, size: number) {
 
 // ── Block Header ───────────────────────────────────────────
 
-const BlockHeader = memo(function BlockHeader({ type, blockId, filePath, onDelete, onEdit, onLinkFile }: { type: string; blockId: string; filePath?: string; onDelete: () => void; onEdit?: () => void; onLinkFile?: () => void }) {
+const LANGUAGES = [
+    { ext: 'txt', label: 'Plain Text' },
+    { ext: 'go', label: 'Go' },
+    { ext: 'rs', label: 'Rust' },
+    { ext: 'py', label: 'Python' },
+    { ext: 'js', label: 'JavaScript' },
+    { ext: 'ts', label: 'TypeScript' },
+    { ext: 'tsx', label: 'TSX' },
+    { ext: 'jsx', label: 'JSX' },
+    { ext: 'json', label: 'JSON' },
+    { ext: 'yaml', label: 'YAML' },
+    { ext: 'toml', label: 'TOML' },
+    { ext: 'sql', label: 'SQL' },
+    { ext: 'sh', label: 'Shell' },
+    { ext: 'html', label: 'HTML' },
+    { ext: 'css', label: 'CSS' },
+    { ext: 'java', label: 'Java' },
+    { ext: 'kt', label: 'Kotlin' },
+    { ext: 'swift', label: 'Swift' },
+    { ext: 'c', label: 'C' },
+    { ext: 'cpp', label: 'C++' },
+    { ext: 'lua', label: 'Lua' },
+    { ext: 'zig', label: 'Zig' },
+    { ext: 'rb', label: 'Ruby' },
+    { ext: 'proto', label: 'Protobuf' },
+    { ext: 'graphql', label: 'GraphQL' },
+    { ext: 'dockerfile', label: 'Dockerfile' },
+    { ext: 'hcl', label: 'HCL/Terraform' },
+    { ext: 'md', label: 'Markdown' },
+]
+
+const BlockHeader = memo(function BlockHeader({ type, blockId, filePath, onDelete, onEdit, onLinkFile, onChangeLang }: { type: string; blockId: string; filePath?: string; onDelete: () => void; onEdit?: () => void; onLinkFile?: () => void; onChangeLang?: (ext: string) => void }) {
     const plugin = BlockRegistry.get(type)
     const label = plugin?.headerLabel || type.toUpperCase()
     const isMarkdown = type === 'markdown'
+    const isCode = type === 'code'
+    const currentExt = filePath?.split('.').pop()?.toLowerCase() || 'txt'
 
     const [showFontPopup, setShowFontPopup] = useState(false)
     const [fontSize, setFontSize] = useState(() => getBlockFontSize(blockId))
@@ -59,13 +92,26 @@ const BlockHeader = memo(function BlockHeader({ type, blockId, filePath, onDelet
     return (
         <div
             className="block-header flex items-center justify-between gap-1.5 cursor-move"
-            style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--color-border-subtle)', fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 500 }}
+            style={{ padding: '6px 10px', background: 'var(--overlay-2)', borderBottom: '1px solid var(--color-border-subtle)', fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 500 }}
         >
-            <span className="flex items-center gap-1" title={filePath || undefined}>
+            <span className="flex items-center gap-1.5" title={filePath || undefined}>
                 {label}
-                {isMarkdown && filePath && (
-                    <span style={{ opacity: 0.5, fontWeight: 400, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        — {filePath.split('/').pop()}
+                {isCode && onChangeLang && (
+                    <select
+                        className="code-lang-select"
+                        value={currentExt}
+                        onChange={e => { e.stopPropagation(); onChangeLang(e.target.value) }}
+                        onClick={e => e.stopPropagation()}
+                        onMouseDown={e => e.stopPropagation()}
+                    >
+                        {LANGUAGES.map(l => (
+                            <option key={l.ext} value={l.ext}>{l.label}</option>
+                        ))}
+                    </select>
+                )}
+                {filePath && (
+                    <span style={{ opacity: 0.5, fontWeight: 400, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                        {filePath.split('/').pop()}
                     </span>
                 )}
             </span>
@@ -89,7 +135,7 @@ const BlockHeader = memo(function BlockHeader({ type, blockId, filePath, onDelet
                                     border: '1px solid var(--color-border-default)',
                                     borderRadius: 'var(--radius-sm)',
                                     padding: '3px 4px',
-                                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+                                    boxShadow: 'var(--block-shadow)',
                                     whiteSpace: 'nowrap',
                                 }}
                                 onMouseDown={(e) => e.stopPropagation()}
@@ -285,7 +331,7 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
     const lastContentClickRef = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 })
 
     const onContentMouseDown = useCallback((e: React.MouseEvent) => {
-        if (block?.type !== 'markdown' || isEditing) return
+        if (block?.type !== 'markdown' && block?.type !== 'code' || isEditing) return
 
         const now = Date.now()
         const last = lastContentClickRef.current
@@ -351,10 +397,10 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
             : 'var(--color-block-border)'
 
     const boxShadow = isEditing
-        ? '0 0 0 2px rgba(99, 102, 241, 0.3), 0 8px 32px rgba(0, 0, 0, 0.6)'
+        ? 'var(--block-shadow-editing)'
         : isSelected
-            ? '0 0 0 2px rgba(99, 102, 241, 0.25), 0 4px 24px rgba(0, 0, 0, 0.4)'
-            : '0 4px 24px rgba(0, 0, 0, 0.4)'
+            ? 'var(--block-shadow-selected)'
+            : 'var(--block-shadow)'
 
     const isImage = block.type === 'image'
 
@@ -392,18 +438,26 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                         blockId={blockId}
                         filePath={block.filePath}
                         onDelete={() => deleteBlock(blockId)}
-                        onEdit={block.type === 'markdown' ? () => onEditBlock(blockId, 1) : undefined}
-                        onLinkFile={block.type === 'markdown' ? async () => {
-                            const path = await api.pickMarkdownFile()
+                        onEdit={block.type === 'markdown' || block.type === 'code' ? () => onEditBlock(blockId, 1) : undefined}
+                        onLinkFile={block.type === 'markdown' || block.type === 'code' ? async () => {
+                            const path = await api.pickTextFile()
                             if (!path) return
                             const content = await api.updateBlockFilePath(blockId, path)
                             updateBlock(blockId, { content, filePath: path })
+                        } : undefined}
+                        onChangeLang={block.type === 'code' ? async (ext: string) => {
+                            try {
+                                const newPath = await api.changeBlockFileExt(blockId, ext)
+                                updateBlock(blockId, { filePath: newPath })
+                            } catch (e) {
+                                console.error('[Code] changeFileExt:', e)
+                            }
                         } : undefined}
                     />
                 </div>
             )}
 
-            {isEditing && block.type === 'markdown' ? (
+            {isEditing && (block.type === 'markdown' || block.type === 'code') ? (
                 <div
                     className="block-content w-full flex-1 min-h-0 overflow-hidden p-0"
                     data-terminal-container
@@ -442,7 +496,7 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                     style={{
                         top: 6, right: 6,
                         width: 22, height: 22,
-                        background: 'rgba(0,0,0,0.75)',
+                        background: 'var(--backdrop-bg)',
                     }}
                     title="Delete image"
                 >×</button>

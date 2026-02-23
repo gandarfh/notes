@@ -4,12 +4,14 @@ import { markdownPlugin } from './markdown'
 import { drawingPlugin } from './drawing'
 import { imagePlugin } from './image'
 import { databasePlugin } from './database'
+import { codePlugin } from './code'
 
 export function registerBuiltinPlugins() {
     BlockRegistry.register(markdownPlugin)
     BlockRegistry.register(drawingPlugin)
     BlockRegistry.register(imagePlugin)
     BlockRegistry.register(databasePlugin)
+    BlockRegistry.register(codePlugin)
 }
 
 export { BlockRegistry } from './registry'

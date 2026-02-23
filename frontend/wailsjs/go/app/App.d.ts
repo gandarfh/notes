@@ -7,6 +7,8 @@ import {storage} from '../models';
 
 export function ApplyMutations(arg1:string,arg2:string,arg3:Array<dbclient.Mutation>):Promise<dbclient.MutationResult>;
 
+export function ChangeBlockFileExt(arg1:string,arg2:string):Promise<string>;
+
 export function ClearCachedResult(arg1:string):Promise<void>;
 
 export function CloseEditor():Promise<void>;
@@ -57,7 +59,7 @@ export function OpenBlockInEditor(arg1:string,arg2:number):Promise<void>;
 
 export function PickDatabaseFile():Promise<string>;
 
-export function PickMarkdownFile():Promise<string>;
+export function PickTextFile():Promise<string>;
 
 export function PushUndoNode(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<storage.UndoNode>;
 

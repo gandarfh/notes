@@ -9,6 +9,7 @@ const (
 	BlockTypeDrawing  BlockType = "drawing"
 	BlockTypeImage    BlockType = "image"
 	BlockTypeDatabase BlockType = "database"
+	BlockTypeCode     BlockType = "code"
 )
 
 type Block struct {

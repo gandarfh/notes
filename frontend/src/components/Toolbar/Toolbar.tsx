@@ -1,10 +1,11 @@
 import { useAppStore } from '../../store'
 import type { DrawingSubTool } from '../../store/types'
+import { useTheme } from '../../hooks/useTheme'
 
 const tools: { id: DrawingSubTool | 'block'; icon: React.ReactNode; title: string; key: string }[] = [
     {
         id: 'draw-select', title: 'Select (1)', key: '1',
-        icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 2l11 8-5.5 1.5L9 17z" stroke="currentColor" strokeWidth="1.3" fill="currentColor" opacity="0.08" /></svg>,
+        icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 2l12 9.5-5 .8-2.8 4.7L4 2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" /><path d="M8.2 12.3l3 4.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>,
     },
     { id: 'rectangle' as DrawingSubTool, title: 'Rectangle (2)', key: '2', icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="4.5" width="14" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.3" /></svg> },
     { id: 'ellipse' as DrawingSubTool, title: 'Ellipse (3)', key: '3', icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><ellipse cx="10" cy="10" rx="7" ry="5.5" stroke="currentColor" strokeWidth="1.3" /></svg> },
@@ -20,13 +21,17 @@ const tools: { id: DrawingSubTool | 'block'; icon: React.ReactNode; title: strin
         id: 'db-block', title: 'Database Block (D)', key: 'd',
         icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><ellipse cx="10" cy="6" rx="6" ry="2.5" stroke="currentColor" strokeWidth="1.3" /><path d="M4 6v8c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5V6" stroke="currentColor" strokeWidth="1.3" /><path d="M4 10c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5" stroke="currentColor" strokeWidth="1.3" /></svg>,
     },
+    {
+        id: 'code-block' as DrawingSubTool, title: 'Code Block (C)', key: 'c',
+        icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7 6L3 10l4 4M13 6l4 4-4 4M11.5 4l-3 12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+    },
 ]
 
 // Groups
 const GROUP_1 = ['draw-select']
 const GROUP_2 = ['rectangle', 'ellipse', 'diamond', 'ortho-arrow']
 const GROUP_3 = ['freedraw', 'text']
-const GROUP_4 = ['block', 'db-block']
+const GROUP_4 = ['block', 'db-block', 'code-block']
 
 // Tiny component — only re-renders when zoom changes, not the whole toolbar
 function ZoomDisplay() {
@@ -43,6 +48,7 @@ export function Toolbar({ showUndoPanel, onToggleUndoPanel, onOpenPalette }: {
     const setDrawingSubTool = useAppStore(s => s.setDrawingSubTool)
     const boardStyle = useAppStore(s => s.boardStyle)
     const setBoardStyle = useAppStore(s => s.setBoardStyle)
+    const { theme, toggleTheme } = useTheme()
 
     const renderGroup = (ids: string[]) =>
         tools.filter(t => ids.includes(t.id)).map(tool => (
@@ -70,6 +76,22 @@ export function Toolbar({ showUndoPanel, onToggleUndoPanel, onOpenPalette }: {
             </div>
 
             <div className="toolbar-right">
+                <button
+                    className="toolbar-btn"
+                    title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                    onClick={toggleTheme}
+                >
+                    {theme === 'dark' ? (
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <circle cx="10" cy="10" r="4" stroke="currentColor" strokeWidth="1.3" />
+                            <path d="M10 2v2M10 16v2M18 10h-2M4 10H2M15.66 4.34l-1.42 1.42M5.76 14.24l-1.42 1.42M15.66 15.66l-1.42-1.42M5.76 5.76L4.34 4.34" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                        </svg>
+                    ) : (
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M17.39 13.35A7.5 7.5 0 0 1 6.65 2.61a7.5 7.5 0 1 0 10.74 10.74z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                        </svg>
+                    )}
+                </button>
                 <button
                     className="toolbar-btn"
                     title="Search & Navigate (⌘K)"

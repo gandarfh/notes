@@ -1,11 +1,12 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Theme Tokens — generates utilities: bg-app, text-primary, etc.
-   Change this block to change the entire design system.
+   Theme Tokens — Dark (default) & Light mode
+   Toggle via data-theme="light" on <html>.
    ============================================================ */
 
-@theme {
+:root {
+  /* ── Surfaces ── */
   --color-app: #0f0f14;
   --color-sidebar: #13131a;
   --color-surface: #1a1a24;
@@ -13,29 +14,170 @@
   --color-hover: #2a2a38;
   --color-active: #333346;
 
+  /* ── Borders ── */
   --color-border-subtle: rgba(255, 255, 255, 0.06);
   --color-border-default: rgba(255, 255, 255, 0.1);
   --color-border-strong: rgba(255, 255, 255, 0.16);
 
+  /* ── Text ── */
   --color-text-primary: #e8e8f0;
   --color-text-secondary: #8888a0;
   --color-text-muted: #5a5a72;
   --color-text-accent: #7c8bff;
 
+  /* ── Accent ── */
   --color-accent: #6366f1;
   --color-accent-hover: #818cf8;
   --color-accent-muted: rgba(99, 102, 241, 0.15);
 
+  /* ── Status ── */
   --color-success: #34d399;
   --color-warning: #fbbf24;
   --color-error: #f87171;
 
+  /* ── Canvas / blocks ── */
   --color-canvas-bg: #0d0d12;
   --color-block-bg: #1a1a26;
   --color-block-border: rgba(255, 255, 255, 0.08);
   --color-block-selected: #6366f1;
   --color-connector: #4a4a66;
   --color-connector-hover: #6366f1;
+
+  /* ── Overlay helpers (replace hardcoded rgba(255,255,255,...)) ── */
+  --overlay-2: rgba(255, 255, 255, 0.02);
+  --overlay-4: rgba(255, 255, 255, 0.04);
+  --overlay-5: rgba(255, 255, 255, 0.05);
+  --overlay-6: rgba(255, 255, 255, 0.06);
+  --overlay-8: rgba(255, 255, 255, 0.08);
+  --overlay-10: rgba(255, 255, 255, 0.10);
+  --overlay-15: rgba(255, 255, 255, 0.15);
+  --overlay-20: rgba(255, 255, 255, 0.20);
+  --overlay-35: rgba(255, 255, 255, 0.35);
+  --overlay-40: rgba(255, 255, 255, 0.40);
+  --overlay-45: rgba(255, 255, 255, 0.45);
+  --overlay-70: rgba(255, 255, 255, 0.70);
+  --overlay-85: rgba(255, 255, 255, 0.85);
+
+  /* ── Panel glass ── */
+  --panel-bg: rgba(22, 22, 35, 0.92);
+  --panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --panel-border: rgba(255, 255, 255, 0.06);
+
+  /* ── Scrollbar ── */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+
+  /* ── Block shadows ── */
+  --block-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --block-shadow-selected: 0 0 0 2px rgba(99, 102, 241, 0.25), 0 4px 24px rgba(0, 0, 0, 0.4);
+  --block-shadow-editing: 0 0 0 2px rgba(99, 102, 241, 0.3), 0 8px 32px rgba(0, 0, 0, 0.6);
+
+  /* ── Backdrop ── */
+  --backdrop-bg: rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="light"] {
+  /* ── Surfaces ── */
+  --color-app: #f5f5f0;
+  --color-sidebar: #eeeee8;
+  --color-surface: #e8e8e2;
+  --color-elevated: #ffffff;
+  --color-hover: #ddddd6;
+  --color-active: #d0d0c8;
+
+  /* ── Borders ── */
+  --color-border-subtle: rgba(0, 0, 0, 0.06);
+  --color-border-default: rgba(0, 0, 0, 0.12);
+  --color-border-strong: rgba(0, 0, 0, 0.18);
+
+  /* ── Text ── */
+  --color-text-primary: #222222;
+  --color-text-secondary: #555566;
+  --color-text-muted: #888899;
+  --color-text-accent: #4f52d9;
+
+  /* ── Accent ── */
+  --color-accent: #6366f1;
+  --color-accent-hover: #4f46e5;
+  --color-accent-muted: rgba(99, 102, 241, 0.10);
+
+  /* ── Status ── */
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+
+  /* ── Canvas / blocks ── */
+  --color-canvas-bg: #f0f0ea;
+  --color-block-bg: #ffffff;
+  --color-block-border: rgba(0, 0, 0, 0.10);
+  --color-connector: #aaaabc;
+  --color-connector-hover: #6366f1;
+
+  /* ── Overlay helpers ── */
+  --overlay-2: rgba(0, 0, 0, 0.02);
+  --overlay-4: rgba(0, 0, 0, 0.04);
+  --overlay-5: rgba(0, 0, 0, 0.04);
+  --overlay-6: rgba(0, 0, 0, 0.06);
+  --overlay-8: rgba(0, 0, 0, 0.06);
+  --overlay-10: rgba(0, 0, 0, 0.08);
+  --overlay-15: rgba(0, 0, 0, 0.10);
+  --overlay-20: rgba(0, 0, 0, 0.14);
+  --overlay-35: rgba(0, 0, 0, 0.45);
+  --overlay-40: rgba(0, 0, 0, 0.50);
+  --overlay-45: rgba(0, 0, 0, 0.55);
+  --overlay-70: rgba(0, 0, 0, 0.70);
+  --overlay-85: rgba(0, 0, 0, 0.85);
+
+  /* ── Panel glass ── */
+  --panel-bg: rgba(255, 255, 255, 0.92);
+  --panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+  --panel-border: rgba(0, 0, 0, 0.08);
+
+  /* ── Scrollbar ── */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.22);
+
+  /* ── Block shadows ── */
+  --block-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --block-shadow-selected: 0 0 0 2px rgba(99, 102, 241, 0.30), 0 2px 12px rgba(0, 0, 0, 0.08);
+  --block-shadow-editing: 0 0 0 2px rgba(99, 102, 241, 0.40), 0 4px 20px rgba(0, 0, 0, 0.12);
+
+  /* ── Backdrop ── */
+  --backdrop-bg: rgba(0, 0, 0, 0.2);
+}
+
+/* Tailwind v4 utility generation — references the root variables */
+@theme {
+  --color-app: var(--color-app);
+  --color-sidebar: var(--color-sidebar);
+  --color-surface: var(--color-surface);
+  --color-elevated: var(--color-elevated);
+  --color-hover: var(--color-hover);
+  --color-active: var(--color-active);
+
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-default: var(--color-border-default);
+  --color-border-strong: var(--color-border-strong);
+
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-accent: var(--color-text-accent);
+
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-muted: var(--color-accent-muted);
+
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+
+  --color-canvas-bg: var(--color-canvas-bg);
+  --color-block-bg: var(--color-block-bg);
+  --color-block-border: var(--color-block-border);
+  --color-block-selected: var(--color-block-selected);
+  --color-connector: var(--color-connector);
+  --color-connector-hover: var(--color-connector-hover);
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', 'Menlo', monospace;
@@ -51,6 +193,48 @@
 /* ============================================================
    Base — resets that can't be utilities
    ============================================================ */
+
+/* Latin Modern Roman (modern LaTeX default) — for markdown blocks */
+@font-face {
+  font-family: 'Latin Modern Roman';
+  src: url('../assets/fonts/lmroman10-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Latin Modern Roman';
+  src: url('../assets/fonts/lmroman10-bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Latin Modern Roman';
+  src: url('../assets/fonts/lmroman10-italic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Latin Modern Roman';
+  src: url('../assets/fonts/lmroman10-bolditalic.otf') format('opentype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* CMU Serif Upright Italic — for headings */
+@font-face {
+  font-family: 'CMU Serif Upright Italic';
+  src: url('../assets/fonts/cmu-serif-upright-italic-500-roman.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
 @layer base {
 
@@ -90,12 +274,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--scrollbar-thumb);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--scrollbar-thumb-hover);
   }
 }
 
@@ -231,7 +415,7 @@
   /* ── Markdown rendered content ────────────────────────────── */
 
   .markdown-preview {
-    font-family: 'Merriweather', monospace;
+    font-family: 'Latin Modern Roman', monospace;
     font-size: 15px;
     line-height: 1.7;
     color: var(--color-text-primary);
@@ -240,13 +424,22 @@
   }
 
   /* Headings — em-based so they scale with the Aa size control */
+  .markdown-preview h1,
+  .markdown-preview h2,
+  .markdown-preview h3,
+  .markdown-preview h4,
+  .markdown-preview h5,
+  .markdown-preview h6 {
+    font-family: 'CMU Serif Upright Italic', serif;
+    font-weight: 500 !important;
+  }
+
   .markdown-preview h1 {
     font-size: 2.1em;
     font-weight: 700;
     color: var(--color-text-primary);
     margin: 1.2em 0 0.6em;
     padding-bottom: 0.4em;
-    border-bottom: 1px solid var(--color-border-subtle);
     line-height: 1.2;
   }
 
@@ -260,7 +453,6 @@
     color: var(--color-text-primary);
     margin: 1.2em 0 0.5em;
     padding-bottom: 0.3em;
-    border-bottom: 1px solid var(--color-border-subtle);
     line-height: 1.25;
   }
 
@@ -542,7 +734,7 @@
   }
 
   .markdown-preview tbody tr:nth-child(even) {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--overlay-2);
   }
 
   .markdown-preview tbody tr:nth-child(even):hover {
@@ -569,6 +761,116 @@
     max-height: 400px;
     object-fit: contain;
     border: 1px solid var(--color-border-subtle);
+  }
+
+  /* ── Code block preview ────────────────────────────────────── */
+
+  .code-file-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .code-file-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: rgba(255, 255, 255, 0.015);
+    flex-shrink: 0;
+  }
+
+  .code-lang-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    font-weight: 600;
+    padding: 2px 20px 2px 6px;
+    cursor: pointer;
+    outline: none;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background-image: url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%236b7280' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+  }
+
+  .code-lang-select:hover {
+    border-color: var(--color-border-default);
+    color: var(--color-text-primary);
+  }
+
+  .code-lang-select:focus {
+    border-color: var(--color-accent);
+  }
+
+  .code-line-count {
+    font-size: 0.65em;
+    color: var(--color-text-muted);
+    opacity: 0.5;
+    letter-spacing: 0.02em;
+  }
+
+  .code-file-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    font-style: italic;
+    font-size: 0.85em;
+    opacity: 0.6;
+  }
+
+  .code-file-scroll {
+    flex: 1;
+    overflow: auto;
+  }
+
+  .code-file-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+  }
+
+  .code-file-table td {
+    padding: 0;
+    vertical-align: top;
+    line-height: 1.55;
+  }
+
+  .code-gutter {
+    width: 1px;
+    white-space: nowrap;
+    text-align: right;
+    padding: 0 12px 0 10px !important;
+    color: var(--color-text-muted);
+    opacity: 0.3;
+    user-select: none;
+    font-size: 0.8em;
+    border-right: 1px solid var(--color-border-subtle);
+  }
+
+  .code-line {
+    padding: 0 14px !important;
+    white-space: pre;
+    font-size: 0.85em;
+  }
+
+  .code-file-table tr:first-child td {
+    padding-top: 8px !important;
+  }
+
+  .code-file-table tr:last-child td {
+    padding-bottom: 8px !important;
   }
 
   /* xterm overrides — can't control internal classes */
@@ -614,10 +916,10 @@
     bottom: 12px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(22, 22, 35, 0.92);
+    background: var(--panel-bg);
     backdrop-filter: blur(20px) saturate(1.5);
     -webkit-backdrop-filter: blur(20px) saturate(1.5);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--panel-border);
     border-radius: 12px;
     padding: 6px 8px;
     display: flex;
@@ -625,10 +927,7 @@
     gap: 0;
     z-index: 50;
     max-width: calc(100vw - 80px);
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.5),
-      0 2px 8px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: var(--panel-shadow);
     user-select: none;
   }
 
@@ -640,7 +939,7 @@
     overflow-x: auto;
     max-width: calc(100vw - 100px);
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+    scrollbar-color: var(--overlay-15) transparent;
   }
 
   .sp-row::-webkit-scrollbar {
@@ -652,12 +951,12 @@
   }
 
   .sp-row::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--overlay-15);
     border-radius: 2px;
   }
 
   .sp-row+.sp-row {
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    border-top: 1px solid var(--overlay-4);
     padding-top: 5px;
     margin-top: 3px;
   }
@@ -667,20 +966,17 @@
     position: fixed;
     bottom: 104px;
     right: 12px;
-    background: rgba(22, 22, 35, 0.92);
+    background: var(--panel-bg);
     backdrop-filter: blur(20px) saturate(1.5);
     -webkit-backdrop-filter: blur(20px) saturate(1.5);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--panel-border);
     border-radius: 12px;
     padding: 8px;
     display: flex;
     flex-direction: column;
     gap: 4px;
     z-index: 50;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.5),
-      0 2px 8px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: var(--panel-shadow);
     user-select: none;
     align-items: center;
     overflow: hidden;
@@ -696,12 +992,12 @@
   }
 
   .sp-section+.sp-section {
-    border-left: 1px solid rgba(255, 255, 255, 0.04);
+    border-left: 1px solid var(--overlay-4);
   }
 
   .sp-utility .sp-section+.sp-section {
     border-left: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    border-top: 1px solid var(--overlay-4);
     padding-top: 6px;
     margin-top: 4px;
   }
@@ -709,7 +1005,7 @@
   .sp-title {
     font-size: 0.615rem;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.35);
+    color: var(--overlay-35);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     line-height: 1;
@@ -745,7 +1041,7 @@
   }
 
   .sp-swatch-none {
-    background: rgba(255, 255, 255, 0.06) !important;
+    background: var(--overlay-6) !important;
     position: relative;
     overflow: hidden;
   }
@@ -755,7 +1051,7 @@
     position: absolute;
     inset: 0;
     background: repeating-linear-gradient(-45deg, transparent, transparent 3px,
-        rgba(255, 255, 255, 0.08) 3px, rgba(255, 255, 255, 0.08) 4px);
+        var(--overlay-8) 3px, var(--overlay-8) 4px);
     border-radius: 4px;
   }
 
@@ -793,8 +1089,8 @@
     height: 28px;
     border-radius: 6px;
     border: none;
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(255, 255, 255, 0.45);
+    background: var(--overlay-4);
+    color: var(--overlay-45);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -807,8 +1103,8 @@
   }
 
   .sp-opt-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.85);
+    background: var(--overlay-10);
+    color: var(--overlay-85);
   }
 
   .sp-opt-btn.active {
@@ -821,7 +1117,7 @@
   .sp-divider {
     width: 1px;
     height: 18px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--overlay-6);
     margin: 5px 5px;
     flex-shrink: 0;
   }
@@ -850,7 +1146,7 @@
   .sp-font-size-val {
     font-size: 0.846rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--overlay-70);
     min-width: 20px;
     text-align: center;
     font-variant-numeric: tabular-nums;
@@ -869,7 +1165,7 @@
     width: 4px;
     height: 52px;
     appearance: none;
-    background: linear-gradient(to top, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.15));
+    background: linear-gradient(to top, var(--overlay-6), var(--overlay-15));
     border-radius: 3px;
     outline: none;
     cursor: pointer;
@@ -883,7 +1179,7 @@
     height: 12px;
     border-radius: 50%;
     background: var(--color-accent);
-    border: 2px solid rgba(22, 22, 35, 0.9);
+    border: 2px solid var(--panel-bg);
     cursor: pointer;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 6px rgba(99, 102, 241, 0.25);
   }
@@ -891,7 +1187,7 @@
   .sp-opacity-val {
     font-size: 0.692rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--overlay-40);
     text-align: center;
     font-variant-numeric: tabular-nums;
     line-height: 1;
@@ -907,7 +1203,7 @@
   }
 
   .sp-util-group+.sp-util-group {
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    border-top: 1px solid var(--overlay-4);
   }
 
   .sp-grid-2x2 {
@@ -1115,7 +1411,7 @@
     position: fixed;
     inset: 0;
     z-index: 998;
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--backdrop-bg);
     backdrop-filter: blur(2px);
   }
 
@@ -1697,4 +1993,93 @@
     color: var(--color-text-muted);
     font-size: 0.923rem;
   }
+}
+
+/* ============================================================
+   Light Mode — highlight.js overrides (github-light palette)
+   ============================================================ */
+
+:root[data-theme="light"] .hljs {
+  color: #24292e;
+  background: transparent;
+}
+
+:root[data-theme="light"] .hljs-keyword,
+:root[data-theme="light"] .hljs-selector-tag {
+  color: #d73a49;
+}
+
+:root[data-theme="light"] .hljs-string,
+:root[data-theme="light"] .hljs-addition {
+  color: #032f62;
+}
+
+:root[data-theme="light"] .hljs-comment,
+:root[data-theme="light"] .hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+
+:root[data-theme="light"] .hljs-number,
+:root[data-theme="light"] .hljs-literal {
+  color: #005cc5;
+}
+
+:root[data-theme="light"] .hljs-title,
+:root[data-theme="light"] .hljs-section {
+  color: #6f42c1;
+}
+
+:root[data-theme="light"] .hljs-built_in {
+  color: #e36209;
+}
+
+:root[data-theme="light"] .hljs-type,
+:root[data-theme="light"] .hljs-params {
+  color: #005cc5;
+}
+
+:root[data-theme="light"] .hljs-attr,
+:root[data-theme="light"] .hljs-variable {
+  color: #e36209;
+}
+
+:root[data-theme="light"] .hljs-deletion {
+  color: #b31d28;
+  background: rgba(255, 220, 220, 0.5);
+}
+
+:root[data-theme="light"] .hljs-addition {
+  background: rgba(220, 255, 228, 0.5);
+}
+
+/* ============================================================
+   Light Mode — CodeMirror overrides
+   ============================================================ */
+
+:root[data-theme="light"] .cm-editor {
+  background: var(--color-block-bg) !important;
+}
+
+:root[data-theme="light"] .cm-gutters {
+  background: var(--color-surface) !important;
+  border-right-color: var(--color-border-subtle) !important;
+  color: var(--color-text-muted) !important;
+}
+
+:root[data-theme="light"] .cm-activeLineGutter,
+:root[data-theme="light"] .cm-activeLine {
+  background: var(--overlay-4) !important;
+}
+
+:root[data-theme="light"] .cm-cursor {
+  border-left-color: var(--color-text-primary) !important;
+}
+
+:root[data-theme="light"] .cm-selectionBackground {
+  background: rgba(99, 102, 241, 0.15) !important;
+}
+
+:root[data-theme="light"] .cm-content {
+  color: var(--color-text-primary);
 }

@@ -21,14 +21,79 @@ function sr(x: number, y: number, i: number): number {
     return n - Math.floor(n)
 }
 
-/** Parse a CSS color string for canvas (handles var() by returning a fallback) */
+/** Resolve CSS color — reads var() from the DOM computed style */
 function resolveColor(color: string | undefined, fallback = '#ffffff'): string {
     if (!color) return fallback
     if (color.startsWith('var(')) {
-        // Extract fallback from var(--name, fallback)
-        const m = color.match(/,\s*(.+)\)/)
-        return m ? m[1].trim() : fallback
+        const m = color.match(/var\(\s*([^,)]+)/)
+        if (m) {
+            const val = getComputedStyle(document.documentElement).getPropertyValue(m[1].trim()).trim()
+            if (val) return val
+        }
+        // Extract inline fallback from var(--name, fallback)
+        const fb = color.match(/,\s*(.+)\)/)
+        return fb ? fb[1].trim() : fallback
     }
+    return color
+}
+
+/** Read theme colors from computed style (call once per render frame) */
+let _cachedThemeColors: { handleFill: string; canvasBg: string; textPrimary: string; isLight: boolean } | null = null
+let _themeColorFrame = -1
+
+function getThemeColors() {
+    const frame = performance.now()
+    // Cache for ~16ms (1 frame)
+    if (_cachedThemeColors && frame - _themeColorFrame < 16) return _cachedThemeColors
+    const cs = getComputedStyle(document.documentElement)
+    _cachedThemeColors = {
+        handleFill: cs.getPropertyValue('--color-elevated').trim() || '#ffffff',
+        canvasBg: cs.getPropertyValue('--color-canvas-bg').trim() || '#0d0d12',
+        textPrimary: cs.getPropertyValue('--color-text-primary').trim() || '#e8e8f0',
+        isLight: document.documentElement.dataset.theme === 'light',
+    }
+    _themeColorFrame = frame
+    return _cachedThemeColors
+}
+
+/**
+ * Remap drawing element colors for the active theme.
+ * In light mode: near-white colors → near-black (and vice versa).
+ * This is render-time only — stored data is untouched.
+ */
+function remapForTheme(color: string): string {
+    const { isLight } = getThemeColors()
+    if (!isLight) return color
+
+    // Normalize hex
+    let hex = color.trim().toLowerCase()
+    if (hex.startsWith('#')) {
+        if (hex.length === 4) hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+    } else {
+        return color // non-hex (named, rgb, etc.) — leave as-is
+    }
+
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
+    // Near-white → near-black
+    if (lum > 0.75) {
+        const nr = Math.round(255 - r * 0.85)
+        const ng = Math.round(255 - g * 0.85)
+        const nb = Math.round(255 - b * 0.85)
+        return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb.toString(16).padStart(2, '0')}`
+    }
+
+    // Near-black → near-white
+    if (lum < 0.2) {
+        const nr = Math.min(255, Math.round(255 - r * 0.85))
+        const ng = Math.min(255, Math.round(255 - g * 0.85))
+        const nb = Math.min(255, Math.round(255 - b * 0.85))
+        return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb.toString(16).padStart(2, '0')}`
+    }
+
     return color
 }
 
@@ -502,7 +567,7 @@ function drawArrowLabel(
         ? "'Architects Daughter', Caveat, cursive"
         : (el.fontFamily ? `${el.fontFamily}, system-ui, sans-serif` : 'Inter, system-ui, sans-serif')
     const fw = el.fontWeight || 400
-    const textColor = el.textColor || color
+    const textColor = remapForTheme(el.textColor || color)
 
     const lines = el.label.split('\n')
     const lineH = fontSize * 1.3
@@ -512,7 +577,7 @@ function drawArrowLabel(
     const padX = 6, padY = 2
 
     // Background rect
-    ctx.fillStyle = resolveColor('var(--color-canvas-bg, #0d0d12)')
+    ctx.fillStyle = getThemeColors().canvasBg
     ctx.beginPath()
     const rr = 4 // border radius
     const bx = ax - textWidth / 2 - padX, by = ay - textHeight / 2 - padY
@@ -542,9 +607,11 @@ export function drawElement(
     ctx: CanvasRenderingContext2D,
     el: DrawingElement, _selected: boolean, hideText = false, sketchy = false
 ): void {
-    const { strokeColor: color, strokeWidth: sw, backgroundColor: fill } = el
-    const safeFill = fill === 'transparent' ? 'none' : (fill || 'none')
-    const textFill = el.textColor || color
+    const color = remapForTheme(el.strokeColor)
+    const sw = el.strokeWidth
+    const fill = el.backgroundColor
+    const safeFill = fill === 'transparent' ? 'none' : (fill ? remapForTheme(fill) : 'none')
+    const textFill = remapForTheme(el.textColor || el.strokeColor)
     const font = sketchy
         ? "'Architects Daughter', Caveat, cursive"
         : (el.fontFamily ? `${el.fontFamily}, system-ui, sans-serif` : 'Inter, system-ui, sans-serif')
@@ -751,7 +818,7 @@ export function drawSelectionUI(ctx: CanvasRenderingContext2D, el: DrawingElemen
         const ex = el.x + last[0], ey = el.y + last[1]
 
         for (const [cx, cy] of [[sx, sy], [ex, ey]]) {
-            ctx.fillStyle = '#fff'
+            ctx.fillStyle = getThemeColors().handleFill
             ctx.strokeStyle = ACCENT
             ctx.lineWidth = 2
             ctx.beginPath()
@@ -765,7 +832,7 @@ export function drawSelectionUI(ctx: CanvasRenderingContext2D, el: DrawingElemen
             for (let i = 0; i < el.points.length - 1; i++) {
                 const mx = el.x + (el.points[i][0] + el.points[i + 1][0]) / 2
                 const my = el.y + (el.points[i][1] + el.points[i + 1][1]) / 2
-                ctx.fillStyle = '#fff'
+                ctx.fillStyle = getThemeColors().handleFill
                 ctx.strokeStyle = ACCENT
                 ctx.lineWidth = 1.5
                 ctx.beginPath()
@@ -799,7 +866,7 @@ export function drawSelectionUI(ctx: CanvasRenderingContext2D, el: DrawingElemen
             { hx: el.x, hy: el.y + el.height }, { hx: el.x, hy: el.y + el.height / 2 },
         ]
         for (const h of handles) {
-            ctx.fillStyle = '#fff'
+            ctx.fillStyle = getThemeColors().handleFill
             ctx.strokeStyle = ACCENT
             ctx.lineWidth = 1.5
             ctx.beginPath()

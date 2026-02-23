@@ -24,7 +24,7 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
         ? `${request.fontFamily}, system-ui, sans-serif`
         : 'Inter, system-ui, sans-serif'
     const fontWeight = request.fontWeight || 400
-    const textColor = request.textColor || '#e8e8f0'
+    const textColor = request.textColor || getComputedStyle(document.documentElement).getPropertyValue('--color-text-primary').trim() || '#e8e8f0'
     const isCenter = (request.textAlign || 'center') === 'center'
 
     // Set initial content once on mount — never let React touch the DOM after this

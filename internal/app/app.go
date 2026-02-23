@@ -380,6 +380,29 @@ func (a *App) CreateBlock(pageID string, blockType string, x, y, w, h float64) (
 		b.Content = "# New Note\n\n"
 	}
 
+	if b.Type == domain.BlockTypeCode {
+		page, err := a.notebooks.GetPage(pageID)
+		if err != nil {
+			return nil, err
+		}
+		// Default to .txt; content may contain JSON config {"ext":"go"}
+		ext := ".txt"
+		if b.Content != "" {
+			var cfg struct {
+				Ext string `json:"ext"`
+			}
+			if json.Unmarshal([]byte(b.Content), &cfg) == nil && cfg.Ext != "" {
+				ext = "." + strings.TrimPrefix(cfg.Ext, ".")
+			}
+		}
+		filePath := filepath.Join(a.db.DataDir(), page.NotebookID, blockID+ext)
+		if err := os.WriteFile(filePath, []byte(""), 0644); err != nil {
+			return nil, fmt.Errorf("create code file: %w", err)
+		}
+		b.FilePath = filePath
+		b.Content = ""
+	}
+
 	if err := a.blocks.CreateBlock(b); err != nil {
 		return nil, err
 	}
@@ -406,9 +429,9 @@ func (a *App) UpdateBlockContent(blockID, content string) error {
 	}
 	b.Content = content
 
-	if b.Type == domain.BlockTypeMarkdown && b.FilePath != "" {
+	if (b.Type == domain.BlockTypeMarkdown || b.Type == domain.BlockTypeCode) && b.FilePath != "" {
 		if err := os.WriteFile(b.FilePath, []byte(content), 0644); err != nil {
-			return fmt.Errorf("write md file: %w", err)
+			return fmt.Errorf("write file: %w", err)
 		}
 	}
 
@@ -426,28 +449,63 @@ func (a *App) DeleteBlock(blockID string) error {
 	return a.blocks.DeleteBlock(blockID)
 }
 
-// PickMarkdownFile opens a native file picker for selecting a markdown file.
-func (a *App) PickMarkdownFile() (string, error) {
+// PickTextFile opens a native file picker for selecting any text/code file.
+func (a *App) PickTextFile() (string, error) {
 	path, err := wailsRuntime.OpenFileDialog(a.ctx, wailsRuntime.OpenDialogOptions{
-		Title: "Select Markdown File",
+		Title: "Select Text File",
 		Filters: []wailsRuntime.FileFilter{
-			{DisplayName: "Markdown Files", Pattern: "*.md"},
+			{DisplayName: "Markdown", Pattern: "*.md"},
+			{DisplayName: "Go", Pattern: "*.go"},
+			{DisplayName: "JSON", Pattern: "*.json"},
+			{DisplayName: "YAML", Pattern: "*.yaml;*.yml"},
+			{DisplayName: "TypeScript", Pattern: "*.ts;*.tsx"},
+			{DisplayName: "JavaScript", Pattern: "*.js;*.jsx"},
+			{DisplayName: "Python", Pattern: "*.py"},
+			{DisplayName: "Rust", Pattern: "*.rs"},
+			{DisplayName: "Shell", Pattern: "*.sh;*.bash;*.zsh"},
+			{DisplayName: "SQL", Pattern: "*.sql"},
 			{DisplayName: "All Files", Pattern: "*.*"},
 		},
 	})
 	return path, err
 }
 
-// UpdateBlockFilePath points a markdown block to an external file.
-// It reads the file content and updates both filePath and content in the DB.
-// Returns the file content so the frontend can update the preview.
-func (a *App) UpdateBlockFilePath(blockID, newPath string) (string, error) {
+// ChangeBlockFileExt renames a code block's physical file to a new extension.
+// Returns the new filePath so the frontend can update its state.
+func (a *App) ChangeBlockFileExt(blockID, newExt string) (string, error) {
 	b, err := a.blocks.GetBlock(blockID)
 	if err != nil {
 		return "", err
 	}
-	if b.Type != domain.BlockTypeMarkdown {
-		return "", fmt.Errorf("block %s is not a markdown block", blockID)
+	if b.FilePath == "" {
+		return "", fmt.Errorf("block %s has no file path", blockID)
+	}
+
+	ext := "." + strings.TrimPrefix(newExt, ".")
+	dir := filepath.Dir(b.FilePath)
+	base := filepath.Base(b.FilePath)
+	nameNoExt := strings.TrimSuffix(base, filepath.Ext(base))
+	newPath := filepath.Join(dir, nameNoExt+ext)
+
+	if newPath != b.FilePath {
+		if err := os.Rename(b.FilePath, newPath); err != nil {
+			return "", fmt.Errorf("rename file: %w", err)
+		}
+		b.FilePath = newPath
+		if err := a.blocks.UpdateBlock(b); err != nil {
+			return "", err
+		}
+	}
+
+	return newPath, nil
+}
+
+// UpdateBlockFilePath points a block to an external text file.
+// It reads the file content and updates both filePath and content in the DB.
+func (a *App) UpdateBlockFilePath(blockID, newPath string) (string, error) {
+	b, err := a.blocks.GetBlock(blockID)
+	if err != nil {
+		return "", err
 	}
 
 	// Read the external file
