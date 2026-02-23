@@ -327,29 +327,18 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
         window.addEventListener('mouseup', onUp)
     }, [blockId, block, selectBlock, resizeBlock, saveBlockPosition])
 
-    // ── Double-click to edit (manual detection — dblclick doesn't fire reliably on text in WebView) ──
-    const lastContentClickRef = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 })
-
+    // ── Ctrl/Cmd+Click to edit (like IDE "go to definition") ──
     const onContentMouseDown = useCallback((e: React.MouseEvent) => {
         if (block?.type !== 'markdown' && block?.type !== 'code' || isEditing) return
+        if (!(e.ctrlKey || e.metaKey)) return
 
-        const now = Date.now()
-        const last = lastContentClickRef.current
-        const timeDelta = now - last.time
-        const distDelta = Math.hypot(e.clientX - last.x, e.clientY - last.y)
-
-        lastContentClickRef.current = { time: now, x: e.clientX, y: e.clientY }
-
-        if (timeDelta < 500 && distDelta < 10) {
-            // Double-click detected — open Neovim at clicked line
-            e.preventDefault()
-            e.stopPropagation()
-            const target = e.target as HTMLElement
-            const annotated = target.closest('[data-source-line]') as HTMLElement | null
-            const line = annotated ? parseInt(annotated.dataset.sourceLine || '1', 10) : 1
-            onEditBlock(blockId, line || 1)
-            lastContentClickRef.current = { time: 0, x: 0, y: 0 } // reset
-        }
+        // Cmd/Ctrl+click detected — open editor at clicked line
+        e.preventDefault()
+        e.stopPropagation()
+        const target = e.target as HTMLElement
+        const annotated = target.closest('[data-source-line]') as HTMLElement | null
+        const line = annotated ? parseInt(annotated.dataset.sourceLine || '1', 10) : 1
+        onEditBlock(blockId, line || 1)
     }, [block?.type, isEditing, blockId, onEditBlock])
 
     // ── Scroll to line after exiting editor ──
