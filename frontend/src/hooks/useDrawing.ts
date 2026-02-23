@@ -421,8 +421,9 @@ export function useDrawing(
                 return true
             }
 
-            // Global drawing shortcuts (skip if shift is held — those are different shortcuts)
-            if (!e.shiftKey) switch (e.key.toLowerCase()) {
+            // Global drawing shortcuts (skip if shift or meta/ctrl is held)
+            const mod = e.ctrlKey || e.metaKey
+            if (!e.shiftKey && !mod) switch (e.key.toLowerCase()) {
                 case '1': ctx.setSubTool('draw-select'); return true
                 case '2': ctx.setSubTool('rectangle'); return true
                 case '3': ctx.setSubTool('ellipse'); return true
