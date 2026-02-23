@@ -112,9 +112,11 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
         caretColor: '#818cf8',
-        padding: 0,
-        margin: 0,
-        border: 'none',
+        padding: '2px 4px',
+        margin: '-2px -4px',
+        border: '1px solid rgba(129, 140, 248, 0.15)',
+        borderRadius: 2,
+        boxShadow: 'none',
     }
 
     // For shapes: flex container matching shape dims

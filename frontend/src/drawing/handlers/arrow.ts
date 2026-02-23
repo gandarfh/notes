@@ -7,7 +7,7 @@ import { genId, isArrowType } from '../types'
 import { isPointInElement } from '../hitTest'
 import { computeOrthoRoute, type Rect } from '../ortho'
 import { getAnchors, findNearestAnchor } from '../connections'
-import { renderAnchors } from '../render'
+import { drawAnchors } from '../canvasRender'
 
 interface ArrowState {
     pending: { connection: Connection; worldPt: Point } | null
@@ -160,7 +160,7 @@ export class ArrowHandler implements InteractionHandler {
         return false
     }
 
-    renderOverlay(_ctx: DrawingContext): string {
-        return renderAnchors(this.s.hoveredElement, this.s.hoveredAnchor, getAnchors)
+    renderOverlay(_ctx: DrawingContext, canvas: CanvasRenderingContext2D): void {
+        drawAnchors(canvas, this.s.hoveredElement, this.s.hoveredAnchor, getAnchors)
     }
 }

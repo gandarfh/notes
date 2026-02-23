@@ -96,6 +96,6 @@ export interface InteractionHandler {
     onDoubleClick?(ctx: DrawingContext, world: Point): void
     /** Called when switching away from this handler */
     deactivate?(ctx: DrawingContext): void
-    /** Extra SVG to render (e.g. anchor indicators) */
-    renderOverlay?(ctx: DrawingContext): string
+    /** Extra rendering for overlays (e.g. anchor indicators). Draws to canvas. */
+    renderOverlay?(ctx: DrawingContext, canvas: CanvasRenderingContext2D): void
 }

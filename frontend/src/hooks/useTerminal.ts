@@ -127,10 +127,19 @@ export function useTerminal() {
 
     const close = useCallback((cursorLine?: number) => {
         dispose()
+        const { editingBlockId } = useAppStore.getState()
         useAppStore.getState().setEditing(null)
         if (cursorLine) {
             // Store the line so the markdown preview can scroll to it
             useAppStore.setState({ scrollToLine: cursorLine })
+        }
+        // Keep the block selected and focused after exiting editor
+        if (editingBlockId) {
+            useAppStore.getState().selectBlock(editingBlockId)
+            requestAnimationFrame(() => {
+                const el = document.querySelector(`[data-block-id="${editingBlockId}"]`) as HTMLElement
+                if (el) el.focus({ preventScroll: true })
+            })
         }
     }, [dispose])
 

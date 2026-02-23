@@ -18,7 +18,7 @@ function elementTypeCategory(type: string): ElementTypeCategory {
 import type { DrawingElement, DrawingSubTool } from '../drawing/types'
 import { getElementBounds } from '../drawing/types'
 import type { DrawingContext, InteractionHandler, Point, EditorRequest, BlockPreviewRect } from '../drawing/interfaces'
-import { renderElement, renderSelectionUI, getSketchyDefs } from '../drawing/render'
+import { drawElement, drawSelectionUI } from '../drawing/canvasRender'
 import { hitTest } from '../drawing/hitTest'
 import { SelectHandler } from '../drawing/handlers/select'
 import { ArrowHandler } from '../drawing/handlers/arrow'
@@ -35,7 +35,7 @@ const GRID_SIZE = 30
  * All state is in Zustand or refs. Zero DOM manipulation.
  */
 export function useDrawing(
-    svgRef: React.RefObject<SVGSVGElement | null>,
+    svgRef: React.RefObject<HTMLCanvasElement | null>,
     containerRef: React.RefObject<HTMLElement | null>,
     onBlockCreate: BlockCreationCallback,
 ) {
@@ -104,14 +104,15 @@ export function useDrawing(
 
     const getZoom = useCallback(() => useAppStore.getState().viewport.zoom, [])
 
-    // ── Persistent SVG DOM ──
-    // Each drawing element gets a persistent <g> node in the SVG.
-    // Position changes → setAttribute('transform') (1 DOM mutation, zero re-render)
-    // Content changes → g.innerHTML (only that element, not all)
-    const elGroupMapRef = useRef<Map<string, SVGGElement>>(new Map())
+    // ── Canvas2D Render State ──
+    // Each element's content is cached on an offscreen canvas.
+    // During drag, we just blit the cached canvas at the new position.
+    // Content re-renders only when element properties change.
+    const elCanvasMapRef = useRef<Map<string, HTMLCanvasElement>>(new Map())
     const elHashMapRef = useRef<Map<string, number>>(new Map())
-    const lastOrderRef = useRef('')
     const lastBoardStyleRef = useRef('')
+    // Live viewport ref — updated on every applyViewport call (store is only committed on mouseUp)
+    const liveViewportRef = useRef(useAppStore.getState().viewport)
 
     /** Fast numeric fingerprint of all rendering-relevant properties (excludes x, y) */
     function fastHash(el: DrawingElement, extra: number): number {
@@ -133,110 +134,62 @@ export function useDrawing(
         return h
     }
 
-    /** Ensure an SVG layer <g> exists with the given id */
-    function ensureLayer(svg: SVGSVGElement, id: string): SVGGElement {
-        let g = svg.getElementById(id) as SVGGElement | null
-        if (!g) {
-            g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-            g.id = id
-            svg.appendChild(g)
-        }
-        return g
-    }
-
-    // ── Render SVG (persistent DOM) ──
-    const render = useCallback(() => {
+    // ── Render Canvas2D ──
+    const render = useCallback((viewport?: { x: number; y: number; zoom: number }) => {
+        // Store the latest viewport for the RAF callback
+        if (viewport) liveViewportRef.current = viewport
         if (rafRef.current !== null) return  // already scheduled
         rafRef.current = requestAnimationFrame(() => {
             rafRef.current = null
-            const svg = svgRef.current
-            if (!svg) return
+            const canvas = svgRef.current as unknown as HTMLCanvasElement
+            if (!canvas || !(canvas instanceof HTMLCanvasElement)) return
+            const ctx = canvas.getContext('2d')
+            if (!ctx) return
 
             const sketchy = useAppStore.getState().boardStyle === 'sketchy'
             const boardStyleKey = sketchy ? 's' : 'n'
 
-            // If board style changed, invalidate all content hashes (forces re-render of all elements)
+            // If board style changed, invalidate all element caches
             if (lastBoardStyleRef.current !== boardStyleKey) {
                 lastBoardStyleRef.current = boardStyleKey
                 elHashMapRef.current.clear()
+                elCanvasMapRef.current.clear()
             }
 
-            // ── Layer structure ──
-            const defsLayer = ensureLayer(svg, 'layer-defs')
-            const overlayLayer = ensureLayer(svg, 'layer-overlay')
-            const elementsLayer = ensureLayer(svg, 'layer-elements')
-            const selectionLayer = ensureLayer(svg, 'layer-selection')
+            // Resize canvas to match layout size × devicePixelRatio
+            // Use clientWidth (not getBoundingClientRect) to avoid CSS transform interference
+            const dpr = window.devicePixelRatio || 1
+            const cw = Math.round(canvas.clientWidth * dpr)
+            const ch = Math.round(canvas.clientHeight * dpr)
+            if (canvas.width !== cw || canvas.height !== ch) {
+                canvas.width = cw
+                canvas.height = ch
+            }
 
-            // 1. Defs (sketchy filter defs — only update when style changes)
-            const defsContent = sketchy ? getSketchyDefs() : ''
-            if (defsLayer.innerHTML !== defsContent) defsLayer.innerHTML = defsContent
+            // Clear canvas
+            ctx.setTransform(1, 0, 0, 1, 0, 0)
+            ctx.clearRect(0, 0, cw, ch)
 
-            // 2. Overlay (handler overlays — anchors, previews. Small, uses innerHTML)
-            const handler = activeHandlerRef.current
-            const overlayContent = handler?.renderOverlay ? (handler.renderOverlay(buildContext()) ?? '') : ''
-            overlayLayer.innerHTML = overlayContent
+            // Apply viewport transform: DPR → pan → zoom
+            // Uses live viewport ref (updated on every pan frame, not just store commits)
+            const vp = liveViewportRef.current
+            ctx.setTransform(dpr * vp.zoom, 0, 0, dpr * vp.zoom, vp.x * dpr, vp.y * dpr)
 
-            // 3. Elements (persistent <g> nodes — the core optimization)
+            // 1. Draw elements
             const elements = [...elementsRef.current]
             if (currentElementRef.current) elements.push(currentElementRef.current)
 
             const selected = selectedElementRef.current
             const multiSelected = selectedElementsRef.current
-            const activeIds = new Set<string>()
 
             for (const el of elements) {
-                activeIds.add(el.id)
-                let g = elGroupMapRef.current.get(el.id)
-
-                // Create <g> if new element
-                if (!g) {
-                    g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-                    elementsLayer.appendChild(g)
-                    elGroupMapRef.current.set(el.id, g)
-                }
-
-                // Position: always update (1 setAttribute call — very cheap)
-                g.setAttribute('transform', `translate(${el.x},${el.y})`)
-
-                // Content: only re-render if element properties changed
                 const isEditingThis = editorRequest?.elementId === el.id
-                const h = fastHash(el, (isEditingThis ? 9999 : 0) + (sketchy ? 77777 : 0))
-                if (elHashMapRef.current.get(el.id) !== h) {
-                    const ox = el.x, oy = el.y
-                    el.x = 0; el.y = 0
-                    const isSel = selected?.id === el.id || multiSelected.has(el.id)
-                    g.innerHTML = renderElement(el, isSel, isEditingThis, sketchy)
-                    el.x = ox; el.y = oy
-                    elHashMapRef.current.set(el.id, h)
-                }
+                drawElement(ctx, el, selected?.id === el.id || multiSelected.has(el.id), isEditingThis, sketchy)
             }
 
-            // Remove deleted elements from DOM
-            for (const [id, g] of elGroupMapRef.current) {
-                if (!activeIds.has(id)) {
-                    g.remove()
-                    elGroupMapRef.current.delete(id)
-                    elHashMapRef.current.delete(id)
-                }
-            }
-
-            // Z-order: ensure DOM order matches elements array order
-            const orderKey = elements.map(e => e.id).join(',')
-            if (lastOrderRef.current !== orderKey) {
-                lastOrderRef.current = orderKey
-                for (const el of elements) {
-                    const g = elGroupMapRef.current.get(el.id)
-                    if (g) elementsLayer.appendChild(g)  // appendChild moves existing nodes
-                }
-            }
-
-            // 4. Selection UI (small, uses innerHTML — changes every frame during drag anyway)
-            let selContent = ''
+            // 2. Selection UI
             if (selected && multiSelected.size <= 1) {
-                const ox = selected.x, oy = selected.y
-                selected.x = 0; selected.y = 0
-                selContent = `<g transform="translate(${ox},${oy})">${renderSelectionUI(selected)}</g>`
-                selected.x = ox; selected.y = oy
+                drawSelectionUI(ctx, selected)
             }
             if (multiSelected.size > 1) {
                 const selEls = elements.filter(e => multiSelected.has(e.id))
@@ -250,10 +203,21 @@ export function useDrawing(
                         maxY = Math.max(maxY, b.y + b.h)
                     }
                     const pad = 6
-                    selContent += `<rect x="${minX - pad}" y="${minY - pad}" width="${maxX - minX + pad * 2}" height="${maxY - minY + pad * 2}" fill="none" stroke="var(--color-accent)" stroke-width="1" stroke-dasharray="4 3" rx="3" />`
+                    ctx.strokeStyle = '#6366f1'
+                    ctx.lineWidth = 1
+                    ctx.setLineDash([4, 3])
+                    ctx.beginPath()
+                    ctx.roundRect(minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2, 3)
+                    ctx.stroke()
+                    ctx.setLineDash([])
                 }
             }
-            selectionLayer.innerHTML = selContent
+
+            // 3. Handler overlay (anchors, box select, etc.)
+            const handler = activeHandlerRef.current
+            if (handler?.renderOverlay) {
+                handler.renderOverlay(buildContext(), ctx)
+            }
         })
     }, [svgRef, editorRequest])
 
@@ -352,20 +316,23 @@ export function useDrawing(
         selectedElementRef.current = null
         currentElementRef.current = null
         selectedElementsRef.current.clear()
-        // Clear persistent DOM state for the new page
-        elGroupMapRef.current.clear()
+        // Clear canvas render cache for the new page
+        elCanvasMapRef.current.clear()
         elHashMapRef.current.clear()
-        lastOrderRef.current = ''
-        const svg = svgRef.current
-        if (svg) {
-            const elementsLayer = svg.getElementById('layer-elements')
-            if (elementsLayer) elementsLayer.innerHTML = ''
-        }
         render()
     }, [drawingData])
 
-    // NOTE: Drawing SVG is INSIDE the viewport transform layer,
-    // so CSS transform handles pan/zoom visually — no re-render needed.
+    // ── Resize observer — re-render canvas immediately when container size changes ──
+    // Without this, CSS stretches the stale pixel buffer until the next render() call.
+    useEffect(() => {
+        const canvas = svgRef.current
+        if (!canvas) return
+        const ro = new ResizeObserver(() => render())
+        ro.observe(canvas)
+        return () => ro.disconnect()
+    }, [svgRef, render])
+
+    // NOTE: Drawing canvas is a direct child of the container.
 
     // ── Event listeners on container ──
     useEffect(() => {
@@ -712,6 +679,8 @@ export function useDrawing(
         blockPreview,
         drawingCursor,
         flushSave,
+        /** Trigger a canvas re-render (call on viewport pan/zoom changes) */
+        renderDrawing: render,
         /** True if the drawing layer consumed the last mousedown. Check before panning. */
         eventConsumedRef,
         /** Currently selected drawing elements (for StylePanel) */

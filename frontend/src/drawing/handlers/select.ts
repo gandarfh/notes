@@ -7,7 +7,7 @@ import type { DrawingContext, InteractionHandler, Point } from '../interfaces'
 import type { DrawingElement, ResizeHandle, Connection, AnchorPoint } from '../types'
 import { isArrowType, genId, getElementBounds } from '../types'
 import { hitTest, hitTestHandle, hitTestArrowEndpoint, hitTestSegmentMidpoint, findNearestSegment, isPointInElement } from '../hitTest'
-import { getArrowLabelPos } from '../render'
+import { getArrowLabelPos, drawAnchors, drawBoxSelection } from '../canvasRender'
 import { getAnchors, resolveAnchor, findNearestAnchor, updateConnectedArrows } from '../connections'
 import { computeOrthoRoute, simplifyOrthoPoints, enforceOrthogonality } from '../ortho'
 
@@ -658,34 +658,17 @@ export class SelectHandler implements InteractionHandler {
 
     // ── Overlay (anchors + box select) ────────────────────
 
-    renderOverlay(ctx: DrawingContext): string {
-        let svg = ''
-
+    renderOverlay(ctx: DrawingContext, canvas: CanvasRenderingContext2D): void {
         // Anchor overlay
         const showAnchors = this.s.isDraggingEndpoint !== null || (ctx.selectedElement && isArrowType(ctx.selectedElement))
         if (showAnchors) {
-            svg += renderAnchorsOverlay(ctx, this.s.hoveredElement, this.s.hoveredAnchor)
+            drawAnchorsCanvas(canvas, ctx, this.s.hoveredElement, this.s.hoveredAnchor)
         }
 
         // Box selection rectangle
         if (this.s.isBoxSelecting && this.s.boxStart && this.s.boxEnd) {
-            const x = Math.min(this.s.boxStart.x, this.s.boxEnd.x)
-            const y = Math.min(this.s.boxStart.y, this.s.boxEnd.y)
-            const w = Math.abs(this.s.boxEnd.x - this.s.boxStart.x)
-            const h = Math.abs(this.s.boxEnd.y - this.s.boxStart.y)
-            svg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(99,102,241,0.08)" stroke="var(--color-accent)" stroke-width="1" stroke-dasharray="4 2" rx="2" />`
-
-            // Preview highlights on elements inside the box
-            for (const el of ctx.elements) {
-                if (this.s.boxPreviewIds.has(el.id)) {
-                    const pad = 4
-                    const b = getElementBounds(el)
-                    svg += `<rect x="${b.x - pad}" y="${b.y - pad}" width="${b.w + pad * 2}" height="${b.h + pad * 2}" fill="rgba(99,102,241,0.06)" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="4 2" rx="3" />`
-                }
-            }
+            drawBoxSelection(canvas, this.s.boxStart, this.s.boxEnd, this.s.boxPreviewIds, ctx.elements)
         }
-
-        return svg
     }
 
     // ── Private helpers ────────────────────────────────────
@@ -865,12 +848,11 @@ export class SelectHandler implements InteractionHandler {
 
 // ── Anchor overlay rendering ──────────────────────────────
 
-import { renderAnchors } from '../render'
-
-function renderAnchorsOverlay(
-    ctx: DrawingContext,
+function drawAnchorsCanvas(
+    canvas: CanvasRenderingContext2D,
+    _ctx: DrawingContext,
     hoveredElement: DrawingElement | null,
     hoveredAnchor: AnchorPoint | null,
-): string {
-    return renderAnchors(hoveredElement, hoveredAnchor, getAnchors)
+): void {
+    drawAnchors(canvas, hoveredElement, hoveredAnchor, getAnchors)
 }

@@ -97,7 +97,7 @@ const GRID_SIZE = 30
 export function Canvas({ onEditBlock }: CanvasProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const connectorSvgRef = useRef<SVGSVGElement>(null)
-    const drawingSvgRef = useRef<SVGSVGElement>(null)
+    const drawingSvgRef = useRef<HTMLCanvasElement>(null)
     const drawingLayerRef = useRef<HTMLDivElement>(null)
     const blockLayerRef = useRef<HTMLDivElement>(null)
     const drawingSubTool = useAppStore(s => s.drawingSubTool)
@@ -116,7 +116,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
         if (block) useAppStore.getState().selectBlock(block.id)
     }, [])
 
-    const { editorRequest, setEditorRequest, blockPreview, drawingCursor, eventConsumedRef, styleSelection, updateSelectedStyle, clearDrawingSelection, reorderSelected, alignSelected, multiSelected } = useDrawing(
+    const { editorRequest, setEditorRequest, blockPreview, drawingCursor, renderDrawing, eventConsumedRef, styleSelection, updateSelectedStyle, clearDrawingSelection, reorderSelected, alignSelected, multiSelected } = useDrawing(
         drawingSvgRef,
         containerRef,
         onBlockCreate,
@@ -137,8 +137,10 @@ export function Canvas({ onEditBlock }: CanvasProps) {
         const t = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.zoom})`
         if (drawingLayerRef.current) drawingLayerRef.current.style.transform = t
         if (blockLayerRef.current) blockLayerRef.current.style.transform = t
+        // Canvas re-render needed — canvas is not CSS-transformed, viewport is in the context
+        renderDrawing(v)
         w.__perfEnd?.('applyViewport')
-    }, [])
+    }, [renderDrawing])
 
     // Keep viewportRef in sync with store (for external viewport changes like double-click zoom)
     useEffect(() => {
@@ -405,22 +407,20 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             {/* Connectors — screen space */}
             <svg ref={connectorSvgRef} className="absolute inset-0 w-full h-full pointer-events-none z-[2]" />
 
-            {/* Drawing SVG — INSIDE viewport transform */}
+            {/* Drawing canvas — direct child of container (canvas can't overflow like SVG).
+                Viewport transform is applied in the canvas context instead of CSS. */}
+            <canvas
+                ref={drawingSvgRef}
+                className="drawing-canvas absolute inset-0 z-[1]"
+                style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
+            />
+
+            {/* Drawing overlay layer — INSIDE viewport transform (for inline editor) */}
             <div
                 ref={drawingLayerRef}
                 className="absolute inset-0 z-[1]"
                 style={{ transform: initTransform, transformOrigin: '0 0', pointerEvents: 'none', willChange: 'transform', backfaceVisibility: 'hidden' as const }}
             >
-                <svg
-                    ref={drawingSvgRef}
-                    className="drawing-svg absolute top-0 left-0"
-                    style={{
-                        overflow: 'visible',
-                        width: '100%',
-                        height: '100%',
-                        pointerEvents: 'none',
-                    }}
-                />
                 {/* Inline text editor — inside viewport transform for pixel-perfect alignment */}
                 {editorRequest && (
                     <InlineEditor

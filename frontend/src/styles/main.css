@@ -576,19 +576,11 @@
     overflow-y: hidden !important;
   }
 
-  /* SVG drawing layer — GPU compositing hints for WebKit (WKWebView) */
-  .drawing-svg {
-    overflow: visible;
+  /* Canvas drawing layer — GPU compositing hint for WebKit */
+  .drawing-canvas {
     transform: translateZ(0);
-    /* Force GPU compositing layer in WebKit */
     -webkit-transform: translateZ(0);
-    contain: layout style;
-    /* Isolate layout calculations */
-  }
-
-  /* Persistent element <g> layers — each gets its own compositing layer */
-  .drawing-svg>g {
-    will-change: transform;
+    image-rendering: auto;
   }
 
   /* SVG connector styling — must use CSS for SVG attributes */
