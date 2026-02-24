@@ -141,7 +141,7 @@ func newMongoConnector(conn *domain.DatabaseConnection, password string) (*mongo
 
 // unmarshalEJSON re-encodes a map[string]any field and uses bson.UnmarshalExtJSON
 // to convert MongoDB Extended JSON types ($oid, $date, $numberLong, etc.) to BSON.
-func unmarshalEJSON(field map[string]any, _ string, _ string) map[string]any {
+func unmarshalEJSON(field map[string]any) map[string]any {
 	if field == nil {
 		return nil
 	}
@@ -203,11 +203,11 @@ func (m *mongoConnector) Execute(ctx context.Context, query string, fetchSize in
 	}
 
 	// Second pass: unmarshal BSON-typed fields with Extended JSON (handles $oid, $date, etc.)
-	mq.Filter = unmarshalEJSON(mq.Filter, query, "filter")
-	mq.Document = unmarshalEJSON(mq.Document, query, "document")
-	mq.Update = unmarshalEJSON(mq.Update, query, "update")
-	mq.Projection = unmarshalEJSON(mq.Projection, query, "projection")
-	mq.Sort = unmarshalEJSON(mq.Sort, query, "sort")
+	mq.Filter = unmarshalEJSON(mq.Filter)
+	mq.Document = unmarshalEJSON(mq.Document)
+	mq.Update = unmarshalEJSON(mq.Update)
+	mq.Projection = unmarshalEJSON(mq.Projection)
+	mq.Sort = unmarshalEJSON(mq.Sort)
 
 	log.Printf("[MONGO] Parsed query: collection=%q operation=%q filter=%v", mq.Collection, mq.Operation, mq.Filter)
 

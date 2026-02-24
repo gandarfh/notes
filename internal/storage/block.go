@@ -20,7 +20,7 @@ func (s *BlockStore) CreateBlock(b *domain.Block) error {
 	now := time.Now()
 	b.CreatedAt = now
 	b.UpdatedAt = now
-	_, err := s.db.conn.Exec(
+	_, err := s.db.Conn().Exec(
 		`INSERT INTO blocks (id, page_id, type, x, y, width, height, content, file_path, style_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		b.ID, b.PageID, b.Type, b.X, b.Y, b.Width, b.Height, b.Content, b.FilePath, b.StyleJSON, b.CreatedAt, b.UpdatedAt,
 	)
@@ -29,7 +29,7 @@ func (s *BlockStore) CreateBlock(b *domain.Block) error {
 
 func (s *BlockStore) GetBlock(id string) (*domain.Block, error) {
 	b := &domain.Block{}
-	err := s.db.conn.QueryRow(
+	err := s.db.Conn().QueryRow(
 		`SELECT id, page_id, type, x, y, width, height, content, file_path, style_json, created_at, updated_at FROM blocks WHERE id = ?`, id,
 	).Scan(&b.ID, &b.PageID, &b.Type, &b.X, &b.Y, &b.Width, &b.Height, &b.Content, &b.FilePath, &b.StyleJSON, &b.CreatedAt, &b.UpdatedAt)
 	if err != nil {
@@ -39,7 +39,7 @@ func (s *BlockStore) GetBlock(id string) (*domain.Block, error) {
 }
 
 func (s *BlockStore) ListBlocks(pageID string) ([]domain.Block, error) {
-	rows, err := s.db.conn.Query(
+	rows, err := s.db.Conn().Query(
 		`SELECT id, page_id, type, x, y, width, height, content, file_path, style_json, created_at, updated_at FROM blocks WHERE page_id = ? ORDER BY created_at ASC`,
 		pageID,
 	)
@@ -61,7 +61,7 @@ func (s *BlockStore) ListBlocks(pageID string) ([]domain.Block, error) {
 
 func (s *BlockStore) UpdateBlock(b *domain.Block) error {
 	b.UpdatedAt = time.Now()
-	_, err := s.db.conn.Exec(
+	_, err := s.db.Conn().Exec(
 		`UPDATE blocks SET type = ?, x = ?, y = ?, width = ?, height = ?, content = ?, file_path = ?, style_json = ?, updated_at = ? WHERE id = ?`,
 		b.Type, b.X, b.Y, b.Width, b.Height, b.Content, b.FilePath, b.StyleJSON, b.UpdatedAt, b.ID,
 	)
@@ -69,19 +69,19 @@ func (s *BlockStore) UpdateBlock(b *domain.Block) error {
 }
 
 func (s *BlockStore) DeleteBlock(id string) error {
-	_, err := s.db.conn.Exec(`DELETE FROM blocks WHERE id = ?`, id)
+	_, err := s.db.Conn().Exec(`DELETE FROM blocks WHERE id = ?`, id)
 	return err
 }
 
 func (s *BlockStore) DeleteBlocksByPage(pageID string) error {
-	_, err := s.db.conn.Exec(`DELETE FROM blocks WHERE page_id = ?`, pageID)
+	_, err := s.db.Conn().Exec(`DELETE FROM blocks WHERE page_id = ?`, pageID)
 	return err
 }
 
 // ReplacePageBlocks atomically replaces all blocks for a page.
 // Used by undo/redo to fully sync DB with a snapshot.
 func (s *BlockStore) ReplacePageBlocks(pageID string, blocks []domain.Block) error {
-	tx, err := s.db.conn.Begin()
+	tx, err := s.db.Conn().Begin()
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}

@@ -20,7 +20,7 @@ func (s *ConnectionStore) CreateConnection(c *domain.Connection) error {
 	now := time.Now()
 	c.CreatedAt = now
 	c.UpdatedAt = now
-	_, err := s.db.conn.Exec(
+	_, err := s.db.Conn().Exec(
 		`INSERT INTO connections (id, page_id, from_block_id, to_block_id, label, color, style, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		c.ID, c.PageID, c.FromBlockID, c.ToBlockID, c.Label, c.Color, c.Style, c.CreatedAt, c.UpdatedAt,
 	)
@@ -29,7 +29,7 @@ func (s *ConnectionStore) CreateConnection(c *domain.Connection) error {
 
 func (s *ConnectionStore) GetConnection(id string) (*domain.Connection, error) {
 	c := &domain.Connection{}
-	err := s.db.conn.QueryRow(
+	err := s.db.Conn().QueryRow(
 		`SELECT id, page_id, from_block_id, to_block_id, label, color, style, created_at, updated_at FROM connections WHERE id = ?`, id,
 	).Scan(&c.ID, &c.PageID, &c.FromBlockID, &c.ToBlockID, &c.Label, &c.Color, &c.Style, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
@@ -39,7 +39,7 @@ func (s *ConnectionStore) GetConnection(id string) (*domain.Connection, error) {
 }
 
 func (s *ConnectionStore) ListConnections(pageID string) ([]domain.Connection, error) {
-	rows, err := s.db.conn.Query(
+	rows, err := s.db.Conn().Query(
 		`SELECT id, page_id, from_block_id, to_block_id, label, color, style, created_at, updated_at FROM connections WHERE page_id = ? ORDER BY created_at ASC`,
 		pageID,
 	)
@@ -61,7 +61,7 @@ func (s *ConnectionStore) ListConnections(pageID string) ([]domain.Connection, e
 
 func (s *ConnectionStore) UpdateConnection(c *domain.Connection) error {
 	c.UpdatedAt = time.Now()
-	_, err := s.db.conn.Exec(
+	_, err := s.db.Conn().Exec(
 		`UPDATE connections SET from_block_id = ?, to_block_id = ?, label = ?, color = ?, style = ?, updated_at = ? WHERE id = ?`,
 		c.FromBlockID, c.ToBlockID, c.Label, c.Color, c.Style, c.UpdatedAt, c.ID,
 	)
@@ -69,17 +69,17 @@ func (s *ConnectionStore) UpdateConnection(c *domain.Connection) error {
 }
 
 func (s *ConnectionStore) DeleteConnection(id string) error {
-	_, err := s.db.conn.Exec(`DELETE FROM connections WHERE id = ?`, id)
+	_, err := s.db.Conn().Exec(`DELETE FROM connections WHERE id = ?`, id)
 	return err
 }
 
 func (s *ConnectionStore) DeleteConnectionsByPage(pageID string) error {
-	_, err := s.db.conn.Exec(`DELETE FROM connections WHERE page_id = ?`, pageID)
+	_, err := s.db.Conn().Exec(`DELETE FROM connections WHERE page_id = ?`, pageID)
 	return err
 }
 
 func (s *ConnectionStore) DeleteConnectionsByBlock(blockID string) error {
-	_, err := s.db.conn.Exec(
+	_, err := s.db.Conn().Exec(
 		`DELETE FROM connections WHERE from_block_id = ? OR to_block_id = ?`,
 		blockID, blockID,
 	)

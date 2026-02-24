@@ -404,7 +404,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             const boardStyle = localStorage.getItem('boardStyle')
             if (boardStyle === 'sketchy') {
                 document.documentElement.style.setProperty('--font-sans', "'Caveat', cursive")
-                document.documentElement.style.fontSize = '20px'
+                document.documentElement.style.fontSize = '17px'
             }
         } catch { }
     })()
