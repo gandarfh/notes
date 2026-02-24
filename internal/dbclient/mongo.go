@@ -280,7 +280,28 @@ func (m *mongoConnector) execAggregate(ctx context.Context, coll *mongo.Collecti
 		pipeline = []any{}
 	}
 
-	cursor, err := coll.Aggregate(ctx, pipeline)
+	// Convert each pipeline stage to bson.D via JSON re-encoding.
+	// Aggregate requires mongo.Pipeline ([]bson.D) — not bson.A.
+	var bsonPipeline mongo.Pipeline
+	for i, stage := range pipeline {
+		stageMap, ok := stage.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("pipeline stage %d is not a document (got %T)", i, stage)
+		}
+		stageBytes, err := json.Marshal(stageMap)
+		if err != nil {
+			return nil, fmt.Errorf("marshal pipeline stage %d: %w", i, err)
+		}
+		var doc bson.D
+		if err := bson.UnmarshalExtJSON(stageBytes, false, &doc); err != nil {
+			return nil, fmt.Errorf("parse pipeline stage %d: %w", i, err)
+		}
+		bsonPipeline = append(bsonPipeline, doc)
+	}
+
+	log.Printf("[MONGO] Aggregate pipeline: %d stages", len(bsonPipeline))
+
+	cursor, err := coll.Aggregate(ctx, bsonPipeline)
 	if err != nil {
 		return nil, fmt.Errorf("aggregate: %w", err)
 	}

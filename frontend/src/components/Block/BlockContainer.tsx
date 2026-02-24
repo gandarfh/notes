@@ -410,8 +410,6 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                 border: `1px solid ${borderColor}`,
                 boxShadow: isImage ? 'none' : boxShadow,
                 zIndex: isEditing ? 100 : isSelected ? 50 : undefined,
-                contentVisibility: 'auto',
-                containIntrinsicSize: `${block.width}px ${block.height}px`,
             }}
             onClick={() => {
                 const { editingBlockId } = useAppStore.getState()

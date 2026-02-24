@@ -45,6 +45,49 @@ function safeParseFilter(input: string): Record<string, any> {
 }
 
 /**
+ * Parse aggregate pipeline from shell syntax.
+ * Handles both array syntax [{ $match: {...} }] and single stage { $match: {...} }.
+ */
+function safeParseAggregatePipeline(input: string): any[] {
+    const trimmed = input.trim()
+    if (!trimmed || trimmed === '[]') return []
+
+    // Apply the same shell-to-JSON conversions
+    let converted = trimmed
+        .replace(/ObjectId\s*\(\s*["']([a-f0-9]{24})["']\s*\)/gi, '{"$oid":"$1"}')
+        .replace(/ISODate\s*\(\s*["']([^"']+)["']\s*\)/gi, '{"$date":"$1"}')
+        .replace(/new\s+Date\s*\(\s*["']([^"']+)["']\s*\)/gi, '{"$date":"$1"}')
+        .replace(/NumberLong\s*\(\s*["']?(-?\d+)["']?\s*\)/gi, '{"$numberLong":"$1"}')
+        .replace(/NumberInt\s*\(\s*(-?\d+)\s*\)/gi, '$1')
+    converted = converted.replace(/([{,\[]\s*)(\$?[a-zA-Z_][\w$.]*)\s*:/g, '$1"$2":')
+    converted = converted.replace(/'([^']*)'/g, '"$1"')
+
+    try {
+        let parsed = JSON.parse(converted)
+        if (Array.isArray(parsed)) {
+            // Unwrap nested arrays from corrupted stored data: [[[{$match:...}]]] → [{$match:...}]
+            while (parsed.length === 1 && Array.isArray(parsed[0])) parsed = parsed[0]
+            return parsed
+        }
+        return [parsed]
+    } catch { /* continue */ }
+
+    // Try without conversions (already valid JSON)
+    try {
+        const parsed = JSON.parse(trimmed)
+        if (Array.isArray(parsed)) return parsed
+        return [parsed]
+    } catch { /* continue */ }
+
+    // Last resort: try as a single stage
+    try {
+        return [safeParseFilter(trimmed)]
+    } catch { /* continue */ }
+
+    throw new Error(`Could not parse aggregate pipeline: ${input}`)
+}
+
+/**
  * Convert a stored EJSON filter object back to readable MongoDB shell syntax.
  * Replaces `stringify` from mongodb-query-parser which also breaks in production.
  * e.g. { "$oid": "abc123..." } → ObjectId("abc123...")
@@ -62,21 +105,39 @@ function filterToShellSyntax(obj: any): string {
         .trim()
 }
 
+const MONGO_OPERATIONS = [
+    { value: 'find', label: 'find' },
+    { value: 'aggregate', label: 'aggregate' },
+    { value: 'insertOne', label: 'insertOne' },
+    { value: 'updateMany', label: 'updateMany' },
+    { value: 'deleteMany', label: 'deleteMany' },
+] as const
+
+type MongoOperation = typeof MONGO_OPERATIONS[number]['value']
+
 // Decode stored full JSON query back to shell syntax for the editor
-function decodeMongoQuery(raw: string): { filter: string; collection: string } {
-    if (!raw || !raw.trim()) return { filter: '', collection: '' }
+function decodeMongoQuery(raw: string): { filter: string; collection: string; operation: MongoOperation } {
+    if (!raw || !raw.trim()) return { filter: '', collection: '', operation: 'find' }
     try {
         const parsed = JSON.parse(raw)
         if (parsed.collection && parsed.filter !== undefined) {
             const filterStr = Object.keys(parsed.filter).length === 0
                 ? '{}'
                 : filterToShellSyntax(parsed.filter)
-            return { filter: filterStr, collection: parsed.collection as string }
+            return { filter: filterStr, collection: parsed.collection as string, operation: parsed.operation || 'find' }
+        }
+        if (parsed.collection && parsed.pipeline !== undefined) {
+            const pipelineStr = JSON.stringify(parsed.pipeline, null, 2)
+                .replace(/"(\$?[a-zA-Z_][\w$.]*)":/g, '$1:')
+            return { filter: pipelineStr, collection: parsed.collection as string, operation: 'aggregate' }
+        }
+        if (parsed.collection && parsed.document !== undefined) {
+            return { filter: filterToShellSyntax(parsed.document), collection: parsed.collection as string, operation: parsed.operation || 'insertOne' }
         }
     } catch (e) {
         console.error('[DB] decodeMongoQuery failed for:', raw, e)
     }
-    return { filter: raw, collection: '' }
+    return { filter: raw, collection: '', operation: 'find' }
 }
 
 interface QueryStageProps {
@@ -150,11 +211,12 @@ export function QueryStage({
 
     // Decode stored query for MongoDB
     const decoded = useMemo(() => {
-        if (!isMongo) return { filter: initialQuery, collection: '' }
+        if (!isMongo) return { filter: initialQuery, collection: '', operation: 'find' as MongoOperation }
         return decodeMongoQuery(initialQuery)
     }, [isMongo, initialQuery])
 
     const [selectedCollection, setSelectedCollection] = useState(decoded.collection || collections[0] || '')
+    const [selectedOperation, setSelectedOperation] = useState<MongoOperation>(decoded.operation || 'find')
     const queryRef = useRef(decoded.filter)
     const prevDecodedRef = useRef(decoded)
 
@@ -164,6 +226,9 @@ export function QueryStage({
         queryRef.current = decoded.filter
         if (decoded.collection && decoded.collection !== selectedCollection) {
             setSelectedCollection(decoded.collection)
+        }
+        if (decoded.operation && decoded.operation !== selectedOperation) {
+            setSelectedOperation(decoded.operation)
         }
     }
 
@@ -179,26 +244,39 @@ export function QueryStage({
     const handleExecute = () => {
         if (isMongo) {
             const trimmed = queryRef.current.trim()
+            const op = selectedOperation || 'find'
+
             if (!trimmed || trimmed === '{}') {
-                // Empty filter — find all
-                onExecute(JSON.stringify({ collection: selectedCollection, operation: 'find', filter: {} }))
+                onExecute(JSON.stringify({ collection: selectedCollection, operation: op, filter: {} }))
                 return
             }
 
             try {
-                // Parse shell syntax using our lightweight parser (avoids acorn)
+                if (op === 'aggregate') {
+                    const pipeline = safeParseAggregatePipeline(trimmed)
+                    const ejsonPipeline = JSON.parse(EJSON.stringify(pipeline, { relaxed: true }))
+                    onExecute(JSON.stringify({ collection: selectedCollection, operation: 'aggregate', pipeline: ejsonPipeline }))
+                    return
+                }
+
+                if (op === 'insertOne') {
+                    const doc = safeParseFilter(trimmed)
+                    const ejsonDoc = JSON.parse(EJSON.stringify(doc, { relaxed: false }))
+                    onExecute(JSON.stringify({ collection: selectedCollection, operation: 'insertOne', document: ejsonDoc }))
+                    return
+                }
+
+                // find, updateMany, deleteMany — all use filter
                 const parsed = safeParseFilter(trimmed)
-                // Serialize BSON types to Extended JSON
                 const ejsonFilter = JSON.parse(EJSON.stringify(parsed, { relaxed: false }))
 
-                const mongoQuery = {
+                const mongoQuery: any = {
                     collection: selectedCollection,
-                    operation: 'find',
+                    operation: op,
                     filter: ejsonFilter,
                 }
                 onExecute(JSON.stringify(mongoQuery))
             } catch (e: any) {
-                // Try as full query JSON (with collection/operation keys)
                 console.error('[DB] safeParseFilter failed:', e)
                 try {
                     const full = JSON.parse(trimmed)
@@ -207,20 +285,22 @@ export function QueryStage({
                         return
                     }
                 } catch { /* not JSON either */ }
-                // Let it fail with a clear error
-                onExecute(JSON.stringify({
-                    collection: selectedCollection,
-                    operation: 'find',
-                    filter: {},
-                }))
+                onExecute(JSON.stringify({ collection: selectedCollection, operation: op, filter: {} }))
             }
         } else {
             onExecute(queryRef.current)
         }
     }
 
+    const placeholders: Record<MongoOperation, string> = {
+        find: '{ status: "active" }',
+        aggregate: '[{ $match: { status: "active" } }, { $group: { _id: "$field" } }]',
+        insertOne: '{ name: "new doc", value: 42 }',
+        updateMany: '{ status: "active" }',
+        deleteMany: '{ status: "deleted" }',
+    }
     const placeholder = isMongo
-        ? '{ status: "active" }'
+        ? placeholders[selectedOperation] || placeholders.find
         : 'SELECT * FROM ...'
 
     return (
@@ -243,8 +323,8 @@ export function QueryStage({
                     </select>
                 </div>
 
-                {/* MongoDB: Collection picker */}
-                {isMongo && (collections.length > 0 || selectedCollection) && (
+                {/* MongoDB: Collection + Operation pickers */}
+                {isMongo && (collections.length > 0 || selectedCollection) && (<>
                     <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-elevated rounded-lg border border-border-subtle">
                         <span className="text-text-muted text-[11px]">Collection</span>
                         <select
@@ -262,7 +342,20 @@ export function QueryStage({
                             }
                         </select>
                     </div>
-                )}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-elevated rounded-lg border border-border-subtle">
+                        <select
+                            className="bg-transparent text-text-primary text-[13px] font-medium font-mono outline-none cursor-pointer
+                                       appearance-none pr-4"
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238888a0' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0 center' }}
+                            value={selectedOperation}
+                            onChange={e => setSelectedOperation(e.target.value as MongoOperation)}
+                        >
+                            {MONGO_OPERATIONS.map(op => (
+                                <option key={op.value} value={op.value}>{op.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </>)}
 
                 {/* Schema loading indicator */}
                 {schemaLoading && (
