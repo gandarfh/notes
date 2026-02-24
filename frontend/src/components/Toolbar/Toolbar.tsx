@@ -25,13 +25,17 @@ const tools: { id: DrawingSubTool | 'block'; icon: React.ReactNode; title: strin
         id: 'code-block' as DrawingSubTool, title: 'Code Block (C)', key: 'c',
         icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7 6L3 10l4 4M13 6l4 4-4 4M11.5 4l-3 12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>,
     },
+    {
+        id: 'localdb-block' as DrawingSubTool, title: 'Local DB (L)', key: 'l',
+        icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.3" /><line x1="3" y1="7.5" x2="17" y2="7.5" stroke="currentColor" strokeWidth="1" /><line x1="3" y1="11.5" x2="17" y2="11.5" stroke="currentColor" strokeWidth="1" /><line x1="8" y1="3" x2="8" y2="17" stroke="currentColor" strokeWidth="1" /></svg>,
+    },
 ]
 
 // Groups
 const GROUP_1 = ['draw-select']
 const GROUP_2 = ['rectangle', 'ellipse', 'diamond', 'ortho-arrow']
 const GROUP_3 = ['freedraw', 'text']
-const GROUP_4 = ['block', 'db-block', 'code-block']
+const GROUP_4 = ['block', 'db-block', 'code-block', 'localdb-block']
 
 // Tiny component — only re-renders when zoom changes, not the whole toolbar
 function ZoomDisplay() {

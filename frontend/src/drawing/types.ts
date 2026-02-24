@@ -67,7 +67,7 @@ export interface DrawingElement {
     labelT?: number  // 0..1 position along arrow path (default 0.5 = midpoint)
 }
 
-export type DrawingSubTool = 'draw-select' | 'block' | 'db-block' | 'code-block' | 'rectangle' | 'ellipse' | 'ortho-arrow' | 'freedraw' | 'text' | 'diamond'
+export type DrawingSubTool = 'draw-select' | 'block' | 'db-block' | 'code-block' | 'localdb-block' | 'rectangle' | 'ellipse' | 'ortho-arrow' | 'freedraw' | 'text' | 'diamond'
 
 export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 

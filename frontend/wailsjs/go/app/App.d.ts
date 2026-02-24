@@ -7,6 +7,8 @@ import {storage} from '../models';
 
 export function ApplyMutations(arg1:string,arg2:string,arg3:Array<dbclient.Mutation>):Promise<dbclient.MutationResult>;
 
+export function BatchUpdateLocalDBRows(arg1:string,arg2:string):Promise<void>;
+
 export function ChangeBlockFileExt(arg1:string,arg2:string):Promise<string>;
 
 export function ClearCachedResult(arg1:string):Promise<void>;
@@ -19,6 +21,10 @@ export function CreateConnection(arg1:string,arg2:string,arg3:string):Promise<do
 
 export function CreateDatabaseConnection(arg1:app.CreateDBConnInput):Promise<app.DBConnView>;
 
+export function CreateLocalDBRow(arg1:string,arg2:string):Promise<domain.LocalDBRow>;
+
+export function CreateLocalDatabase(arg1:string,arg2:string):Promise<domain.LocalDatabase>;
+
 export function CreateNotebook(arg1:string):Promise<domain.Notebook>;
 
 export function CreatePage(arg1:string,arg2:string):Promise<domain.Page>;
@@ -29,9 +35,15 @@ export function DeleteConnection(arg1:string):Promise<void>;
 
 export function DeleteDatabaseConnection(arg1:string):Promise<void>;
 
+export function DeleteLocalDBRow(arg1:string):Promise<void>;
+
+export function DeleteLocalDatabase(arg1:string):Promise<void>;
+
 export function DeleteNotebook(arg1:string):Promise<void>;
 
 export function DeletePage(arg1:string):Promise<void>;
+
+export function DuplicateLocalDBRow(arg1:string):Promise<domain.LocalDBRow>;
 
 export function ExecuteQuery(arg1:string,arg2:string,arg3:string,arg4:number):Promise<app.QueryResultView>;
 
@@ -41,6 +53,10 @@ export function GetCachedResult(arg1:string):Promise<app.QueryResultView>;
 
 export function GetImageData(arg1:string):Promise<string>;
 
+export function GetLocalDatabase(arg1:string):Promise<domain.LocalDatabase>;
+
+export function GetLocalDatabaseStats(arg1:string):Promise<app.LocalDBStats>;
+
 export function GetPageState(arg1:string):Promise<domain.PageState>;
 
 export function GoToUndoNode(arg1:string,arg2:string):Promise<void>;
@@ -48,6 +64,10 @@ export function GoToUndoNode(arg1:string,arg2:string):Promise<void>;
 export function IntrospectDatabase(arg1:string):Promise<dbclient.SchemaInfo>;
 
 export function ListDatabaseConnections():Promise<Array<app.DBConnView>>;
+
+export function ListLocalDBRows(arg1:string):Promise<Array<domain.LocalDBRow>>;
+
+export function ListLocalDatabases():Promise<Array<domain.LocalDatabase>>;
 
 export function ListNotebooks():Promise<Array<domain.Notebook>>;
 
@@ -63,9 +83,13 @@ export function PickTextFile():Promise<string>;
 
 export function PushUndoNode(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<storage.UndoNode>;
 
+export function RenameLocalDatabase(arg1:string,arg2:string):Promise<void>;
+
 export function RenameNotebook(arg1:string,arg2:string):Promise<void>;
 
 export function RenamePage(arg1:string,arg2:string):Promise<void>;
+
+export function ReorderLocalDBRows(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function RestorePageBlocks(arg1:string,arg2:Array<domain.Block>):Promise<void>;
 
@@ -90,5 +114,9 @@ export function UpdateConnection(arg1:string,arg2:string,arg3:string,arg4:string
 export function UpdateDatabaseConnection(arg1:string,arg2:app.CreateDBConnInput):Promise<void>;
 
 export function UpdateDrawingData(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateLocalDBRow(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateLocalDatabaseConfig(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateViewport(arg1:string,arg2:number,arg3:number,arg4:number):Promise<void>;

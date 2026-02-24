@@ -58,6 +58,12 @@ func (a *App) CreateBlock(pageID string, blockType string, x, y, w, h float64) (
 		}
 		b.FilePath = filePath
 		b.Content = ""
+
+	case domain.BlockTypeLocalDB:
+		// Auto-create the associated local database with default columns
+		if _, err := a.CreateLocalDatabase(blockID, "Untitled"); err != nil {
+			return nil, fmt.Errorf("create local database for block: %w", err)
+		}
 	}
 
 	if err := a.blocks.CreateBlock(b); err != nil {

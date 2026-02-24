@@ -157,6 +157,25 @@ func (db *DB) migrate() error {
 			affected_rows INTEGER NOT NULL DEFAULT 0
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_query_results_block ON query_results(block_id)`,
+		// Local Database plugin: user-created structured tables
+		`CREATE TABLE IF NOT EXISTS local_databases (
+			id TEXT PRIMARY KEY,
+			block_id TEXT NOT NULL,
+			name TEXT NOT NULL DEFAULT 'Untitled',
+			config_json TEXT NOT NULL DEFAULT '{}',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_local_databases_block ON local_databases(block_id)`,
+		`CREATE TABLE IF NOT EXISTS local_db_rows (
+			id TEXT PRIMARY KEY,
+			database_id TEXT NOT NULL REFERENCES local_databases(id),
+			data_json TEXT NOT NULL DEFAULT '{}',
+			sort_order INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_local_db_rows_database ON local_db_rows(database_id)`,
 	}
 
 	for _, m := range migrations {

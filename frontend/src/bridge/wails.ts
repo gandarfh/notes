@@ -52,6 +52,21 @@ declare global {
           SaveBlockDatabaseConfig(blockID: string, config: string): Promise<void>
           PickDatabaseFile(): Promise<string>
           ApplyMutations(connectionID: string, table: string, mutations: Mutation[]): Promise<MutationResult>
+          // Local Database plugin
+          CreateLocalDatabase(blockID: string, name: string): Promise<LocalDatabase>
+          GetLocalDatabase(blockID: string): Promise<LocalDatabase>
+          UpdateLocalDatabaseConfig(dbID: string, configJSON: string): Promise<void>
+          RenameLocalDatabase(dbID: string, name: string): Promise<void>
+          DeleteLocalDatabase(dbID: string): Promise<void>
+          ListLocalDatabases(): Promise<LocalDatabase[]>
+          CreateLocalDBRow(dbID: string, dataJSON: string): Promise<LocalDBRow>
+          ListLocalDBRows(dbID: string): Promise<LocalDBRow[]>
+          UpdateLocalDBRow(rowID: string, dataJSON: string): Promise<void>
+          DeleteLocalDBRow(rowID: string): Promise<void>
+          DuplicateLocalDBRow(rowID: string): Promise<LocalDBRow>
+          ReorderLocalDBRows(dbID: string, rowIDs: string[]): Promise<void>
+          BatchUpdateLocalDBRows(dbID: string, mutationsJSON: string): Promise<void>
+          GetLocalDatabaseStats(dbID: string): Promise<LocalDBStats>
         }
       }
     }
@@ -87,7 +102,7 @@ export interface Page {
 export interface Block {
   id: string
   pageId: string
-  type: 'markdown' | 'drawing' | 'image' | 'database' | 'code'
+  type: 'markdown' | 'drawing' | 'image' | 'database' | 'code' | 'localdb'
   x: number
   y: number
   width: number
@@ -194,6 +209,50 @@ export interface ColumnInfo {
   type: string
 }
 
+// ── Local Database Plugin Types ────────────────────────────
+
+export type ColumnType = 'text' | 'number' | 'date' | 'datetime' | 'select' | 'multi-select' | 'checkbox' | 'url' | 'person' | 'timer' | 'formula' | 'relation' | 'rollup' | 'progress' | 'rating'
+
+export interface ColumnDef {
+  id: string
+  name: string
+  type: ColumnType
+  width: number
+  options?: string[]        // for select / multi-select
+  formula?: string          // for formula type
+  relationDbId?: string     // for relation type
+  rollupRelCol?: string     // for rollup type
+  rollupAgg?: string        // sum | avg | count | min | max
+}
+
+export interface LocalDatabaseConfig {
+  columns: ColumnDef[]
+  activeView: string
+}
+
+export interface LocalDatabase {
+  id: string
+  blockId: string
+  name: string
+  configJson: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LocalDBRow {
+  id: string
+  databaseId: string
+  dataJson: string
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LocalDBStats {
+  rowCount: number
+  lastUpdated: string
+}
+
 function getAPI() {
   return window.go.app.App
 }
@@ -249,6 +308,22 @@ export const api = {
   saveBlockDatabaseConfig: (blockID: string, config: string) => getAPI().SaveBlockDatabaseConfig(blockID, config),
   pickDatabaseFile: () => getAPI().PickDatabaseFile(),
   applyMutations: (connectionID: string, table: string, mutations: Mutation[]) => getAPI().ApplyMutations(connectionID, table, mutations),
+
+  // Local Database plugin
+  createLocalDatabase: (blockID: string, name: string) => getAPI().CreateLocalDatabase(blockID, name),
+  getLocalDatabase: (blockID: string) => getAPI().GetLocalDatabase(blockID),
+  updateLocalDatabaseConfig: (dbID: string, configJSON: string) => getAPI().UpdateLocalDatabaseConfig(dbID, configJSON),
+  renameLocalDatabase: (dbID: string, name: string) => getAPI().RenameLocalDatabase(dbID, name),
+  deleteLocalDatabase: (dbID: string) => getAPI().DeleteLocalDatabase(dbID),
+  listLocalDatabases: () => getAPI().ListLocalDatabases(),
+  createLocalDBRow: (dbID: string, dataJSON: string) => getAPI().CreateLocalDBRow(dbID, dataJSON),
+  listLocalDBRows: (dbID: string) => getAPI().ListLocalDBRows(dbID),
+  updateLocalDBRow: (rowID: string, dataJSON: string) => getAPI().UpdateLocalDBRow(rowID, dataJSON),
+  deleteLocalDBRow: (rowID: string) => getAPI().DeleteLocalDBRow(rowID),
+  duplicateLocalDBRow: (rowID: string) => getAPI().DuplicateLocalDBRow(rowID),
+  reorderLocalDBRows: (dbID: string, rowIDs: string[]) => getAPI().ReorderLocalDBRows(dbID, rowIDs),
+  batchUpdateLocalDBRows: (dbID: string, mutationsJSON: string) => getAPI().BatchUpdateLocalDBRows(dbID, mutationsJSON),
+  getLocalDatabaseStats: (dbID: string) => getAPI().GetLocalDatabaseStats(dbID),
 }
 
 export function onEvent(name: string, callback: (...args: any[]) => void): () => void {

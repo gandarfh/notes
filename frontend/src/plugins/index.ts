@@ -5,6 +5,7 @@ import { drawingPlugin } from './drawing'
 import { imagePlugin } from './image'
 import { databasePlugin } from './database'
 import { codePlugin } from './code'
+import { localdbPlugin } from './localdb'
 
 export function registerBuiltinPlugins() {
     BlockRegistry.register(markdownPlugin)
@@ -12,6 +13,7 @@ export function registerBuiltinPlugins() {
     BlockRegistry.register(imagePlugin)
     BlockRegistry.register(databasePlugin)
     BlockRegistry.register(codePlugin)
+    BlockRegistry.register(localdbPlugin)
 }
 
 export { BlockRegistry } from './registry'

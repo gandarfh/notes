@@ -6,6 +6,10 @@ export function ApplyMutations(arg1, arg2, arg3) {
   return window['go']['app']['App']['ApplyMutations'](arg1, arg2, arg3);
 }
 
+export function BatchUpdateLocalDBRows(arg1, arg2) {
+  return window['go']['app']['App']['BatchUpdateLocalDBRows'](arg1, arg2);
+}
+
 export function ChangeBlockFileExt(arg1, arg2) {
   return window['go']['app']['App']['ChangeBlockFileExt'](arg1, arg2);
 }
@@ -30,6 +34,14 @@ export function CreateDatabaseConnection(arg1) {
   return window['go']['app']['App']['CreateDatabaseConnection'](arg1);
 }
 
+export function CreateLocalDBRow(arg1, arg2) {
+  return window['go']['app']['App']['CreateLocalDBRow'](arg1, arg2);
+}
+
+export function CreateLocalDatabase(arg1, arg2) {
+  return window['go']['app']['App']['CreateLocalDatabase'](arg1, arg2);
+}
+
 export function CreateNotebook(arg1) {
   return window['go']['app']['App']['CreateNotebook'](arg1);
 }
@@ -50,12 +62,24 @@ export function DeleteDatabaseConnection(arg1) {
   return window['go']['app']['App']['DeleteDatabaseConnection'](arg1);
 }
 
+export function DeleteLocalDBRow(arg1) {
+  return window['go']['app']['App']['DeleteLocalDBRow'](arg1);
+}
+
+export function DeleteLocalDatabase(arg1) {
+  return window['go']['app']['App']['DeleteLocalDatabase'](arg1);
+}
+
 export function DeleteNotebook(arg1) {
   return window['go']['app']['App']['DeleteNotebook'](arg1);
 }
 
 export function DeletePage(arg1) {
   return window['go']['app']['App']['DeletePage'](arg1);
+}
+
+export function DuplicateLocalDBRow(arg1) {
+  return window['go']['app']['App']['DuplicateLocalDBRow'](arg1);
 }
 
 export function ExecuteQuery(arg1, arg2, arg3, arg4) {
@@ -74,6 +98,14 @@ export function GetImageData(arg1) {
   return window['go']['app']['App']['GetImageData'](arg1);
 }
 
+export function GetLocalDatabase(arg1) {
+  return window['go']['app']['App']['GetLocalDatabase'](arg1);
+}
+
+export function GetLocalDatabaseStats(arg1) {
+  return window['go']['app']['App']['GetLocalDatabaseStats'](arg1);
+}
+
 export function GetPageState(arg1) {
   return window['go']['app']['App']['GetPageState'](arg1);
 }
@@ -88,6 +120,14 @@ export function IntrospectDatabase(arg1) {
 
 export function ListDatabaseConnections() {
   return window['go']['app']['App']['ListDatabaseConnections']();
+}
+
+export function ListLocalDBRows(arg1) {
+  return window['go']['app']['App']['ListLocalDBRows'](arg1);
+}
+
+export function ListLocalDatabases() {
+  return window['go']['app']['App']['ListLocalDatabases']();
 }
 
 export function ListNotebooks() {
@@ -118,12 +158,20 @@ export function PushUndoNode(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['PushUndoNode'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function RenameLocalDatabase(arg1, arg2) {
+  return window['go']['app']['App']['RenameLocalDatabase'](arg1, arg2);
+}
+
 export function RenameNotebook(arg1, arg2) {
   return window['go']['app']['App']['RenameNotebook'](arg1, arg2);
 }
 
 export function RenamePage(arg1, arg2) {
   return window['go']['app']['App']['RenamePage'](arg1, arg2);
+}
+
+export function ReorderLocalDBRows(arg1, arg2) {
+  return window['go']['app']['App']['ReorderLocalDBRows'](arg1, arg2);
 }
 
 export function RestorePageBlocks(arg1, arg2) {
@@ -172,6 +220,14 @@ export function UpdateDatabaseConnection(arg1, arg2) {
 
 export function UpdateDrawingData(arg1, arg2) {
   return window['go']['app']['App']['UpdateDrawingData'](arg1, arg2);
+}
+
+export function UpdateLocalDBRow(arg1, arg2) {
+  return window['go']['app']['App']['UpdateLocalDBRow'](arg1, arg2);
+}
+
+export function UpdateLocalDatabaseConfig(arg1, arg2) {
+  return window['go']['app']['App']['UpdateLocalDatabaseConfig'](arg1, arg2);
 }
 
 export function UpdateViewport(arg1, arg2, arg3, arg4) {

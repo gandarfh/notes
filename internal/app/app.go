@@ -32,6 +32,9 @@ type App struct {
 	// Track which block is being edited
 	editingBlockID string
 
+	// Local Database plugin
+	localDBStore *storage.LocalDatabaseStore
+
 	// Database plugin
 	secrets          secret.SecretStore
 	dbConnStore      *storage.DBConnectionStore
@@ -68,6 +71,9 @@ func (a *App) Startup(ctx context.Context) {
 	a.blocks = storage.NewBlockStore(db)
 	a.conns = storage.NewConnectionStore(db)
 	a.undos = storage.NewUndoStore(db)
+
+	// Local Database plugin store
+	a.localDBStore = storage.NewLocalDatabaseStore(db)
 
 	// Database plugin stores
 	a.secrets = secret.NewKeychainStore()
