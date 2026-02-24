@@ -11,6 +11,7 @@ const (
 	BlockTypeDatabase BlockType = "database"
 	BlockTypeCode     BlockType = "code"
 	BlockTypeLocalDB  BlockType = "localdb"
+	BlockTypeChart    BlockType = "chart"
 )
 
 type Block struct {

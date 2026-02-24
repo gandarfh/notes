@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
-import type { ColumnDef, LocalDatabase, LocalDBRow, LocalDatabaseConfig } from '../../bridge/wails'
+import type { ColumnDef, LocalDatabase, LocalDBRow, LocalDatabaseConfig, ViewConfig } from '../../bridge/wails'
 import { api } from '../../bridge/wails'
+import { ViewSwitcher, type ViewType } from './ViewSwitcher'
 import { TableView } from './TableView'
+import { KanbanView } from './KanbanView'
+import { CalendarView } from './CalendarView'
+import { ViewConfigBar } from './ViewConfigBar'
 
 // ── Main Renderer ──────────────────────────────────────────
 
@@ -133,11 +137,39 @@ function LocalDBRenderer({ block }: BlockRendererProps) {
         const config = configRef.current || { columns: [], activeView: 'table' }
         const updated = { ...config, columns: newColumns }
         const json = JSON.stringify(updated)
-
-        // Optimistic update
         setDb(prev => prev ? { ...prev, configJson: json } : prev)
-
         await api.updateLocalDatabaseConfig(db.id, json).catch(console.error)
+    }, [db])
+
+    // View change
+    const handleViewChange = useCallback(async (view: ViewType) => {
+        if (!db) return
+        const config = configRef.current || { columns: [], activeView: 'table' }
+        const updated = { ...config, activeView: view }
+        const json = JSON.stringify(updated)
+        setDb(prev => prev ? { ...prev, configJson: json } : prev)
+        await api.updateLocalDatabaseConfig(db.id, json).catch(console.error)
+    }, [db])
+
+    // View config change
+    const handleViewConfigChange = useCallback(async (newViewConfig: ViewConfig) => {
+        if (!db) return
+        const config = configRef.current || { columns: [], activeView: 'table' }
+        const updated = { ...config, viewConfig: newViewConfig }
+        const json = JSON.stringify(updated)
+        setDb(prev => prev ? { ...prev, configJson: json } : prev)
+        await api.updateLocalDatabaseConfig(db.id, json).catch(console.error)
+    }, [db])
+
+    // Reorder rows
+    const handleReorderRows = useCallback(async (rowIds: string[]) => {
+        if (!db) return
+        // Optimistic reorder
+        setRows(prev => {
+            const map = new Map(prev.map(r => [r.id, r]))
+            return rowIds.map(id => map.get(id)).filter(Boolean) as LocalDBRow[]
+        })
+        await api.reorderLocalDBRows(db.id, rowIds).catch(console.error)
     }, [db])
 
     if (loading) {
@@ -158,6 +190,28 @@ function LocalDBRenderer({ block }: BlockRendererProps) {
     }
 
     const config = getConfig()
+    const activeView = (config.activeView || 'table') as ViewType
+
+    const viewConfig = config.viewConfig || {}
+
+    const viewProps = {
+        columns: config.columns,
+        rows,
+        viewConfig,
+        onCellChange: handleCellChange,
+        onAddRow: handleAddRow,
+        onDeleteRow: handleDeleteRow,
+        onDuplicateRow: handleDuplicateRow,
+        onColumnsChange: handleColumnsChange,
+    }
+
+    const renderView = () => {
+        switch (activeView) {
+            case 'kanban': return <KanbanView {...viewProps} onReorderRows={handleReorderRows} />
+            case 'calendar': return <CalendarView {...viewProps} />
+            default: return <TableView {...viewProps} />
+        }
+    }
 
     return (
         <div
@@ -165,7 +219,7 @@ function LocalDBRenderer({ block }: BlockRendererProps) {
             ref={blockRef}
             onMouseDown={e => e.stopPropagation()}
         >
-            {/* Editable database title */}
+            {/* Title bar with view switcher */}
             <div className="ldb-title-bar">
                 {editingName ? (
                     <input
@@ -181,18 +235,18 @@ function LocalDBRenderer({ block }: BlockRendererProps) {
                         {nameValue}
                     </span>
                 )}
+                <ViewSwitcher activeView={activeView} onViewChange={handleViewChange} />
                 <span className="ldb-title-count">{rows.length} rows</span>
             </div>
 
-            <TableView
+            <ViewConfigBar
+                activeView={activeView}
                 columns={config.columns}
-                rows={rows}
-                onCellChange={handleCellChange}
-                onAddRow={handleAddRow}
-                onDeleteRow={handleDeleteRow}
-                onDuplicateRow={handleDuplicateRow}
-                onColumnsChange={handleColumnsChange}
+                viewConfig={viewConfig}
+                onConfigChange={handleViewConfigChange}
             />
+
+            {renderView()}
         </div>
     )
 }

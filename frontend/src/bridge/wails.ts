@@ -225,9 +225,17 @@ export interface ColumnDef {
   rollupAgg?: string        // sum | avg | count | min | max
 }
 
+export interface ViewConfig {
+  titleColumn?: string      // column ID used as title in all views
+  groupByColumn?: string    // column ID used to group in Kanban
+  dateColumn?: string       // column ID used for Calendar placement
+  checkboxColumn?: string   // column ID used for List checkbox
+}
+
 export interface LocalDatabaseConfig {
   columns: ColumnDef[]
   activeView: string
+  viewConfig?: ViewConfig
 }
 
 export interface LocalDatabase {
