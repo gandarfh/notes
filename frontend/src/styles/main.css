@@ -565,8 +565,24 @@
   }
 
   .markdown-preview .mermaid-block svg {
-    max-width: 100%;
     height: auto;
+  }
+
+  /* Override mermaid's sans-serif with the project font after size calculation */
+  .markdown-preview .mermaid-block svg text,
+  .markdown-preview .mermaid-block svg foreignObject {
+    font-family: 'Latin Modern Roman', serif !important;
+  }
+
+  /* Prevent text clipping when using a different font than mermaid calculated for */
+  .markdown-preview .mermaid-block svg foreignObject {
+    overflow: visible !important;
+  }
+
+  .markdown-preview .mermaid-block svg foreignObject div,
+  .markdown-preview .mermaid-block svg foreignObject span {
+    overflow: visible !important;
+    white-space: nowrap !important;
   }
 
   .markdown-preview .mermaid-error {

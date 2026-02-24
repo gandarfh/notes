@@ -55,7 +55,15 @@ function syncMermaidTheme() {
     mermaid.initialize({
         startOnLoad: false,
         theme: isLight ? 'default' : 'dark',
-        fontFamily: 'inherit',
+        fontFamily: 'sans-serif',
+        flowchart: { useMaxWidth: false, wrappingWidth: 400 },
+        sequence: { useMaxWidth: false },
+        gantt: { useMaxWidth: false },
+        journey: { useMaxWidth: false },
+        class: { useMaxWidth: false },
+        state: { useMaxWidth: false },
+        er: { useMaxWidth: false },
+        pie: { useMaxWidth: false },
     })
 }
 
