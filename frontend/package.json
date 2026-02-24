@@ -42,5 +42,8 @@
     "recharts": "^3.7.0",
     "tailwindcss": "^4.2.0",
     "zustand": "^5.0.11"
+  },
+  "overrides": {
+    "@types/d3-dispatch": "3.0.6"
   }
 }
