@@ -1,70 +1,172 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { rollup, sum, mean, min, max } from 'd3-array'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 import type { LocalDatabase, ColumnDef } from '../../bridge/wails'
 import { api } from '../../bridge/wails'
 import { ChartRenderer, defaultConfig, type ChartConfig, type ChartType, type DataPoint, type SeriesDef } from './ChartRenderer'
 import { ChartTypePicker } from './ChartTypePicker'
+import { NotebookEditor, defaultNotebookConfig, type NotebookConfig, type FilterCondition, type Metric } from './NotebookEditor'
 
-// ── Query Builder Types ────────────────────────────────────
-
-type Aggregation = 'count' | 'sum' | 'avg' | 'min' | 'max'
-
-interface ChartQuery {
-    id: string                // a, b, c ...
-    databaseId: string
-    metric: string            // column id for the value (ignored for count)
-    aggregation: Aggregation
-    groupBy: string           // column id to group results by
-    color: string
-}
+// ── Block Config ───────────────────────────────────────────
 
 interface ChartBlockConfig extends ChartConfig {
-    queries: ChartQuery[]
+    notebook: NotebookConfig
 }
 
 const COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899']
-const LETTERS = 'abcdefghijklmnop'.split('')
-
-function newQuery(index: number): ChartQuery {
-    return {
-        id: LETTERS[index] || `q${index}`,
-        databaseId: '',
-        metric: '',
-        aggregation: 'sum',
-        groupBy: '',
-        color: COLORS[index % COLORS.length],
-    }
-}
 
 function defaultBlockConfig(): ChartBlockConfig {
     return {
         ...defaultConfig(),
         data: [],
         series: [],
-        queries: [newQuery(0)],
+        notebook: defaultNotebookConfig(),
     }
 }
 
-// ── d3-based aggregation ───────────────────────────────────
+// ── Filter pipeline ────────────────────────────────────────
 
-interface ParsedRow { group: string; value: number }
+function matchesFilter(value: unknown, f: FilterCondition): boolean {
+    const s = String(value ?? '')
+    const v = f.value
 
-function d3Aggregate(rows: ParsedRow[], agg: Aggregation): Map<string, number> {
-    return rollup(
-        rows,
-        group => {
-            const vals = group.map(r => r.value)
-            switch (agg) {
-                case 'count': return group.length
-                case 'sum': return sum(vals) ?? 0
-                case 'avg': return mean(vals) ?? 0
-                case 'min': return min(vals) ?? 0
-                case 'max': return max(vals) ?? 0
-            }
-        },
-        r => r.group,
-    )
+    switch (f.operator) {
+        // Text
+        case 'is': return s === v
+        case 'is_not': return s !== v
+        case 'contains': return s.toLowerCase().includes(v.toLowerCase())
+        case 'starts_with': return s.toLowerCase().startsWith(v.toLowerCase())
+        case 'ends_with': return s.toLowerCase().endsWith(v.toLowerCase())
+        // Number
+        case 'eq': return Number(s) === Number(v)
+        case 'neq': return Number(s) !== Number(v)
+        case 'gt': return Number(s) > Number(v)
+        case 'lt': return Number(s) < Number(v)
+        case 'gte': return Number(s) >= Number(v)
+        case 'lte': return Number(s) <= Number(v)
+        case 'between': return Number(s) >= Number(v) && Number(s) <= Number(f.value2 ?? v)
+        // Checkbox
+        case 'is_true': return s === 'true' || s === '1'
+        case 'is_false': return s === 'false' || s === '0' || s === ''
+        // Date
+        case 'before': return s < v
+        case 'after': return s > v
+        default: return true
+    }
+}
+
+// ── Aggregation ────────────────────────────────────────────
+
+function aggregate(values: number[], agg: Metric['aggregation']): number {
+    if (values.length === 0) return 0
+    switch (agg) {
+        case 'count': return values.length
+        case 'sum': return values.reduce((a, b) => a + b, 0)
+        case 'avg': return values.reduce((a, b) => a + b, 0) / values.length
+        case 'min': return Math.min(...values)
+        case 'max': return Math.max(...values)
+    }
+}
+
+function groupAndAggregate(
+    data: Record<string, unknown>[],
+    metric: Metric,
+    groupByKeys: string[],
+): Map<string, number> {
+    const groups = new Map<string, number[]>()
+    const keyOf = (d: Record<string, unknown>) =>
+        groupByKeys.map(k => String(d[k] ?? 'Other')).join(' × ')
+
+    for (const row of data) {
+        const key = keyOf(row)
+        if (!groups.has(key)) groups.set(key, [])
+        const val = metric.aggregation === 'count' ? 1 : (Number(row[metric.column!]) || 0)
+        groups.get(key)!.push(val)
+    }
+
+    const result = new Map<string, number>()
+    groups.forEach((vals, key) => result.set(key, aggregate(vals, metric.aggregation)))
+    return result
+}
+
+// ── Full pipeline execution ────────────────────────────────
+
+async function executePipeline(
+    nb: NotebookConfig,
+    columns: ColumnDef[],
+): Promise<{ data: DataPoint[]; series: SeriesDef[] }> {
+    if (!nb.databaseId || nb.summarize.groupBy.length === 0) return { data: [], series: [] }
+
+    // 1. Fetch data
+    const rawRows = await api.listLocalDBRows(nb.databaseId)
+    let rows: Record<string, unknown>[] = rawRows.map(r => {
+        try { return JSON.parse(r.dataJson || '{}') } catch { return {} }
+    })
+
+    // 2. Filter
+    for (const f of nb.filters) {
+        if (!f.column) continue
+        rows = rows.filter(row => matchesFilter(row[f.column], f))
+    }
+
+    // 3. Summarize
+    const allLabels = new Set<string>()
+    const metricResults: { metric: Metric; idx: number; groups: Map<string, number> }[] = []
+
+    nb.summarize.metrics.forEach((m, idx) => {
+        if (m.aggregation !== 'count' && !m.column) return
+        const groups = groupAndAggregate(rows, m, nb.summarize.groupBy)
+        groups.forEach((_val: number, label: string) => allLabels.add(label))
+        metricResults.push({ metric: m, idx, groups })
+    })
+
+    // 4. Build data points
+    let labels = Array.from(allLabels)
+
+    // 5. Sort
+    if (nb.sort.length > 0) {
+        const sortRule = nb.sort[0]
+        // Check if sorting by a metric result or a label
+        const metricIdx = metricResults.findIndex(m => {
+            const col = columns.find(c => c.id === sortRule.column)
+            return col && m.metric.column === sortRule.column
+        })
+
+        if (metricIdx >= 0) {
+            const groups = metricResults[metricIdx].groups
+            labels.sort((a, b) => {
+                const va = groups.get(a) ?? 0
+                const vb = groups.get(b) ?? 0
+                return sortRule.direction === 'asc' ? va - vb : vb - va
+            })
+        } else {
+            labels.sort((a, b) => sortRule.direction === 'asc' ? a.localeCompare(b) : b.localeCompare(a))
+        }
+    } else {
+        labels.sort()
+    }
+
+    // 6. Limit
+    if (nb.limit && nb.limit > 0) {
+        labels = labels.slice(0, nb.limit)
+    }
+
+    const data: DataPoint[] = labels.map(label => {
+        const point: DataPoint = { name: label }
+        metricResults.forEach(({ idx, groups }) => {
+            point[`m${idx}`] = groups.get(label) ?? 0
+        })
+        return point
+    })
+
+    const series: SeriesDef[] = metricResults.map(({ metric, idx }) => {
+        const col = columns.find(c => c.id === metric.column)
+        const name = metric.aggregation === 'count'
+            ? 'Count'
+            : `${metric.aggregation}(${col?.name || '?'})`
+        return { key: `m${idx}`, color: COLORS[idx % COLORS.length], name }
+    })
+
+    return { data, series }
 }
 
 // ── Chart Block Renderer ───────────────────────────────────
@@ -73,7 +175,7 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
     const configRef = useRef<ChartBlockConfig | null>(null)
     const [databases, setDatabases] = useState<LocalDatabase[]>([])
     const [dbColumns, setDbColumns] = useState<Record<string, ColumnDef[]>>({})
-    const [showConfig, setShowConfig] = useState(false)
+    const [showEditor, setShowEditor] = useState(false)
     const [showTypePicker, setShowTypePicker] = useState(false)
     const [editingTitle, setEditingTitle] = useState(false)
     const [titleValue, setTitleValue] = useState('')
@@ -84,7 +186,7 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
         try {
             const parsed = JSON.parse(block.content || '{}') as Partial<ChartBlockConfig>
             const cfg = { ...defaultBlockConfig(), ...parsed }
-            if (!cfg.queries || cfg.queries.length === 0) cfg.queries = [newQuery(0)]
+            if (!cfg.notebook) cfg.notebook = defaultNotebookConfig()
             configRef.current = cfg
             return cfg
         } catch {
@@ -114,97 +216,27 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
             })
             setDbColumns(cols)
         }).catch(() => { })
-    }, [showConfig, refreshKey])
+    }, [showEditor, refreshKey])
 
-    // Execute queries and build chart data
+    // Execute pipeline
     useEffect(() => {
-        const validQueries = config.queries.filter(q => q.databaseId && q.groupBy && (q.aggregation === 'count' || q.metric))
-        if (validQueries.length === 0) return
+        const nb = config.notebook
+        if (!nb.databaseId) return
 
-        const run = async () => {
-            // Collect all unique group labels across all queries
-            const allLabels = new Set<string>()
-            const queryResults: { query: ChartQuery; groups: Record<string, number> }[] = []
-
-            for (const q of validQueries) {
-                const rows = await api.listLocalDBRows(q.databaseId)
-
-                // Parse rows into { group, value } for d3
-                const parsed: ParsedRow[] = rows.map(row => {
-                    let d: Record<string, unknown> = {}
-                    try { d = JSON.parse(row.dataJson || '{}') } catch { }
-                    const group = String(d[q.groupBy] ?? 'Other')
-                    const value = q.aggregation === 'count' ? 1 : (Number(d[q.metric]) || 0)
-                    return { group, value }
-                })
-
-                // d3 rollup: group → aggregate
-                const grouped = d3Aggregate(parsed, q.aggregation)
-
-                const aggregated: Record<string, number> = {}
-                grouped.forEach((val, label) => {
-                    allLabels.add(label)
-                    aggregated[label] = val
-                })
-                queryResults.push({ query: q, groups: aggregated })
+        const columns = dbColumns[nb.databaseId] || []
+        executePipeline(nb, columns).then(({ data, series }) => {
+            if (JSON.stringify(data) !== JSON.stringify(config.data) || JSON.stringify(series) !== JSON.stringify(config.series)) {
+                persist({ ...config, data, series })
             }
-
-            // Build chart data points — one per label
-            const labels = Array.from(allLabels).sort()
-            const data: DataPoint[] = labels.map(label => {
-                const point: DataPoint = { name: label }
-                queryResults.forEach(({ query, groups }) => {
-                    point[query.id] = groups[label] ?? 0
-                })
-                return point
-            })
-
-            // Build series
-            const series: SeriesDef[] = queryResults.map(({ query }) => {
-                const db = databases.find(d => d.id === query.databaseId)
-                const cols = dbColumns[query.databaseId] || []
-                const metricCol = cols.find(c => c.id === query.metric)
-                const groupCol = cols.find(c => c.id === query.groupBy)
-                const label = query.aggregation === 'count'
-                    ? `count by ${groupCol?.name || '?'}`
-                    : `${query.aggregation}(${metricCol?.name || '?'}) by ${groupCol?.name || '?'}`
-                const dbName = db?.name || ''
-                return {
-                    key: query.id,
-                    color: query.color,
-                    name: dbName ? `${dbName}: ${label}` : label,
-                }
-            })
-
-            persist({ ...config, data, series })
-        }
-
-        run().catch(() => { })
+        }).catch(() => { })
     }, [
-        config.queries.map(q => `${q.databaseId}|${q.metric}|${q.aggregation}|${q.groupBy}`).join(','),
+        JSON.stringify(config.notebook),
+        Object.keys(dbColumns).length,
         refreshKey,
     ])
 
-    // Query mutation helpers
-    const updateQuery = (idx: number, partial: Partial<ChartQuery>) => {
-        const queries = [...config.queries]
-        const old = queries[idx]
-        queries[idx] = { ...old, ...partial }
-        // Reset metric/groupBy when DB changes
-        if (partial.databaseId && partial.databaseId !== old.databaseId) {
-            queries[idx].metric = ''
-            queries[idx].groupBy = ''
-        }
-        persist({ ...config, queries })
-    }
-
-    const addQuery = () => {
-        persist({ ...config, queries: [...config.queries, newQuery(config.queries.length)] })
-    }
-
-    const removeQuery = (idx: number) => {
-        if (config.queries.length <= 1) return
-        persist({ ...config, queries: config.queries.filter((_, i) => i !== idx) })
+    const handleNotebookChange = (notebook: NotebookConfig) => {
+        persist({ ...config, notebook })
     }
 
     const handleTypeChange = (type: ChartType) => {
@@ -219,7 +251,8 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
         }
     }
 
-    const hasValidQuery = config.queries.some(q => q.databaseId && q.groupBy && (q.aggregation === 'count' || q.metric))
+    const currentColumns = dbColumns[config.notebook.databaseId] || []
+    const hasData = config.data.length > 0
 
     return (
         <div className="chart-block" onMouseDown={e => e.stopPropagation()}>
@@ -240,21 +273,21 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
                             {config.title}
                         </span>
                     )}
-                    <span className="chart-type-badge" onClick={() => setShowTypePicker(!showTypePicker)}>
+                    <span className="chart-type-badge" onClick={() => { setShowTypePicker(!showTypePicker); setShowEditor(false) }}>
                         {config.chartType}
                     </span>
                 </div>
                 <div className="chart-header-right">
-                    <button className="chart-toolbar-btn" onClick={() => setRefreshKey(k => k + 1)} title="Refresh data">↻</button>
+                    <button className="chart-toolbar-btn" onClick={() => setRefreshKey(k => k + 1)} title="Refresh">↻</button>
                     <button
-                        className={`chart-toolbar-btn ${showConfig ? 'active' : ''}`}
-                        onClick={() => { setShowConfig(!showConfig); setShowTypePicker(false) }}
+                        className={`chart-toolbar-btn ${showEditor ? 'active' : ''}`}
+                        onClick={() => { setShowEditor(!showEditor); setShowTypePicker(false) }}
                     >
-                        Query
+                        Editor
                     </button>
                     <button
                         className={`chart-toolbar-btn ${showTypePicker ? 'active' : ''}`}
-                        onClick={() => { setShowTypePicker(!showTypePicker); setShowConfig(false) }}
+                        onClick={() => { setShowTypePicker(!showTypePicker); setShowEditor(false) }}
                     >
                         Type
                     </button>
@@ -264,88 +297,26 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
             {/* Type picker */}
             {showTypePicker && <ChartTypePicker value={config.chartType} onChange={handleTypeChange} />}
 
-            {/* Query builder */}
-            {showConfig && (
-                <div className="chart-query-builder">
-                    {config.queries.map((q, idx) => {
-                        const cols = dbColumns[q.databaseId] || []
-                        const numericCols = cols.filter(c => c.type === 'number' || c.type === 'progress' || c.type === 'rating')
-
-                        return (
-                            <div key={q.id} className="chart-query-row" style={{ borderLeftColor: q.color }}>
-                                <span className="chart-query-letter" style={{ color: q.color }}>{q.id}</span>
-
-                                {/* Aggregation */}
-                                <select
-                                    className="chart-query-select chart-query-agg"
-                                    value={q.aggregation}
-                                    onChange={e => updateQuery(idx, { aggregation: e.target.value as Aggregation })}
-                                >
-                                    <option value="count">count</option>
-                                    <option value="sum">sum</option>
-                                    <option value="avg">avg</option>
-                                    <option value="min">min</option>
-                                    <option value="max">max</option>
-                                </select>
-
-                                {/* Metric column (not needed for count) */}
-                                {q.aggregation !== 'count' && (
-                                    <>
-                                        <span className="chart-query-of">of</span>
-                                        <select
-                                            className="chart-query-select"
-                                            value={q.metric}
-                                            onChange={e => updateQuery(idx, { metric: e.target.value })}
-                                        >
-                                            <option value="">metric…</option>
-                                            {numericCols.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
-                                    </>
-                                )}
-
-                                <span className="chart-query-of">from</span>
-
-                                {/* Database picker */}
-                                <select
-                                    className="chart-query-select chart-query-db"
-                                    value={q.databaseId}
-                                    onChange={e => updateQuery(idx, { databaseId: e.target.value })}
-                                >
-                                    <option value="">database…</option>
-                                    {databases.map(db => <option key={db.id} value={db.id}>{db.name}</option>)}
-                                </select>
-
-                                <span className="chart-query-of">by</span>
-
-                                {/* Group by column */}
-                                <select
-                                    className="chart-query-select"
-                                    value={q.groupBy}
-                                    onChange={e => updateQuery(idx, { groupBy: e.target.value })}
-                                >
-                                    <option value="">group by…</option>
-                                    {cols.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-
-                                {/* Remove query */}
-                                {config.queries.length > 1 && (
-                                    <button className="chart-query-remove" onClick={() => removeQuery(idx)}>✕</button>
-                                )}
-                            </div>
-                        )
-                    })}
-                    <button className="chart-query-add" onClick={addQuery}>+ Add query</button>
-                </div>
+            {/* Notebook editor */}
+            {showEditor && (
+                <NotebookEditor
+                    config={config.notebook}
+                    columns={currentColumns}
+                    databases={databases.map(d => ({ id: d.id, name: d.name }))}
+                    onChange={handleNotebookChange}
+                />
             )}
 
             {/* Chart area */}
             <div className="chart-area">
-                {hasValidQuery && config.data.length > 0 ? (
+                {hasData ? (
                     <ChartRenderer config={config} />
                 ) : (
                     <div className="chart-empty">
                         <span className="chart-empty-icon">📊</span>
-                        <span className="chart-empty-text">Click <strong>Query</strong> to build your chart</span>
+                        <span className="chart-empty-text">
+                            Click <strong>Editor</strong> to build your query
+                        </span>
                     </div>
                 )}
             </div>
@@ -372,7 +343,7 @@ export const chartPlugin: BlockPlugin = {
     type: 'chart',
     label: 'Chart',
     Icon: ChartIcon,
-    defaultSize: { width: 500, height: 350 },
+    defaultSize: { width: 500, height: 400 },
     Renderer: ChartBlockRenderer,
     headerLabel: 'Chart',
 }

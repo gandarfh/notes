@@ -4,6 +4,7 @@ import markedKatex from 'marked-katex-extension'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.min.css'
 import 'katex/dist/katex.min.css'
+import mermaid from 'mermaid'
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 import { getBlockFontSize } from '../../components/Block/BlockContainer'
@@ -44,6 +45,18 @@ function processFootnotes(src: string): string {
         cleaned += '</ol>\n</section>\n'
     }
     return cleaned
+}
+
+// ── Configure mermaid ──────────────────────────────────────
+
+/** Re-initializes mermaid with the correct theme based on data-theme attribute */
+function syncMermaidTheme() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light'
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: isLight ? 'default' : 'dark',
+        fontFamily: 'inherit',
+    })
 }
 
 // ── Configure marked ───────────────────────────────────────
@@ -98,6 +111,13 @@ marked.use({
         code(this: any, token: any) {
             const line = token.sourceLine ?? ''
             const lang = token.lang || ''
+
+            // Mermaid diagrams: emit a placeholder that will be rendered post-mount
+            if (lang === 'mermaid') {
+                const encoded = btoa(unescape(encodeURIComponent(token.text)))
+                return `<div class="mermaid-block" data-mermaid="${encoded}" data-source-line="${line}"></div>\n`
+            }
+
             const highlighted = lang && hljs.getLanguage(lang)
                 ? hljs.highlight(token.text, { language: lang }).value
                 : hljs.highlightAuto(token.text).value
@@ -188,6 +208,9 @@ function renderMarkdownWithLines(src: string): string {
 
 // ── Renderer Component ─────────────────────────────────────
 
+// Regex to find mermaid placeholder divs in the generated HTML
+const MERMAID_PLACEHOLDER_RE = /<div class="mermaid-block" data-mermaid="([^"]*)"[^>]*><\/div>/g
+
 const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: BlockRendererProps) {
     const [fontSize, setFontSize] = useState(() => getBlockFontSize(block.id))
 
@@ -203,9 +226,48 @@ const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: Bl
         return () => window.removeEventListener('md-fontsize-change', handler)
     }, [block.id])
 
-    const html = useMemo(() =>
+    const rawHtml = useMemo(() =>
         block.content ? renderMarkdownWithLines(block.content) : '<p style="color: var(--color-text-muted); font-style: italic;">Empty — ⌘+click to edit</p>'
         , [block.content])
+
+    // State holds the final HTML with mermaid SVGs embedded (React-safe)
+    const [finalHtml, setFinalHtml] = useState(rawHtml)
+
+    // When rawHtml changes, render any mermaid diagrams into the HTML string
+    useEffect(() => {
+        const matches = Array.from(rawHtml.matchAll(MERMAID_PLACEHOLDER_RE))
+        if (matches.length === 0) {
+            setFinalHtml(rawHtml)
+            return
+        }
+
+        // Sync mermaid theme with current app theme before rendering
+        syncMermaidTheme()
+
+        let cancelled = false
+            ; (async () => {
+                let result = rawHtml
+                for (const match of matches) {
+                    if (cancelled) return
+                    const encoded = match[1]
+                    const source = decodeURIComponent(escape(atob(encoded)))
+                    try {
+                        const id = `mermaid-${block.id}-${Math.random().toString(36).slice(2, 8)}`
+                        const { svg } = await mermaid.render(id, source)
+                        result = result.replace(match[0], `<div class="mermaid-block mermaid-rendered">${svg}</div>`)
+                    } catch {
+                        const escaped = source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                        result = result.replace(match[0], `<div class="mermaid-block mermaid-error"><pre>${escaped}</pre></div>`)
+                    }
+                }
+                if (!cancelled) {
+                    setFinalHtml(result)
+                }
+            })()
+
+        return () => { cancelled = true }
+    }, [rawHtml, block.id])
+
 
     const handleClick = useCallback((e: React.MouseEvent) => {
         const anchor = (e.target as HTMLElement).closest('a')
@@ -221,7 +283,7 @@ const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: Bl
             className={`markdown-preview ${isEditing ? '' : 'cursor-text select-text'}`}
             style={{ fontSize: `${fontSize}px` }}
             onClick={handleClick}
-            dangerouslySetInnerHTML={{ __html: html }}
+            dangerouslySetInnerHTML={{ __html: finalHtml }}
         />
     )
 })
