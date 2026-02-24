@@ -459,7 +459,10 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                         block={block}
                         isEditing={isEditing}
                         isSelected={isSelected}
-                        onContentChange={(content) => updateBlock(blockId, { content })}
+                        onContentChange={(content) => {
+                            updateBlock(blockId, { content })
+                            useAppStore.getState().saveBlockContent(blockId, content)
+                        }}
                     />
                 </div>
             )}

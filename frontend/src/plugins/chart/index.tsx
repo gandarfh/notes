@@ -1,170 +1,79 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 import type { LocalDatabase, ColumnDef } from '../../bridge/wails'
 import { api } from '../../bridge/wails'
 import { ChartRenderer, defaultConfig, type ChartConfig, type ChartType, type DataPoint, type SeriesDef } from './ChartRenderer'
 import { ChartTypePicker } from './ChartTypePicker'
-import { NotebookEditor, defaultNotebookConfig, type NotebookConfig, type FilterCondition, type Metric } from './NotebookEditor'
+import { NotebookEditor, type PipelineConfig, defaultPipelineConfig } from './NotebookEditor'
+import { executePipeline, type Row } from './pipeline'
 
 // ── Block Config ───────────────────────────────────────────
 
-interface ChartBlockConfig extends ChartConfig {
-    notebook: NotebookConfig
-}
-
 const COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899']
 
-function defaultBlockConfig(): ChartBlockConfig {
-    return {
-        ...defaultConfig(),
-        data: [],
-        series: [],
-        notebook: defaultNotebookConfig(),
-    }
+interface ChartBlockConfig extends ChartConfig {
+    pipeline: PipelineConfig
 }
 
-// ── Filter pipeline ────────────────────────────────────────
+function parseBlockConfig(content: string): ChartBlockConfig {
+    try {
+        const parsed = JSON.parse(content || '{}') as Partial<ChartBlockConfig>
+        const cfg = { ...defaultConfig(), data: [], series: [], ...parsed }
 
-function matchesFilter(value: unknown, f: FilterCondition): boolean {
-    const s = String(value ?? '')
-    const v = f.value
-
-    switch (f.operator) {
-        // Text
-        case 'is': return s === v
-        case 'is_not': return s !== v
-        case 'contains': return s.toLowerCase().includes(v.toLowerCase())
-        case 'starts_with': return s.toLowerCase().startsWith(v.toLowerCase())
-        case 'ends_with': return s.toLowerCase().endsWith(v.toLowerCase())
-        // Number
-        case 'eq': return Number(s) === Number(v)
-        case 'neq': return Number(s) !== Number(v)
-        case 'gt': return Number(s) > Number(v)
-        case 'lt': return Number(s) < Number(v)
-        case 'gte': return Number(s) >= Number(v)
-        case 'lte': return Number(s) <= Number(v)
-        case 'between': return Number(s) >= Number(v) && Number(s) <= Number(f.value2 ?? v)
-        // Checkbox
-        case 'is_true': return s === 'true' || s === '1'
-        case 'is_false': return s === 'false' || s === '0' || s === ''
-        // Date
-        case 'before': return s < v
-        case 'after': return s > v
-        default: return true
-    }
-}
-
-// ── Aggregation ────────────────────────────────────────────
-
-function aggregate(values: number[], agg: Metric['aggregation']): number {
-    if (values.length === 0) return 0
-    switch (agg) {
-        case 'count': return values.length
-        case 'sum': return values.reduce((a, b) => a + b, 0)
-        case 'avg': return values.reduce((a, b) => a + b, 0) / values.length
-        case 'min': return Math.min(...values)
-        case 'max': return Math.max(...values)
-    }
-}
-
-function groupAndAggregate(
-    data: Record<string, unknown>[],
-    metric: Metric,
-    groupByKeys: string[],
-): Map<string, number> {
-    const groups = new Map<string, number[]>()
-    const keyOf = (d: Record<string, unknown>) =>
-        groupByKeys.map(k => String(d[k] ?? 'Other')).join(' × ')
-
-    for (const row of data) {
-        const key = keyOf(row)
-        if (!groups.has(key)) groups.set(key, [])
-        const val = metric.aggregation === 'count' ? 1 : (Number(row[metric.column!]) || 0)
-        groups.get(key)!.push(val)
-    }
-
-    const result = new Map<string, number>()
-    groups.forEach((vals, key) => result.set(key, aggregate(vals, metric.aggregation)))
-    return result
-}
-
-// ── Full pipeline execution ────────────────────────────────
-
-async function executePipeline(
-    nb: NotebookConfig,
-    columns: ColumnDef[],
-): Promise<{ data: DataPoint[]; series: SeriesDef[] }> {
-    if (!nb.databaseId || nb.summarize.groupBy.length === 0) return { data: [], series: [] }
-
-    // 1. Fetch data
-    const rawRows = await api.listLocalDBRows(nb.databaseId)
-    let rows: Record<string, unknown>[] = rawRows.map(r => {
-        try { return JSON.parse(r.dataJson || '{}') } catch { return {} }
-    })
-
-    // 2. Filter
-    for (const f of nb.filters) {
-        if (!f.column) continue
-        rows = rows.filter(row => matchesFilter(row[f.column], f))
-    }
-
-    // 3. Summarize
-    const allLabels = new Set<string>()
-    const metricResults: { metric: Metric; idx: number; groups: Map<string, number> }[] = []
-
-    nb.summarize.metrics.forEach((m, idx) => {
-        if (m.aggregation !== 'count' && !m.column) return
-        const groups = groupAndAggregate(rows, m, nb.summarize.groupBy)
-        groups.forEach((_val: number, label: string) => allLabels.add(label))
-        metricResults.push({ metric: m, idx, groups })
-    })
-
-    // 4. Build data points
-    let labels = Array.from(allLabels)
-
-    // 5. Sort
-    if (nb.sort.length > 0) {
-        const sortRule = nb.sort[0]
-        // Check if sorting by a metric result or a label
-        const metricIdx = metricResults.findIndex(m => {
-            const col = columns.find(c => c.id === sortRule.column)
-            return col && m.metric.column === sortRule.column
-        })
-
-        if (metricIdx >= 0) {
-            const groups = metricResults[metricIdx].groups
-            labels.sort((a, b) => {
-                const va = groups.get(a) ?? 0
-                const vb = groups.get(b) ?? 0
-                return sortRule.direction === 'asc' ? va - vb : vb - va
-            })
-        } else {
-            labels.sort((a, b) => sortRule.direction === 'asc' ? a.localeCompare(b) : b.localeCompare(a))
+        // Migrate from old NotebookConfig → PipelineConfig
+        if (!cfg.pipeline) {
+            const nb = (parsed as any).notebook
+            if (nb?.databaseId) {
+                cfg.pipeline = {
+                    stages: [{ type: 'source' as const, databaseId: nb.databaseId }],
+                    viz: { xAxis: nb.xAxis || '', series: [] },
+                }
+            } else {
+                cfg.pipeline = defaultPipelineConfig()
+            }
         }
-    } else {
-        labels.sort()
+        return cfg as ChartBlockConfig
+    } catch {
+        return { ...defaultConfig(), data: [], series: [], pipeline: defaultPipelineConfig() }
+    }
+}
+
+// ── Column name resolver ───────────────────────────────────
+
+function buildColNameResolver(dbColumns: Record<string, ColumnDef[]>): (id: string) => string {
+    const map = new Map<string, string>()
+    for (const cols of Object.values(dbColumns)) {
+        for (const c of cols) {
+            map.set(c.id, c.name)
+        }
+    }
+    return (id: string) => map.get(id) || id
+}
+
+// ── Row → Chart Data ───────────────────────────────────────
+
+function rowsToChart(
+    rows: Row[],
+    viz: PipelineConfig['viz'],
+    resolveCol: (id: string) => string,
+): { data: DataPoint[]; series: SeriesDef[] } {
+    if (!viz.xAxis || viz.series.length === 0 || rows.length === 0) {
+        return { data: [], series: [] }
     }
 
-    // 6. Limit
-    if (nb.limit && nb.limit > 0) {
-        labels = labels.slice(0, nb.limit)
-    }
-
-    const data: DataPoint[] = labels.map(label => {
-        const point: DataPoint = { name: label }
-        metricResults.forEach(({ idx, groups }) => {
-            point[`m${idx}`] = groups.get(label) ?? 0
-        })
+    const data: DataPoint[] = rows.map(row => {
+        const point: DataPoint = { name: String(row[viz.xAxis] ?? '') }
+        for (const key of viz.series) {
+            point[key] = Number(row[key]) || 0
+        }
         return point
     })
 
-    const series: SeriesDef[] = metricResults.map(({ metric, idx }) => {
-        const col = columns.find(c => c.id === metric.column)
-        const name = metric.aggregation === 'count'
-            ? 'Count'
-            : `${metric.aggregation}(${col?.name || '?'})`
-        return { key: `m${idx}`, color: COLORS[idx % COLORS.length], name }
-    })
+    const series: SeriesDef[] = viz.series.map((key, i) => ({
+        key,
+        color: COLORS[i % COLORS.length],
+        name: resolveCol(key),
+    }))
 
     return { data, series }
 }
@@ -172,7 +81,9 @@ async function executePipeline(
 // ── Chart Block Renderer ───────────────────────────────────
 
 function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
-    const configRef = useRef<ChartBlockConfig | null>(null)
+    // Parse config from block.content (re-parses when content changes)
+    const config = useMemo(() => parseBlockConfig(block.content), [block.content])
+
     const [databases, setDatabases] = useState<LocalDatabase[]>([])
     const [dbColumns, setDbColumns] = useState<Record<string, ColumnDef[]>>({})
     const [showEditor, setShowEditor] = useState(false)
@@ -180,30 +91,16 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
     const [editingTitle, setEditingTitle] = useState(false)
     const [titleValue, setTitleValue] = useState('')
     const [refreshKey, setRefreshKey] = useState(0)
+    const [pipelineError, setPipelineError] = useState<string | null>(null)
 
-    const getConfig = useCallback((): ChartBlockConfig => {
-        if (configRef.current) return configRef.current
-        try {
-            const parsed = JSON.parse(block.content || '{}') as Partial<ChartBlockConfig>
-            const cfg = { ...defaultBlockConfig(), ...parsed }
-            if (!cfg.notebook) cfg.notebook = defaultNotebookConfig()
-            configRef.current = cfg
-            return cfg
-        } catch {
-            const cfg = defaultBlockConfig()
-            configRef.current = cfg
-            return cfg
-        }
-    }, [block.content])
-
-    const config = getConfig()
+    // Column name resolver
+    const resolveCol = useMemo(() => buildColNameResolver(dbColumns), [dbColumns])
 
     const persist = useCallback((next: ChartBlockConfig) => {
-        configRef.current = next
         onContentChange(JSON.stringify(next))
     }, [onContentChange])
 
-    // Load databases
+    // Load databases & columns
     useEffect(() => {
         api.listLocalDatabases().then(dbs => {
             setDatabases(dbs)
@@ -218,25 +115,43 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
         }).catch(() => { })
     }, [showEditor, refreshKey])
 
-    // Execute pipeline
+    // Execute pipeline whenever pipeline config or columns change
+    const pipelineJSON = JSON.stringify(config.pipeline)
+    const colKeys = Object.keys(dbColumns).sort().join(',')
+
     useEffect(() => {
-        const nb = config.notebook
-        if (!nb.databaseId) return
+        const pipeline = config.pipeline
+        if (!pipeline.stages.length) return
 
-        const columns = dbColumns[nb.databaseId] || []
-        executePipeline(nb, columns).then(({ data, series }) => {
-            if (JSON.stringify(data) !== JSON.stringify(config.data) || JSON.stringify(series) !== JSON.stringify(config.series)) {
-                persist({ ...config, data, series })
+        const firstSource = pipeline.stages.find(s => s.type === 'source')
+        if (!firstSource || !(firstSource as any).databaseId) return
+
+        setPipelineError(null)
+        executePipeline(pipeline).then(rows => {
+            // Collect actual keys from output rows
+            const availableKeys = new Set<string>()
+            for (const row of rows) {
+                for (const key of Object.keys(row)) availableKeys.add(key)
             }
-        }).catch(() => { })
-    }, [
-        JSON.stringify(config.notebook),
-        Object.keys(dbColumns).length,
-        refreshKey,
-    ])
 
-    const handleNotebookChange = (notebook: NotebookConfig) => {
-        persist({ ...config, notebook })
+            // Auto-clean viz.series: remove stale keys that no longer exist in output
+            const cleanedSeries = pipeline.viz.series.filter(k => availableKeys.has(k))
+            const cleanedViz = { ...pipeline.viz, series: cleanedSeries }
+
+            const { data, series } = rowsToChart(rows, cleanedViz, resolveCol)
+
+            // Persist cleaned viz + new data/series
+            const updatedPipeline = cleanedSeries.length !== pipeline.viz.series.length
+                ? { ...pipeline, viz: cleanedViz }
+                : pipeline
+            persist({ ...config, pipeline: updatedPipeline, data, series })
+        }).catch(err => {
+            setPipelineError(String(err))
+        })
+    }, [pipelineJSON, colKeys, refreshKey])
+
+    const handlePipelineChange = (pipeline: PipelineConfig) => {
+        persist({ ...config, pipeline })
     }
 
     const handleTypeChange = (type: ChartType) => {
@@ -251,7 +166,6 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
         }
     }
 
-    const currentColumns = dbColumns[config.notebook.databaseId] || []
     const hasData = config.data.length > 0
 
     return (
@@ -297,25 +211,30 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
             {/* Type picker */}
             {showTypePicker && <ChartTypePicker value={config.chartType} onChange={handleTypeChange} />}
 
-            {/* Notebook editor */}
+            {/* Pipeline editor */}
             {showEditor && (
                 <NotebookEditor
-                    config={config.notebook}
-                    columns={currentColumns}
+                    config={config.pipeline}
                     databases={databases.map(d => ({ id: d.id, name: d.name }))}
-                    onChange={handleNotebookChange}
+                    dbColumns={dbColumns}
+                    onChange={handlePipelineChange}
                 />
             )}
 
             {/* Chart area */}
             <div className="chart-area">
-                {hasData ? (
+                {pipelineError ? (
+                    <div className="chart-empty">
+                        <span className="chart-empty-text" style={{ color: 'var(--color-danger)' }}>
+                            Pipeline error: {pipelineError}
+                        </span>
+                    </div>
+                ) : hasData ? (
                     <ChartRenderer config={config} />
                 ) : (
                     <div className="chart-empty">
-                        <span className="chart-empty-icon">📊</span>
                         <span className="chart-empty-text">
-                            Click <strong>Editor</strong> to build your query
+                            Click <strong>Editor</strong> to build your data pipeline
                         </span>
                     </div>
                 )}
@@ -337,7 +256,7 @@ function ChartIcon({ size = 16 }: { size?: number }) {
     )
 }
 
-// ── Plugin Registration ────────────────────────────────────
+// ── Plugin ─────────────────────────────────────────────────
 
 export const chartPlugin: BlockPlugin = {
     type: 'chart',

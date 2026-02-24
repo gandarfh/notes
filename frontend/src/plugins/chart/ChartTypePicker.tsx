@@ -1,22 +1,52 @@
 import type { ChartType } from './ChartRenderer'
+import {
+    IconChartBar,
+    IconChartHistogram,
+    IconChartArrowsVertical,
+    IconChartLine,
+    IconChartArrows,
+    IconChartArea,
+    IconChartAreaLine,
+    IconChartPie,
+    IconChartDonut,
+    IconChartFunnel,
+    IconChartTreemap,
+    IconChartDots,
+    IconChartRadar,
+    IconChartArcs,
+    IconChartInfographic,
+    IconHash,
+    IconChartColumn,
+} from '@tabler/icons-react'
+import type { ComponentType } from 'react'
 
 // ── Chart Type Picker ──────────────────────────────────────
-// Visual grid for switching chart types.
 
 interface ChartTypePickerProps {
     value: ChartType
     onChange: (type: ChartType) => void
 }
 
-const CHART_TYPES: { type: ChartType; label: string; icon: string }[] = [
-    { type: 'bar', label: 'Bar', icon: '▌▊▎' },
-    { type: 'line', label: 'Line', icon: '📈' },
-    { type: 'area', label: 'Area', icon: '▓░' },
-    { type: 'pie', label: 'Pie', icon: '◔' },
-    { type: 'donut', label: 'Donut', icon: '◎' },
-    { type: 'scatter', label: 'Scatter', icon: '⁙' },
-    { type: 'radar', label: 'Radar', icon: '⬡' },
-    { type: 'radialBar', label: 'Gauge', icon: '◐' },
+const ICON_SIZE = 18
+
+const CHART_TYPES: { type: ChartType; label: string; Icon: ComponentType<{ size?: number }> }[] = [
+    { type: 'bar', label: 'Bar', Icon: IconChartBar },
+    { type: 'stackedBar', label: 'Stacked', Icon: IconChartHistogram },
+    { type: 'horizontalBar', label: 'H-Bar', Icon: IconChartArrowsVertical },
+    { type: 'line', label: 'Line', Icon: IconChartLine },
+    { type: 'stepLine', label: 'Step', Icon: IconChartArrows },
+    { type: 'area', label: 'Area', Icon: IconChartArea },
+    { type: 'stackedArea', label: 'S-Area', Icon: IconChartAreaLine },
+    { type: 'composed', label: 'Composed', Icon: IconChartColumn },
+    { type: 'waterfall', label: 'Waterfall', Icon: IconChartInfographic },
+    { type: 'pie', label: 'Pie', Icon: IconChartPie },
+    { type: 'donut', label: 'Donut', Icon: IconChartDonut },
+    { type: 'funnel', label: 'Funnel', Icon: IconChartFunnel },
+    { type: 'treemap', label: 'Treemap', Icon: IconChartTreemap },
+    { type: 'number', label: 'Number', Icon: IconHash },
+    { type: 'scatter', label: 'Scatter', Icon: IconChartDots },
+    { type: 'radar', label: 'Radar', Icon: IconChartRadar },
+    { type: 'radialBar', label: 'Gauge', Icon: IconChartArcs },
 ]
 
 export function ChartTypePicker({ value, onChange }: ChartTypePickerProps) {
@@ -29,7 +59,7 @@ export function ChartTypePicker({ value, onChange }: ChartTypePickerProps) {
                     onClick={() => onChange(ct.type)}
                     title={ct.label}
                 >
-                    <span className="chart-type-icon">{ct.icon}</span>
+                    <ct.Icon size={ICON_SIZE} />
                     <span className="chart-type-label">{ct.label}</span>
                 </button>
             ))}
