@@ -4928,3 +4928,345 @@ th:hover .chart-data-remove-series {
   font-size: 11px;
   color: var(--color-text-muted);
 }
+
+/* ── ETL Block ───────────────────────────────────────────── */
+/* Follows chart-block styling patterns.                     */
+/* Editor reuses pl-stage, pl-chip, pl-field, pl-input,      */
+/* pl-inline, pl-label, chart-toolbar-btn from chart block.  */
+
+.etl-block {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Latin Modern Roman', serif;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+/* Header — mirrors .chart-header */
+.etl-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  gap: 8px;
+  min-height: 28px;
+}
+
+.etl-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.etl-header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.etl-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.etl-title-input {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: transparent;
+  border: 1px solid var(--color-accent);
+  border-radius: 3px;
+  padding: 1px 4px;
+  outline: none;
+  font-family: inherit;
+  width: 140px;
+}
+
+.etl-type-badge {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--overlay-8);
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Status dot */
+.etl-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.etl-status-dot.idle {
+  background: var(--color-text-muted);
+  opacity: 0.3;
+}
+
+.etl-status-dot.success {
+  background: #10b981;
+}
+
+.etl-status-dot.error {
+  background: #ef4444;
+}
+
+.etl-status-dot.running {
+  background: #6366f1;
+  animation: etl-pulse 1.2s infinite;
+}
+
+@keyframes etl-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Area — mirrors .chart-area */
+.etl-area {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Empty state — mirrors .chart-empty */
+.etl-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--color-text-muted);
+}
+
+.etl-empty-icon {
+  opacity: 0.4;
+}
+
+.etl-empty-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* Pipeline visualization */
+.etl-pipeline-viz {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* Nodes */
+.etl-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+}
+
+.etl-node-icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  display: flex;
+}
+
+.etl-node-source .etl-node-icon {
+  color: #6366f1;
+}
+
+.etl-node-target .etl-node-icon {
+  color: #10b981;
+}
+
+.etl-node-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.etl-node-label {
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.etl-node-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Connector between nodes */
+.etl-connector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 20px;
+}
+
+.etl-connector-line {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-default);
+}
+
+.etl-connector-badge {
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-muted);
+  background: var(--overlay-6);
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* Stats row */
+.etl-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+}
+
+.etl-stat-chip {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--overlay-6);
+  color: var(--color-text-muted);
+}
+
+.etl-stat-success {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.etl-stat-error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.etl-stat-running {
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.etl-stat-time {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+/* Toast notification */
+.etl-toast {
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.etl-toast.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.etl-toast.error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* History panel */
+.etl-history {
+  border-bottom: 1px solid var(--color-border-subtle);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.etl-history-empty {
+  padding: 16px 10px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.etl-history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 10px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.etl-history-row:last-child {
+  border-bottom: none;
+}
+
+.etl-history-status {
+  font-weight: 600;
+}
+
+.etl-history-status.success {
+  color: #10b981;
+}
+
+.etl-history-status.error {
+  color: #ef4444;
+}
+
+.etl-history-stats {
+  color: var(--color-text-secondary);
+}
+
+.etl-history-time {
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+.etl-history-error {
+  font-size: 9px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* Full-width input — extends pl-input for ETL */
+.pl-input-full {
+  width: 100%;
+}

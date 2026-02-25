@@ -26,6 +26,52 @@ export namespace app {
 	        this.sslMode = source["sslMode"];
 	    }
 	}
+	export class CreateETLJobInput {
+	    name: string;
+	    sourceType: string;
+	    sourceConfig: Record<string, any>;
+	    transforms: etl.TransformConfig[];
+	    targetDbId: string;
+	    syncMode: string;
+	    dedupeKey: string;
+	    triggerType: string;
+	    triggerConfig: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateETLJobInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.sourceType = source["sourceType"];
+	        this.sourceConfig = source["sourceConfig"];
+	        this.transforms = this.convertValues(source["transforms"], etl.TransformConfig);
+	        this.targetDbId = source["targetDbId"];
+	        this.syncMode = source["syncMode"];
+	        this.dedupeKey = source["dedupeKey"];
+	        this.triggerType = source["triggerType"];
+	        this.triggerConfig = source["triggerConfig"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class DBConnView {
 	    id: string;
 	    name: string;
@@ -52,6 +98,22 @@ export namespace app {
 	        this.sslMode = source["sslMode"];
 	    }
 	}
+	export class DatabaseBlockInfo {
+	    blockId: string;
+	    connectionId: string;
+	    query: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DatabaseBlockInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.blockId = source["blockId"];
+	        this.connectionId = source["connectionId"];
+	        this.query = source["query"];
+	    }
+	}
 	export class LocalDBStats {
 	    rowCount: number;
 	    // Go type: time
@@ -65,6 +127,38 @@ export namespace app {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.rowCount = source["rowCount"];
 	        this.lastUpdated = this.convertValues(source["lastUpdated"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class PreviewResult {
+	    schema?: etl.Schema;
+	    records: etl.Record[];
+	
+	    static createFrom(source: any = {}) {
+	        return new PreviewResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.schema = this.convertValues(source["schema"], etl.Schema);
+	        this.records = this.convertValues(source["records"], etl.Record);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -521,6 +615,272 @@ export namespace domain {
 	        this.page = this.convertValues(source["page"], Page);
 	        this.blocks = this.convertValues(source["blocks"], Block);
 	        this.connections = this.convertValues(source["connections"], Connection);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
+export namespace etl {
+	
+	export class ConfigField {
+	    key: string;
+	    label: string;
+	    type: string;
+	    required: boolean;
+	    options?: string[];
+	    default?: string;
+	    help?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConfigField(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.label = source["label"];
+	        this.type = source["type"];
+	        this.required = source["required"];
+	        this.options = source["options"];
+	        this.default = source["default"];
+	        this.help = source["help"];
+	    }
+	}
+	export class Field {
+	    name: string;
+	    type: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Field(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	    }
+	}
+	export class Record {
+	    data: Record<string, any>;
+	
+	    static createFrom(source: any = {}) {
+	        return new Record(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.data = source["data"];
+	    }
+	}
+	export class Schema {
+	    fields: Field[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Schema(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.fields = this.convertValues(source["fields"], Field);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SourceSpec {
+	    type: string;
+	    label: string;
+	    icon: string;
+	    configFields: ConfigField[];
+	
+	    static createFrom(source: any = {}) {
+	        return new SourceSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.label = source["label"];
+	        this.icon = source["icon"];
+	        this.configFields = this.convertValues(source["configFields"], ConfigField);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class TransformConfig {
+	    type: string;
+	    config: Record<string, any>;
+	
+	    static createFrom(source: any = {}) {
+	        return new TransformConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.config = source["config"];
+	    }
+	}
+	export class SyncJob {
+	    id: string;
+	    name: string;
+	    sourceType: string;
+	    sourceConfig: Record<string, any>;
+	    transforms?: TransformConfig[];
+	    targetDbId: string;
+	    syncMode: string;
+	    dedupeKey?: string;
+	    triggerType: string;
+	    triggerConfig: string;
+	    enabled: boolean;
+	    // Go type: time
+	    lastRunAt: any;
+	    lastStatus: string;
+	    lastError: string;
+	    // Go type: time
+	    createdAt: any;
+	    // Go type: time
+	    updatedAt: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new SyncJob(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.sourceType = source["sourceType"];
+	        this.sourceConfig = source["sourceConfig"];
+	        this.transforms = this.convertValues(source["transforms"], TransformConfig);
+	        this.targetDbId = source["targetDbId"];
+	        this.syncMode = source["syncMode"];
+	        this.dedupeKey = source["dedupeKey"];
+	        this.triggerType = source["triggerType"];
+	        this.triggerConfig = source["triggerConfig"];
+	        this.enabled = source["enabled"];
+	        this.lastRunAt = this.convertValues(source["lastRunAt"], null);
+	        this.lastStatus = source["lastStatus"];
+	        this.lastError = source["lastError"];
+	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SyncResult {
+	    jobId: string;
+	    status: string;
+	    rowsRead: number;
+	    rowsWritten: number;
+	    duration: number;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SyncResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.jobId = source["jobId"];
+	        this.status = source["status"];
+	        this.rowsRead = source["rowsRead"];
+	        this.rowsWritten = source["rowsWritten"];
+	        this.duration = source["duration"];
+	        this.error = source["error"];
+	    }
+	}
+	export class SyncRunLog {
+	    id: string;
+	    jobId: string;
+	    // Go type: time
+	    startedAt: any;
+	    // Go type: time
+	    finishedAt: any;
+	    status: string;
+	    rowsRead: number;
+	    rowsWritten: number;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SyncRunLog(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.jobId = source["jobId"];
+	        this.startedAt = this.convertValues(source["startedAt"], null);
+	        this.finishedAt = this.convertValues(source["finishedAt"], null);
+	        this.status = source["status"];
+	        this.rowsRead = source["rowsRead"];
+	        this.rowsWritten = source["rowsWritten"];
+	        this.error = source["error"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

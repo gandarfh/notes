@@ -3,6 +3,7 @@
 import {dbclient} from '../models';
 import {domain} from '../models';
 import {app} from '../models';
+import {etl} from '../models';
 import {storage} from '../models';
 
 export function ApplyMutations(arg1:string,arg2:string,arg3:Array<dbclient.Mutation>):Promise<dbclient.MutationResult>;
@@ -21,6 +22,8 @@ export function CreateConnection(arg1:string,arg2:string,arg3:string):Promise<do
 
 export function CreateDatabaseConnection(arg1:app.CreateDBConnInput):Promise<app.DBConnView>;
 
+export function CreateETLJob(arg1:app.CreateETLJobInput):Promise<etl.SyncJob>;
+
 export function CreateLocalDBRow(arg1:string,arg2:string):Promise<domain.LocalDBRow>;
 
 export function CreateLocalDatabase(arg1:string,arg2:string):Promise<domain.LocalDatabase>;
@@ -35,6 +38,8 @@ export function DeleteConnection(arg1:string):Promise<void>;
 
 export function DeleteDatabaseConnection(arg1:string):Promise<void>;
 
+export function DeleteETLJob(arg1:string):Promise<void>;
+
 export function DeleteLocalDBRow(arg1:string):Promise<void>;
 
 export function DeleteLocalDatabase(arg1:string):Promise<void>;
@@ -43,6 +48,8 @@ export function DeleteNotebook(arg1:string):Promise<void>;
 
 export function DeletePage(arg1:string):Promise<void>;
 
+export function DiscoverETLSchema(arg1:string,arg2:string):Promise<etl.Schema>;
+
 export function DuplicateLocalDBRow(arg1:string):Promise<domain.LocalDBRow>;
 
 export function ExecuteQuery(arg1:string,arg2:string,arg3:string,arg4:number):Promise<app.QueryResultView>;
@@ -50,6 +57,8 @@ export function ExecuteQuery(arg1:string,arg2:string,arg3:string,arg4:number):Pr
 export function FetchMoreRows(arg1:string,arg2:number):Promise<app.QueryResultView>;
 
 export function GetCachedResult(arg1:string):Promise<app.QueryResultView>;
+
+export function GetETLJob(arg1:string):Promise<etl.SyncJob>;
 
 export function GetImageData(arg1:string):Promise<string>;
 
@@ -65,11 +74,19 @@ export function IntrospectDatabase(arg1:string):Promise<dbclient.SchemaInfo>;
 
 export function ListDatabaseConnections():Promise<Array<app.DBConnView>>;
 
+export function ListETLJobs():Promise<Array<etl.SyncJob>>;
+
+export function ListETLRunLogs(arg1:string):Promise<Array<etl.SyncRunLog>>;
+
+export function ListETLSources():Promise<Array<etl.SourceSpec>>;
+
 export function ListLocalDBRows(arg1:string):Promise<Array<domain.LocalDBRow>>;
 
 export function ListLocalDatabases():Promise<Array<domain.LocalDatabase>>;
 
 export function ListNotebooks():Promise<Array<domain.Notebook>>;
+
+export function ListPageDatabaseBlocks(arg1:string):Promise<Array<app.DatabaseBlockInfo>>;
 
 export function ListPages(arg1:string):Promise<Array<domain.Page>>;
 
@@ -79,7 +96,11 @@ export function OpenBlockInEditor(arg1:string,arg2:number):Promise<void>;
 
 export function PickDatabaseFile():Promise<string>;
 
+export function PickETLFile():Promise<string>;
+
 export function PickTextFile():Promise<string>;
+
+export function PreviewETLSource(arg1:string,arg2:string):Promise<app.PreviewResult>;
 
 export function PushUndoNode(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<storage.UndoNode>;
 
@@ -92,6 +113,8 @@ export function RenamePage(arg1:string,arg2:string):Promise<void>;
 export function ReorderLocalDBRows(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function RestorePageBlocks(arg1:string,arg2:Array<domain.Block>):Promise<void>;
+
+export function RunETLJob(arg1:string):Promise<etl.SyncResult>;
 
 export function SaveBlockDatabaseConfig(arg1:string,arg2:string):Promise<void>;
 
@@ -114,6 +137,8 @@ export function UpdateConnection(arg1:string,arg2:string,arg3:string,arg4:string
 export function UpdateDatabaseConnection(arg1:string,arg2:app.CreateDBConnInput):Promise<void>;
 
 export function UpdateDrawingData(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateETLJob(arg1:string,arg2:app.CreateETLJobInput):Promise<void>;
 
 export function UpdateLocalDBRow(arg1:string,arg2:string):Promise<void>;
 

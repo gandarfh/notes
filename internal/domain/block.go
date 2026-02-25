@@ -12,6 +12,7 @@ const (
 	BlockTypeCode     BlockType = "code"
 	BlockTypeLocalDB  BlockType = "localdb"
 	BlockTypeChart    BlockType = "chart"
+	BlockTypeETL      BlockType = "etl"
 )
 
 type Block struct {

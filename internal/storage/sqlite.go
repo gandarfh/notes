@@ -176,6 +176,36 @@ func (db *DB) migrate() error {
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_local_db_rows_database ON local_db_rows(database_id)`,
+		// ETL sync jobs
+		`CREATE TABLE IF NOT EXISTS etl_jobs (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL DEFAULT '',
+			source_type TEXT NOT NULL,
+			source_config TEXT NOT NULL DEFAULT '{}',
+			transforms TEXT NOT NULL DEFAULT '[]',
+			target_db_id TEXT NOT NULL,
+			sync_mode TEXT NOT NULL DEFAULT 'replace',
+			dedupe_key TEXT NOT NULL DEFAULT '',
+			trigger_type TEXT NOT NULL DEFAULT 'manual',
+			trigger_config TEXT NOT NULL DEFAULT '',
+			enabled INTEGER NOT NULL DEFAULT 1,
+			last_run_at DATETIME NOT NULL DEFAULT '0001-01-01 00:00:00',
+			last_status TEXT NOT NULL DEFAULT '',
+			last_error TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS etl_run_logs (
+			id TEXT PRIMARY KEY,
+			job_id TEXT NOT NULL REFERENCES etl_jobs(id),
+			started_at DATETIME NOT NULL,
+			finished_at DATETIME NOT NULL,
+			status TEXT NOT NULL,
+			rows_read INTEGER NOT NULL DEFAULT 0,
+			rows_written INTEGER NOT NULL DEFAULT 0,
+			error TEXT NOT NULL DEFAULT ''
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_etl_run_logs_job ON etl_run_logs(job_id)`,
 	}
 
 	for _, m := range migrations {

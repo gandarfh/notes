@@ -10,6 +10,7 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"notes/internal/dbclient"
+	"notes/internal/etl/sources"
 	"notes/internal/neovim"
 	"notes/internal/secret"
 	"notes/internal/storage"
@@ -41,6 +42,9 @@ type App struct {
 	dbResultStore    *storage.QueryResultStore
 	activeConnectors map[string]dbclient.Connector // connID → open connector
 	connectorsMu     sync.Mutex
+
+	// ETL plugin
+	etlStore *storage.ETLStore
 }
 
 // New creates a new App.
@@ -80,6 +84,10 @@ func (a *App) Startup(ctx context.Context) {
 	a.dbConnStore = storage.NewDBConnectionStore(db)
 	a.dbResultStore = storage.NewQueryResultStore(db)
 	a.activeConnectors = make(map[string]dbclient.Connector)
+
+	// ETL plugin store
+	a.etlStore = storage.NewETLStore(db)
+	sources.SetBlockResolver(&appBlockResolver{app: a})
 
 	// Embedded terminal: PTY output → base64 → frontend event
 	a.term = terminal.New(terminalDataCallback(a), terminalExitCallback(a))

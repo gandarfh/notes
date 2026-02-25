@@ -67,6 +67,19 @@ declare global {
           ReorderLocalDBRows(dbID: string, rowIDs: string[]): Promise<void>
           BatchUpdateLocalDBRows(dbID: string, mutationsJSON: string): Promise<void>
           GetLocalDatabaseStats(dbID: string): Promise<LocalDBStats>
+          // ETL plugin
+          ListETLSources(): Promise<any[]>
+          CreateETLJob(input: any): Promise<any>
+          GetETLJob(id: string): Promise<any>
+          ListETLJobs(): Promise<any[]>
+          UpdateETLJob(id: string, input: any): Promise<void>
+          DeleteETLJob(id: string): Promise<void>
+          RunETLJob(id: string): Promise<any>
+          PreviewETLSource(sourceType: string, sourceConfigJSON: string): Promise<any>
+          ListETLRunLogs(jobID: string): Promise<any[]>
+          PickETLFile(): Promise<string>
+          ListPageDatabaseBlocks(pageID: string): Promise<any[]>
+          DiscoverETLSchema(sourceType: string, sourceConfigJSON: string): Promise<any>
         }
       }
     }
@@ -332,6 +345,20 @@ export const api = {
   reorderLocalDBRows: (dbID: string, rowIDs: string[]) => getAPI().ReorderLocalDBRows(dbID, rowIDs),
   batchUpdateLocalDBRows: (dbID: string, mutationsJSON: string) => getAPI().BatchUpdateLocalDBRows(dbID, mutationsJSON),
   getLocalDatabaseStats: (dbID: string) => getAPI().GetLocalDatabaseStats(dbID),
+
+  // ETL plugin
+  listETLSources: () => getAPI().ListETLSources(),
+  createETLJob: (input: any) => getAPI().CreateETLJob(input),
+  getETLJob: (id: string) => getAPI().GetETLJob(id),
+  listETLJobs: () => getAPI().ListETLJobs(),
+  updateETLJob: (id: string, input: any) => getAPI().UpdateETLJob(id, input),
+  deleteETLJob: (id: string) => getAPI().DeleteETLJob(id),
+  runETLJob: (id: string) => getAPI().RunETLJob(id),
+  previewETLSource: (sourceType: string, sourceConfigJSON: string) => getAPI().PreviewETLSource(sourceType, sourceConfigJSON),
+  listETLRunLogs: (jobID: string) => getAPI().ListETLRunLogs(jobID),
+  pickETLFile: () => getAPI().PickETLFile(),
+  listPageDatabaseBlocks: (pageID: string) => getAPI().ListPageDatabaseBlocks(pageID),
+  discoverETLSchema: (sourceType: string, sourceConfigJSON: string) => getAPI().DiscoverETLSchema(sourceType, sourceConfigJSON),
 }
 
 export function onEvent(name: string, callback: (...args: any[]) => void): () => void {

@@ -33,13 +33,17 @@ const tools: { id: DrawingSubTool | 'block'; icon: React.ReactNode; title: strin
         id: 'chart-block' as DrawingSubTool, title: 'Chart Block', key: '',
         icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="11" width="3" height="6" rx="0.5" fill="currentColor" opacity="0.5" /><rect x="7" y="7" width="3" height="10" rx="0.5" fill="currentColor" opacity="0.7" /><rect x="11" y="9" width="3" height="8" rx="0.5" fill="currentColor" opacity="0.6" /><rect x="15" y="4" width="3" height="13" rx="0.5" fill="currentColor" opacity="0.8" /></svg>,
     },
+    {
+        id: 'etl-block' as DrawingSubTool, title: 'ETL Sync Block', key: '',
+        icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 4h4v4H4zM12 12h4v4h-4z" stroke="currentColor" strokeWidth="1.3" /><path d="M8 6h4M12 6l-2 3M10 9l2 3M8 14h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>,
+    },
 ]
 
 // Groups
 const GROUP_1 = ['draw-select']
 const GROUP_2 = ['rectangle', 'ellipse', 'diamond', 'ortho-arrow']
 const GROUP_3 = ['freedraw', 'text']
-const GROUP_4 = ['block', 'db-block', 'code-block', 'localdb-block', 'chart-block']
+const GROUP_4 = ['block', 'db-block', 'code-block', 'localdb-block', 'chart-block', 'etl-block']
 
 // Tiny component — only re-renders when zoom changes, not the whole toolbar
 function ZoomDisplay() {

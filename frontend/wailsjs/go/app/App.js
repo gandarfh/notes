@@ -34,6 +34,10 @@ export function CreateDatabaseConnection(arg1) {
   return window['go']['app']['App']['CreateDatabaseConnection'](arg1);
 }
 
+export function CreateETLJob(arg1) {
+  return window['go']['app']['App']['CreateETLJob'](arg1);
+}
+
 export function CreateLocalDBRow(arg1, arg2) {
   return window['go']['app']['App']['CreateLocalDBRow'](arg1, arg2);
 }
@@ -62,6 +66,10 @@ export function DeleteDatabaseConnection(arg1) {
   return window['go']['app']['App']['DeleteDatabaseConnection'](arg1);
 }
 
+export function DeleteETLJob(arg1) {
+  return window['go']['app']['App']['DeleteETLJob'](arg1);
+}
+
 export function DeleteLocalDBRow(arg1) {
   return window['go']['app']['App']['DeleteLocalDBRow'](arg1);
 }
@@ -78,6 +86,10 @@ export function DeletePage(arg1) {
   return window['go']['app']['App']['DeletePage'](arg1);
 }
 
+export function DiscoverETLSchema(arg1, arg2) {
+  return window['go']['app']['App']['DiscoverETLSchema'](arg1, arg2);
+}
+
 export function DuplicateLocalDBRow(arg1) {
   return window['go']['app']['App']['DuplicateLocalDBRow'](arg1);
 }
@@ -92,6 +104,10 @@ export function FetchMoreRows(arg1, arg2) {
 
 export function GetCachedResult(arg1) {
   return window['go']['app']['App']['GetCachedResult'](arg1);
+}
+
+export function GetETLJob(arg1) {
+  return window['go']['app']['App']['GetETLJob'](arg1);
 }
 
 export function GetImageData(arg1) {
@@ -122,6 +138,18 @@ export function ListDatabaseConnections() {
   return window['go']['app']['App']['ListDatabaseConnections']();
 }
 
+export function ListETLJobs() {
+  return window['go']['app']['App']['ListETLJobs']();
+}
+
+export function ListETLRunLogs(arg1) {
+  return window['go']['app']['App']['ListETLRunLogs'](arg1);
+}
+
+export function ListETLSources() {
+  return window['go']['app']['App']['ListETLSources']();
+}
+
 export function ListLocalDBRows(arg1) {
   return window['go']['app']['App']['ListLocalDBRows'](arg1);
 }
@@ -132,6 +160,10 @@ export function ListLocalDatabases() {
 
 export function ListNotebooks() {
   return window['go']['app']['App']['ListNotebooks']();
+}
+
+export function ListPageDatabaseBlocks(arg1) {
+  return window['go']['app']['App']['ListPageDatabaseBlocks'](arg1);
 }
 
 export function ListPages(arg1) {
@@ -150,8 +182,16 @@ export function PickDatabaseFile() {
   return window['go']['app']['App']['PickDatabaseFile']();
 }
 
+export function PickETLFile() {
+  return window['go']['app']['App']['PickETLFile']();
+}
+
 export function PickTextFile() {
   return window['go']['app']['App']['PickTextFile']();
+}
+
+export function PreviewETLSource(arg1, arg2) {
+  return window['go']['app']['App']['PreviewETLSource'](arg1, arg2);
 }
 
 export function PushUndoNode(arg1, arg2, arg3, arg4, arg5) {
@@ -176,6 +216,10 @@ export function ReorderLocalDBRows(arg1, arg2) {
 
 export function RestorePageBlocks(arg1, arg2) {
   return window['go']['app']['App']['RestorePageBlocks'](arg1, arg2);
+}
+
+export function RunETLJob(arg1) {
+  return window['go']['app']['App']['RunETLJob'](arg1);
 }
 
 export function SaveBlockDatabaseConfig(arg1, arg2) {
@@ -220,6 +264,10 @@ export function UpdateDatabaseConnection(arg1, arg2) {
 
 export function UpdateDrawingData(arg1, arg2) {
   return window['go']['app']['App']['UpdateDrawingData'](arg1, arg2);
+}
+
+export function UpdateETLJob(arg1, arg2) {
+  return window['go']['app']['App']['UpdateETLJob'](arg1, arg2);
 }
 
 export function UpdateLocalDBRow(arg1, arg2) {
