@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 import type { ColumnDef, LocalDatabase, LocalDBRow, LocalDatabaseConfig, ViewConfig } from '../../bridge/wails'
-import { api } from '../../bridge/wails'
+import { api, onEvent } from '../../bridge/wails'
 import { ViewSwitcher, type ViewType } from './ViewSwitcher'
 import { TableView } from './TableView'
 import { KanbanView } from './KanbanView'
@@ -10,7 +10,7 @@ import { ViewConfigBar } from './ViewConfigBar'
 
 // ── Main Renderer ──────────────────────────────────────────
 
-function LocalDBRenderer({ block }: BlockRendererProps) {
+function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
     const [db, setDb] = useState<LocalDatabase | null>(null)
     const [rows, setRows] = useState<LocalDBRow[]>([])
     const [loading, setLoading] = useState(true)
@@ -33,38 +33,49 @@ function LocalDBRenderer({ block }: BlockRendererProps) {
         }
     }, [db])
 
-    // Load database and rows
-    useEffect(() => {
-        let cancelled = false
-        setLoading(true)
-        api.getLocalDatabase(block.id)
-            .then(async (database) => {
-                if (cancelled) return
-                setDb(database)
-                setNameValue(database.name || 'Untitled')
-                const dbRows = await api.listLocalDBRows(database.id)
-                if (!cancelled) setRows(dbRows || [])
-            })
-            .catch(err => {
-                if (!cancelled) setError(String(err))
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false)
-            })
-        return () => { cancelled = true }
+    // Reusable data loader
+    const loadData = useCallback(async () => {
+        try {
+            setLoading(true)
+            const database = await api.getLocalDatabase(block.id)
+            setDb(database)
+            setNameValue(database.name || 'Untitled')
+            const dbRows = await api.listLocalDBRows(database.id)
+            setRows(dbRows || [])
+        } catch (err) {
+            setError(String(err))
+        } finally {
+            setLoading(false)
+        }
     }, [block.id])
+
+    // Load database and rows on mount
+    useEffect(() => {
+        loadData()
+    }, [loadData])
+
+    // Listen for db:updated events (e.g. from ETL sync) and auto-refresh
+    useEffect(() => {
+        if (!db) return
+        return onEvent('db:updated', (payload: any) => {
+            if (payload?.databaseId === db.id) {
+                loadData()
+            }
+        })
+    }, [db, loadData])
 
     // Native wheel listener — stops propagation to prevent Canvas from
     // calling preventDefault() which blocks horizontal scroll inside the table.
+    // Only active when block is selected so canvas zoom/scroll works otherwise.
     useEffect(() => {
         const el = blockRef.current
-        if (!el) return
+        if (!el || !isSelected) return
         const handler = (e: WheelEvent) => {
             e.stopPropagation()
         }
         el.addEventListener('wheel', handler, { passive: true })
         return () => el.removeEventListener('wheel', handler)
-    }, [loading])
+    }, [loading, isSelected])
 
     // ── Name rename ──
     const handleNameBlur = useCallback(async () => {
@@ -88,6 +99,12 @@ function LocalDBRenderer({ block }: BlockRendererProps) {
         setTimeout(() => nameInputRef.current?.select(), 0)
     }, [])
 
+    // Notify dependent blocks (charts) when this DB changes
+    const notifyDbChanged = useCallback(() => {
+        if (!db) return
+        window.runtime?.EventsEmit?.('db:updated', { databaseId: db.id })
+    }, [db])
+
     // Cell change handler
     const handleCellChange = useCallback(async (rowId: string, colId: string, value: unknown) => {
         // Optimistic update
@@ -103,20 +120,23 @@ function LocalDBRenderer({ block }: BlockRendererProps) {
         const data = JSON.parse(row.dataJson || '{}')
         data[colId] = value
         await api.updateLocalDBRow(rowId, JSON.stringify(data)).catch(console.error)
-    }, [rows])
+        notifyDbChanged()
+    }, [rows, notifyDbChanged])
 
     // Add row
     const handleAddRow = useCallback(async () => {
         if (!db) return
         const newRow = await api.createLocalDBRow(db.id, '{}')
         if (newRow) setRows(prev => [...prev, newRow])
-    }, [db])
+        notifyDbChanged()
+    }, [db, notifyDbChanged])
 
     // Delete row
     const handleDeleteRow = useCallback(async (rowId: string) => {
         setRows(prev => prev.filter(r => r.id !== rowId))
         await api.deleteLocalDBRow(rowId).catch(console.error)
-    }, [])
+        notifyDbChanged()
+    }, [notifyDbChanged])
 
     // Duplicate row
     const handleDuplicateRow = useCallback(async (rowId: string) => {
@@ -139,7 +159,8 @@ function LocalDBRenderer({ block }: BlockRendererProps) {
         const json = JSON.stringify(updated)
         setDb(prev => prev ? { ...prev, configJson: json } : prev)
         await api.updateLocalDatabaseConfig(db.id, json).catch(console.error)
-    }, [db])
+        notifyDbChanged()
+    }, [db, notifyDbChanged])
 
     // View change
     const handleViewChange = useCallback(async (view: ViewType) => {

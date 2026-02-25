@@ -48,11 +48,15 @@ func (w *LocalDBWriter) Write(ctx context.Context, targetID string, schema *Sche
 		if err := w.Store.DeleteRowsByDatabase(targetID); err != nil {
 			return 0, fmt.Errorf("clear target: %w", err)
 		}
-	}
-
-	// Auto-update the database config with columns from the schema.
-	if err := w.ensureColumns(targetID, schema); err != nil {
-		return 0, fmt.Errorf("ensure columns: %w", err)
+		// Reset columns to exactly match the output schema.
+		if err := w.resetColumns(targetID, schema); err != nil {
+			return 0, fmt.Errorf("reset columns: %w", err)
+		}
+	} else {
+		// Append mode: add any missing columns.
+		if err := w.ensureColumns(targetID, schema); err != nil {
+			return 0, fmt.Errorf("ensure columns: %w", err)
+		}
 	}
 
 	// Resolve column name → column ID mapping.
@@ -92,6 +96,38 @@ func (w *LocalDBWriter) Write(ctx context.Context, targetID string, schema *Sche
 	}
 
 	return written, nil
+}
+
+// resetColumns replaces all columns in the LocalDB config to exactly match the schema.
+// Used in replace mode so the target structure matches the transformed output.
+func (w *LocalDBWriter) resetColumns(dbID string, schema *Schema) error {
+	db, err := w.Store.GetDatabase(dbID)
+	if err != nil {
+		return err
+	}
+
+	// Parse existing config to preserve non-column fields (e.g. activeView).
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(db.ConfigJSON), &raw); err != nil {
+		raw = make(map[string]any)
+	}
+
+	// Build new columns from schema.
+	cols := make([]map[string]any, 0, len(schema.Fields))
+	for _, f := range schema.Fields {
+		cols = append(cols, map[string]any{
+			"id":    uuid.New().String(),
+			"name":  f.Name,
+			"type":  mapFieldType(f.Type),
+			"width": 150,
+		})
+	}
+	raw["columns"] = cols
+
+	configBytes, _ := json.Marshal(raw)
+	db.ConfigJSON = string(configBytes)
+	db.UpdatedAt = time.Now()
+	return w.Store.UpdateDatabase(db)
 }
 
 // ensureColumns adds any missing columns to the LocalDB config.

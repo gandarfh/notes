@@ -102,6 +102,7 @@ export namespace app {
 	    blockId: string;
 	    connectionId: string;
 	    query: string;
+	    label: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DatabaseBlockInfo(source);
@@ -112,6 +113,7 @@ export namespace app {
 	        this.blockId = source["blockId"];
 	        this.connectionId = source["connectionId"];
 	        this.query = source["query"];
+	        this.label = source["label"];
 	    }
 	}
 	export class LocalDBStats {

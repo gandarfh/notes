@@ -117,8 +117,11 @@ func (e *Engine) RunSync(ctx context.Context, job *SyncJob) (*SyncResult, error)
 		return result, err
 	}
 
+	// 5c. Derive output schema from actual records (transforms may have changed columns).
+	outputSchema := deriveSchemaFromRecords(records, schema)
+
 	// 6. Write to destination.
-	written, err := e.Dest.Write(ctx, job.TargetDBID, schema, records, job.SyncMode)
+	written, err := e.Dest.Write(ctx, job.TargetDBID, outputSchema, records, job.SyncMode)
 	if err != nil {
 		result.Status = "error"
 		result.Error = fmt.Sprintf("write: %s", err)
@@ -236,6 +239,25 @@ func buildTransformers(configs []TransformConfig, dedupeKey string) []Transforme
 			if field != "" && castType != "" {
 				ts = append(ts, &TypeCastTransform{Field: field, CastType: castType})
 			}
+
+		case "flatten":
+			sourceField, _ := tc.Config["sourceField"].(string)
+			fieldsRaw, _ := tc.Config["fields"].([]any)
+			if sourceField != "" && len(fieldsRaw) > 0 {
+				fields := make(map[string]string)
+				for _, f := range fieldsRaw {
+					if fm, ok := f.(map[string]any); ok {
+						path, _ := fm["path"].(string)
+						alias, _ := fm["alias"].(string)
+						if path != "" {
+							fields[path] = alias
+						}
+					}
+				}
+				if len(fields) > 0 {
+					ts = append(ts, &FlattenTransform{SourceField: sourceField, Fields: fields})
+				}
+			}
 		}
 	}
 
@@ -245,4 +267,44 @@ func buildTransformers(configs []TransformConfig, dedupeKey string) []Transforme
 	}
 
 	return ts
+}
+
+// deriveSchemaFromRecords builds a schema from the actual keys present in transformed records.
+// It preserves field type hints from the original source schema where available.
+func deriveSchemaFromRecords(records []Record, sourceSchema *Schema) *Schema {
+	if len(records) == 0 {
+		return sourceSchema
+	}
+
+	// Build lookup of source field types.
+	typeMap := make(map[string]string)
+	if sourceSchema != nil {
+		for _, f := range sourceSchema.Fields {
+			typeMap[f.Name] = f.Type
+		}
+	}
+
+	// Collect all unique keys from records (preserving insertion order via slice).
+	seen := make(map[string]bool)
+	var fieldNames []string
+	for _, r := range records {
+		for k := range r.Data {
+			if !seen[k] {
+				seen[k] = true
+				fieldNames = append(fieldNames, k)
+			}
+		}
+	}
+
+	// Build output schema.
+	fields := make([]Field, 0, len(fieldNames))
+	for _, name := range fieldNames {
+		ft := typeMap[name]
+		if ft == "" {
+			ft = "string" // default for new fields (e.g. from flatten)
+		}
+		fields = append(fields, Field{Name: name, Type: ft})
+	}
+
+	return &Schema{Fields: fields}
 }

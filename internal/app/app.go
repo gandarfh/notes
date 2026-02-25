@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/fsnotify/fsnotify"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"notes/internal/dbclient"
@@ -44,7 +45,9 @@ type App struct {
 	connectorsMu     sync.Mutex
 
 	// ETL plugin
-	etlStore *storage.ETLStore
+	etlStore       *storage.ETLStore
+	etlWatcher     *fsnotify.Watcher
+	etlWatchCancel context.CancelFunc
 }
 
 // New creates a new App.
@@ -88,6 +91,8 @@ func (a *App) Startup(ctx context.Context) {
 	// ETL plugin store
 	a.etlStore = storage.NewETLStore(db)
 	sources.SetBlockResolver(&appBlockResolver{app: a})
+	sources.SetDBProvider(&appDBProvider{app: a})
+	a.startETLWatchers()
 
 	// Embedded terminal: PTY output → base64 → frontend event
 	a.term = terminal.New(terminalDataCallback(a), terminalExitCallback(a))
@@ -119,6 +124,7 @@ func (a *App) Shutdown(ctx context.Context) {
 	if a.nvim != nil {
 		a.nvim.Close()
 	}
+	a.stopETLWatchers()
 	// Close all active database connectors
 	a.connectorsMu.Lock()
 	for _, c := range a.activeConnectors {

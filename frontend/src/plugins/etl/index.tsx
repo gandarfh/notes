@@ -36,6 +36,7 @@ export interface ConfigField {
     options?: string[]
     default?: string
     help?: string
+    placeholder?: string
 }
 
 export interface SyncJob {
@@ -224,7 +225,7 @@ function ETLBlockRenderer({ block, onContentChange }: BlockRendererProps) {
                 </div>
             )}
 
-            {/* Main content area — pipeline visualization */}
+            {/* Main content area — compact pipeline visualization */}
             <div className="etl-area">
                 {lastResult && (
                     <div className={`etl-toast ${lastResult.status}`}>
@@ -247,67 +248,64 @@ function ETLBlockRenderer({ block, onContentChange }: BlockRendererProps) {
                         <span className="etl-empty-label">Click <strong>Setup</strong> to configure your data pipeline</span>
                     </div>
                 ) : (
-                    <div className="etl-pipeline-viz">
-                        {/* Source node */}
-                        <div className="etl-node etl-node-source">
-                            <div className="etl-node-icon">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <>
+                        {/* Horizontal flow: Source → Transforms → Target */}
+                        <div className="etl-flow">
+                            {/* Source pill */}
+                            <div className="etl-flow-node etl-flow-source">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="etl-flow-icon">
                                     <ellipse cx="8" cy="4" rx="5" ry="2" stroke="currentColor" strokeWidth="1.2" />
                                     <path d="M3 4v8c0 1.1 2.24 2 5 2s5-.9 5-2V4" stroke="currentColor" strokeWidth="1.2" />
                                     <path d="M3 8c0 1.1 2.24 2 5 2s5-.9 5-2" stroke="currentColor" strokeWidth="1.2" />
                                 </svg>
+                                <span className="etl-flow-text">{sourceSpec?.label || job.sourceType}</span>
                             </div>
-                            <div className="etl-node-content">
-                                <span className="etl-node-label">Source</span>
-                                <span className="etl-node-value">{sourceSpec?.label || job.sourceType}</span>
-                            </div>
-                        </div>
 
-                        {/* Connector */}
-                        <div className="etl-connector">
-                            <div className="etl-connector-line" />
-                            <div className="etl-connector-badge">
-                                {job.syncMode}
-                                {job.transforms && job.transforms.length > 0 && ` · ${job.transforms.length} transform${job.transforms.length > 1 ? 's' : ''}`}
-                            </div>
-                            <div className="etl-connector-line" />
-                        </div>
+                            <span className="etl-flow-arrow">→</span>
 
-                        {/* Target node */}
-                        <div className="etl-node etl-node-target">
-                            <div className="etl-node-icon">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            {/* Transform pills */}
+                            {job.transforms && job.transforms.length > 0 ? (
+                                <>
+                                    <div className="etl-flow-transforms">
+                                        {job.transforms.map((t: any, i: number) => (
+                                            <span key={i} className="etl-flow-transform">{t.type}</span>
+                                        ))}
+                                    </div>
+                                    <span className="etl-flow-arrow">→</span>
+                                </>
+                            ) : null}
+
+                            {/* Target pill */}
+                            <div className="etl-flow-node etl-flow-target">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="etl-flow-icon">
                                     <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.2" />
                                     <line x1="2" y1="5.5" x2="14" y2="5.5" stroke="currentColor" strokeWidth="0.8" />
                                     <line x1="2" y1="9" x2="14" y2="9" stroke="currentColor" strokeWidth="0.8" />
                                     <line x1="7" y1="2" x2="7" y2="14" stroke="currentColor" strokeWidth="0.8" />
                                 </svg>
-                            </div>
-                            <div className="etl-node-content">
-                                <span className="etl-node-label">Target</span>
-                                <span className="etl-node-value">{targetDB?.name || 'Unknown'}</span>
+                                <span className="etl-flow-text">{targetDB?.name || 'Unknown'}</span>
                             </div>
                         </div>
 
-                        {/* Stats row */}
+                        {/* Stats footer */}
                         {job.lastStatus && (
-                            <div className="etl-stats-row">
-                                {job.triggerType !== 'manual' && (
-                                    <span className="etl-stat-chip">
-                                        ⏱ {job.triggerType === 'schedule' ? job.triggerConfig : 'file watch'}
-                                    </span>
-                                )}
-                                <span className={`etl-stat-chip etl-stat-${job.lastStatus}`}>
-                                    {job.lastStatus === 'success' ? '● Synced' : job.lastStatus === 'running' ? '◌ Running' : '● Error'}
+                            <div className="etl-stats">
+                                <span className={`etl-stats-status etl-stat-${job.lastStatus}`}>
+                                    {job.lastStatus === 'success' ? '●' : job.lastStatus === 'running' ? '◌' : '●'}
+                                    {' '}{job.lastStatus === 'success' ? 'Synced' : job.lastStatus === 'running' ? 'Running' : 'Error'}
+                                </span>
+                                <span className="etl-stats-detail">
+                                    {job.syncMode}
+                                    {job.transforms && job.transforms.length > 0 && ` · ${job.transforms.length} transform${job.transforms.length > 1 ? 's' : ''}`}
                                 </span>
                                 {job.lastRunAt && job.lastRunAt !== '0001-01-01T00:00:00Z' && (
-                                    <span className="etl-stat-time">
-                                        {new Date(job.lastRunAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    <span className="etl-stats-time">
+                                        {new Date(job.lastRunAt).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 )}
                             </div>
                         )}
-                    </div>
+                    </>
                 )}
             </div>
         </div>
@@ -332,7 +330,7 @@ export const etlPlugin: BlockPlugin = {
     type: 'etl',
     label: 'ETL Sync',
     Icon: ETLIcon,
-    defaultSize: { width: 460, height: 320 },
+    defaultSize: { width: 460, height: 180 },
     Renderer: ETLBlockRenderer,
     headerLabel: 'ETL',
 }

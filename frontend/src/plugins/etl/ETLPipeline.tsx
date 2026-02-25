@@ -6,7 +6,7 @@ import { Select } from '../chart/Select'
 
 // ── Types ──────────────────────────────────────────────────
 
-export type TransformType = 'filter' | 'rename' | 'select' | 'dedupe' | 'compute' | 'sort' | 'limit' | 'type_cast'
+export type TransformType = 'filter' | 'rename' | 'select' | 'dedupe' | 'compute' | 'sort' | 'limit' | 'type_cast' | 'flatten'
 
 export interface TransformStage {
     type: TransformType
@@ -35,6 +35,7 @@ export const STAGE_LABELS: Record<TransformType, string> = {
     sort: 'Sort',
     limit: 'Limit',
     type_cast: 'Type Cast',
+    flatten: 'Flatten JSON',
 }
 
 export const STAGE_DESCS: Record<TransformType, string> = {
@@ -46,6 +47,7 @@ export const STAGE_DESCS: Record<TransformType, string> = {
     sort: 'Order rows by column',
     limit: 'Cap number of rows',
     type_cast: 'Convert column types',
+    flatten: 'Extract fields from JSON column',
 }
 
 // ── Column Tracking ────────────────────────────────────────
@@ -78,6 +80,14 @@ export function getColumnsAtStage(
                 }
                 break
             }
+            case 'flatten': {
+                const fields = (s.config.fields as { path: string; alias: string }[]) || []
+                for (const f of fields) {
+                    const outName = f.alias || f.path
+                    if (outName && !cols.includes(outName)) cols.push(outName)
+                }
+                break
+            }
             // filter, dedupe, sort, limit, type_cast don't change column set
         }
     }
@@ -97,6 +107,7 @@ function defaultStage(type: TransformType): TransformStage {
         case 'sort': return { type, config: { field: '', direction: 'asc' } }
         case 'limit': return { type, config: { count: 100 } }
         case 'type_cast': return { type, config: { field: '', castType: 'number' } }
+        case 'flatten': return { type, config: { sourceField: '', fields: [{ path: '', alias: '' }] } }
     }
 }
 
@@ -467,6 +478,60 @@ function TransformStageBody({ stage, availableCols, colOptions, onChange }: {
                 </div>
             )
 
+        case 'flatten': {
+            const fields = (stage.config.fields || []) as { path: string; alias: string }[]
+            return (
+                <div className="pl-stage-body">
+                    <div className="pl-inline">
+                        <span className="pl-kw">from</span>
+                        <Select
+                            value={stage.config.sourceField || ''}
+                            options={colOptions}
+                            placeholder="JSON column…"
+                            onChange={v => updateConfig({ sourceField: v })}
+                        />
+                    </div>
+                    {fields.map((f, i) => (
+                        <div key={i} className="pl-inline" style={{ marginTop: 4 }}>
+                            <input
+                                className="pl-input"
+                                style={{ flex: 1 }}
+                                value={f.path}
+                                onChange={e => {
+                                    const next = [...fields]
+                                    next[i] = { ...f, path: e.target.value }
+                                    updateConfig({ fields: next })
+                                }}
+                                placeholder="path (e.g. providers.gitProvider)"
+                            />
+                            <span className="pl-kw">→</span>
+                            <input
+                                className="pl-input"
+                                style={{ flex: 1 }}
+                                value={f.alias}
+                                onChange={e => {
+                                    const next = [...fields]
+                                    next[i] = { ...f, alias: e.target.value }
+                                    updateConfig({ fields: next })
+                                }}
+                                placeholder="output column (optional)"
+                            />
+                            {fields.length > 1 && (
+                                <button className="pl-stage-btn pl-stage-btn-rm" onClick={() => {
+                                    updateConfig({ fields: fields.filter((_, j) => j !== i) })
+                                }}><IconX size={10} /></button>
+                            )}
+                        </div>
+                    ))}
+                    <button className="pl-add-btn" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => {
+                        updateConfig({ fields: [...fields, { path: '', alias: '' }] })
+                    }}>
+                        <IconPlus size={10} /> Add Field
+                    </button>
+                </div>
+            )
+        }
+
         default:
             return null
     }
@@ -485,7 +550,7 @@ function AddTransformMenu({ onAdd }: { onAdd: (type: TransformType) => void }) {
         setPos({ top: rect.bottom + 2, left: rect.left })
     }, [open])
 
-    const types: TransformType[] = ['filter', 'select', 'rename', 'compute', 'dedupe', 'sort', 'limit', 'type_cast']
+    const types: TransformType[] = ['filter', 'select', 'rename', 'compute', 'dedupe', 'sort', 'limit', 'type_cast', 'flatten']
 
     return (
         <div className="pl-add-wrap" ref={triggerRef}>

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 import type { LocalDatabase, ColumnDef } from '../../bridge/wails'
-import { api } from '../../bridge/wails'
+import { api, onEvent } from '../../bridge/wails'
 import { ChartRenderer, defaultConfig, type ChartConfig, type ChartType, type DataPoint, type SeriesDef } from './ChartRenderer'
 import { ChartTypePicker } from './ChartTypePicker'
 import { NotebookEditor, type PipelineConfig, defaultPipelineConfig } from './NotebookEditor'
@@ -95,6 +95,19 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
 
     // Column name resolver
     const resolveCol = useMemo(() => buildColNameResolver(dbColumns), [dbColumns])
+
+    // Auto-refresh when a source database is updated (e.g. by ETL sync)
+    useEffect(() => {
+        const sourceDbIds = config.pipeline.stages
+            .filter((s: any) => s.databaseId)
+            .map((s: any) => s.databaseId as string)
+        if (sourceDbIds.length === 0) return
+        return onEvent('db:updated', (payload: any) => {
+            if (payload?.databaseId && sourceDbIds.includes(payload.databaseId)) {
+                setRefreshKey(k => k + 1)
+            }
+        })
+    }, [config.pipeline.stages])
 
     const persist = useCallback((next: ChartBlockConfig) => {
         onContentChange(JSON.stringify(next))

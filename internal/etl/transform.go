@@ -1,6 +1,7 @@
 package etl
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -190,6 +191,54 @@ func (t *TypeCastTransform) Transform(r Record) (Record, bool) {
 		r.Data[t.Field] = toBool(v)
 	}
 	return r, true
+}
+
+// FlattenTransform extracts fields from a JSON/map column into new top-level columns.
+type FlattenTransform struct {
+	SourceField string            // column containing JSON/map data
+	Fields      map[string]string // path → output column name
+}
+
+func (t *FlattenTransform) Transform(r Record) (Record, bool) {
+	raw, ok := r.Data[t.SourceField]
+	if !ok {
+		return r, true
+	}
+
+	// Resolve to map
+	var m map[string]any
+	switch v := raw.(type) {
+	case map[string]any:
+		m = v
+	case string:
+		if err := json.Unmarshal([]byte(v), &m); err != nil {
+			return r, true
+		}
+	default:
+		return r, true
+	}
+
+	for path, outCol := range t.Fields {
+		if outCol == "" {
+			outCol = path
+		}
+		r.Data[outCol] = extractPath(m, path)
+	}
+	return r, true
+}
+
+// extractPath navigates dot-separated paths like "providers.gitProvider".
+func extractPath(m map[string]any, path string) any {
+	parts := strings.Split(path, ".")
+	var current any = m
+	for _, p := range parts {
+		cm, ok := current.(map[string]any)
+		if !ok {
+			return nil
+		}
+		current = cm[p]
+	}
+	return current
 }
 
 func toBool(v any) bool {
