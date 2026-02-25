@@ -109,6 +109,10 @@ export function Canvas({ onEditBlock }: CanvasProps) {
     const lastMouseRef = useRef({ x: 0, y: 0 })
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const viewportRef = useRef(useAppStore.getState().viewport)
+    // Track block layer zoom mode: 'scale' = transform scale, 'css-zoom' = CSS zoom property
+    const blockZoomModeRef = useRef<'scale' | 'css-zoom'>(useAppStore.getState().viewport.zoom > 1 ? 'css-zoom' : 'scale')
+    const lastAppliedZoomRef = useRef(useAppStore.getState().viewport.zoom)
+    const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     // ── Drawing hook ──
     const onBlockCreate = useCallback(async (type: string, x: number, y: number, w: number, h: number) => {
@@ -134,25 +138,48 @@ export function Canvas({ onEditBlock }: CanvasProps) {
     const applyViewport = useCallback((v: { x: number; y: number; zoom: number }) => {
         const w = window as any
         w.__perfMark?.('applyViewport')
-        // Drawing layer: always uses transform: scale() — canvas context handles its own resolution
+
+        // Drawing layer: always transform: scale() — canvas context handles its own resolution
         if (drawingLayerRef.current) {
             drawingLayerRef.current.style.transform = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.zoom})`
         }
-        // Block layer: hybrid zoom strategy
-        // - Zoom IN (>100%): CSS zoom for crisp enlarged text
-        // - Zoom OUT (≤100%): transform: scale() to avoid layout issues (blur imperceptible at small sizes)
+
+        // Block layer: deferred settle strategy
+        // During active zoom gestures → always scale() for smooth GPU animation
+        // After gesture settles (200ms) → switch to CSS zoom if >100% for crisp text
         if (blockLayerRef.current) {
-            if (v.zoom > 1) {
-                // CSS zoom: re-renders at target resolution (crisp text)
-                // Translate divided by zoom because CSS zoom multiplies all CSS lengths
-                blockLayerRef.current.style.transform = `translate3d(${v.x / v.zoom}px, ${v.y / v.zoom}px, 0)`
-                blockLayerRef.current.style.setProperty('zoom', String(v.zoom))
-            } else {
-                // transform: scale(): GPU-composited, no layout issues at small sizes
+            const zoomChanged = Math.abs(v.zoom - lastAppliedZoomRef.current) > 0.001
+            lastAppliedZoomRef.current = v.zoom
+
+            if (zoomChanged) {
+                // Zoom is actively changing → use scale() for smooth animation (no layout thrash)
+                blockZoomModeRef.current = 'scale'
                 blockLayerRef.current.style.transform = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.zoom})`
                 blockLayerRef.current.style.setProperty('zoom', '1')
+
+                // Schedule settle: switch to CSS zoom after gesture ends
+                if (settleRef.current) clearTimeout(settleRef.current)
+                if (v.zoom > 1) {
+                    settleRef.current = setTimeout(() => {
+                        const cur = viewportRef.current
+                        if (blockLayerRef.current && cur.zoom > 1) {
+                            blockLayerRef.current.style.transform = `translate3d(${cur.x / cur.zoom}px, ${cur.y / cur.zoom}px, 0)`
+                            blockLayerRef.current.style.setProperty('zoom', String(cur.zoom))
+                            blockZoomModeRef.current = 'css-zoom'
+                        }
+                        settleRef.current = null
+                    }, 200)
+                }
+            } else {
+                // Only panning (zoom unchanged) → keep current mode
+                if (blockZoomModeRef.current === 'css-zoom') {
+                    blockLayerRef.current.style.transform = `translate3d(${v.x / v.zoom}px, ${v.y / v.zoom}px, 0)`
+                } else {
+                    blockLayerRef.current.style.transform = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.zoom})`
+                }
             }
         }
+
         // Canvas re-render needed — canvas is not CSS-transformed, viewport is in the context
         renderDrawing(v)
         w.__perfEnd?.('applyViewport')
