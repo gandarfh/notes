@@ -80,6 +80,9 @@ declare global {
           PickETLFile(): Promise<string>
           ListPageDatabaseBlocks(pageID: string): Promise<any[]>
           DiscoverETLSchema(sourceType: string, sourceConfigJSON: string): Promise<any>
+          ExecuteHTTPRequest(blockID: string, configJSON: string): Promise<any>
+          SaveBlockHTTPConfig(blockID: string, config: string): Promise<void>
+          ListPageHTTPBlocks(pageID: string): Promise<any[]>
         }
       }
     }
@@ -115,7 +118,7 @@ export interface Page {
 export interface Block {
   id: string
   pageId: string
-  type: 'markdown' | 'drawing' | 'image' | 'database' | 'code' | 'localdb'
+  type: 'markdown' | 'drawing' | 'image' | 'database' | 'code' | 'localdb' | 'http'
   x: number
   y: number
   width: number
@@ -359,6 +362,11 @@ export const api = {
   pickETLFile: () => getAPI().PickETLFile(),
   listPageDatabaseBlocks: (pageID: string) => getAPI().ListPageDatabaseBlocks(pageID),
   discoverETLSchema: (sourceType: string, sourceConfigJSON: string) => getAPI().DiscoverETLSchema(sourceType, sourceConfigJSON),
+
+  // HTTP Block
+  executeHTTPRequest: (blockID: string, configJSON: string) => getAPI().ExecuteHTTPRequest(blockID, configJSON),
+  saveBlockHTTPConfig: (blockID: string, config: string) => getAPI().SaveBlockHTTPConfig(blockID, config),
+  listPageHTTPBlocks: (pageID: string) => getAPI().ListPageHTTPBlocks(pageID),
 }
 
 export function onEvent(name: string, callback: (...args: any[]) => void): () => void {

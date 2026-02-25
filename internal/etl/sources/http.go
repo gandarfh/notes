@@ -17,6 +17,16 @@ import (
 // Fetches data from a REST API endpoint.
 // Excellent for integrating with personal APIs like GitHub, Strava, Toggl, etc.
 
+// HTTPBlockResolver provides access to HTTP block content for resolving block references.
+type HTTPBlockResolver interface {
+	GetHTTPBlockContent(blockID string) (url, method, headers, body string, err error)
+}
+
+var httpBlockResolver HTTPBlockResolver
+
+// SetHTTPBlockResolver is called by the app at startup.
+func SetHTTPBlockResolver(r HTTPBlockResolver) { httpBlockResolver = r }
+
 type httpSource struct{}
 
 func init() { etl.RegisterSource(&httpSource{}) }
@@ -27,7 +37,8 @@ func (s *httpSource) Spec() etl.SourceSpec {
 		Label: "HTTP API",
 		Icon:  "IconWorldWww",
 		ConfigFields: []etl.ConfigField{
-			{Key: "url", Label: "URL", Type: "string", Required: true, Help: "Full URL to fetch (e.g., https://api.github.com/users/me/repos)"},
+			{Key: "blockId", Label: "HTTP Block", Type: "http_block", Required: false, Help: "Select an HTTP block from this page"},
+			{Key: "url", Label: "URL", Type: "string", Required: false, Help: "Full URL to fetch (e.g., https://api.github.com/users/me/repos)"},
 			{Key: "method", Label: "Method", Type: "select", Required: false, Options: []string{"GET", "POST"}, Default: "GET"},
 			{Key: "headers", Label: "Headers", Type: "textarea", Required: false, Help: "JSON object of headers (e.g., {\"Authorization\": \"Bearer xxx\"})"},
 			{Key: "body", Label: "Body", Type: "textarea", Required: false, Help: "Request body (for POST)"},
@@ -71,6 +82,19 @@ func (s *httpSource) Read(ctx context.Context, cfg etl.SourceConfig) (<-chan etl
 }
 
 func fetchHTTP(ctx context.Context, cfg etl.SourceConfig) ([]etl.Record, error) {
+	// Resolve from HTTP block reference if blockId is set.
+	if blockID, ok := cfg["blockId"].(string); ok && blockID != "" && httpBlockResolver != nil {
+		bURL, bMethod, bHeaders, bBody, err := httpBlockResolver.GetHTTPBlockContent(blockID)
+		if err != nil {
+			return nil, fmt.Errorf("resolve http block: %w", err)
+		}
+		// Override config with block values (keep dataPath from ETL config).
+		cfg["url"] = bURL
+		cfg["method"] = bMethod
+		cfg["headers"] = bHeaders
+		cfg["body"] = bBody
+	}
+
 	url, _ := cfg["url"].(string)
 	if url == "" {
 		return nil, fmt.Errorf("url is required")

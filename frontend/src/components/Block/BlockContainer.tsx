@@ -452,7 +452,7 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                 />
             ) : (
                 <div
-                    className={`block-content w-full flex-1 min-h-0 overflow-auto ${isImage || block.type === 'database' ? 'p-0' : 'p-3'}`}
+                    className={`block-content w-full flex-1 min-h-0 overflow-auto ${isImage || block.type === 'database' || block.type === 'http' ? 'p-0' : 'p-3'}`}
                     onMouseDown={isImage ? onHeaderMouseDown : onContentMouseDown}
                 >
                     <Renderer

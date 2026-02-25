@@ -8,6 +8,7 @@ import { codePlugin } from './code'
 import { localdbPlugin } from './localdb'
 import { chartPlugin } from './chart'
 import { etlPlugin } from './etl'
+import { httpPlugin } from './http'
 
 export function registerBuiltinPlugins() {
     BlockRegistry.register(markdownPlugin)
@@ -18,6 +19,7 @@ export function registerBuiltinPlugins() {
     BlockRegistry.register(localdbPlugin)
     BlockRegistry.register(chartPlugin)
     BlockRegistry.register(etlPlugin)
+    BlockRegistry.register(httpPlugin)
 }
 
 export { BlockRegistry } from './registry'

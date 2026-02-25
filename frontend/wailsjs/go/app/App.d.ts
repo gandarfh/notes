@@ -52,6 +52,8 @@ export function DiscoverETLSchema(arg1:string,arg2:string):Promise<etl.Schema>;
 
 export function DuplicateLocalDBRow(arg1:string):Promise<domain.LocalDBRow>;
 
+export function ExecuteHTTPRequest(arg1:string,arg2:string):Promise<app.HTTPResponse>;
+
 export function ExecuteQuery(arg1:string,arg2:string,arg3:string,arg4:number):Promise<app.QueryResultView>;
 
 export function FetchMoreRows(arg1:string,arg2:number):Promise<app.QueryResultView>;
@@ -88,6 +90,8 @@ export function ListNotebooks():Promise<Array<domain.Notebook>>;
 
 export function ListPageDatabaseBlocks(arg1:string):Promise<Array<app.DatabaseBlockInfo>>;
 
+export function ListPageHTTPBlocks(arg1:string):Promise<Array<app.HTTPBlockInfo>>;
+
 export function ListPages(arg1:string):Promise<Array<domain.Page>>;
 
 export function LoadUndoTree(arg1:string):Promise<storage.UndoTree>;
@@ -117,6 +121,8 @@ export function RestorePageBlocks(arg1:string,arg2:Array<domain.Block>):Promise<
 export function RunETLJob(arg1:string):Promise<etl.SyncResult>;
 
 export function SaveBlockDatabaseConfig(arg1:string,arg2:string):Promise<void>;
+
+export function SaveBlockHTTPConfig(arg1:string,arg2:string):Promise<void>;
 
 export function SaveImageFile(arg1:string,arg2:string):Promise<string>;
 

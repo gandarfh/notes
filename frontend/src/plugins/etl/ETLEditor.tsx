@@ -3,6 +3,7 @@ import type { LocalDatabase } from '../../bridge/wails'
 import { api } from '../../bridge/wails'
 import { Select } from '../chart/Select'
 import { ETLTransformStep } from './ETLTransformStep'
+import { CronBuilder } from './CronBuilder'
 import type { TransformStage } from './ETLPipeline'
 import type { SourceSpec, SyncJob, TransformConfig } from './index'
 
@@ -12,6 +13,13 @@ interface DatabaseBlockOption {
     blockId: string
     connectionId: string
     query: string
+    label: string
+}
+
+interface HTTPBlockOption {
+    blockId: string
+    method: string
+    url: string
     label: string
 }
 
@@ -53,6 +61,7 @@ export function ETLEditor({ existingJob, sources, databases, pageId, onSave, onC
 
     // Database blocks on this page
     const [dbBlocks, setDbBlocks] = useState<DatabaseBlockOption[]>([])
+    const [httpBlocks, setHttpBlocks] = useState<HTTPBlockOption[]>([])
 
     const selectedSource = sources.find(s => s.type === sourceType)
 
@@ -67,6 +76,17 @@ export function ETLEditor({ existingJob, sources, databases, pageId, onSave, onC
                 }))
                 setDbBlocks(b)
             }).catch(() => setDbBlocks([]))
+        }
+        if (sourceType === 'http' && pageId) {
+            api.listPageHTTPBlocks(pageId).then(blocks => {
+                const b = (blocks || []).map((bk: any) => ({
+                    blockId: bk.blockId,
+                    method: bk.method,
+                    url: bk.url,
+                    label: bk.label || bk.blockId,
+                }))
+                setHttpBlocks(b)
+            }).catch(() => setHttpBlocks([]))
         }
     }, [sourceType, pageId])
 
@@ -164,8 +184,15 @@ export function ETLEditor({ existingJob, sources, databases, pageId, onSave, onC
             )
         }
 
-        if (field.type === 'select' || field.type === 'db_block') {
-            const optionsToUse = field.type === 'db_block' ? dbBlockOptions : (field.options || []).map(o => ({ value: o, label: o }))
+        if (field.type === 'select' || field.type === 'db_block' || field.type === 'http_block') {
+            let optionsToUse: { value: string; label: string }[]
+            if (field.type === 'db_block') {
+                optionsToUse = dbBlockOptions
+            } else if (field.type === 'http_block') {
+                optionsToUse = httpBlocks.map(b => ({ value: b.blockId, label: b.label }))
+            } else {
+                optionsToUse = (field.options || []).map(o => ({ value: o, label: o }))
+            }
             return (
                 <Select
                     value={sourceConfig[field.key] || ''}
@@ -255,15 +282,23 @@ export function ETLEditor({ existingJob, sources, databases, pageId, onSave, onC
                                 <span className="pl-stage-label">Configure</span>
                             </div>
                             <div className="pl-stage-body">
-                                {selectedSource.configFields.map(field => (
-                                    <div key={field.key} className="pl-field">
-                                        <label className="pl-label">
-                                            {field.label}
-                                            {field.required && <span style={{ color: 'var(--color-danger, #ef4444)', marginLeft: 2 }}>*</span>}
-                                        </label>
-                                        {renderConfigField(field)}
-                                    </div>
-                                ))}
+                                {selectedSource.configFields
+                                    .filter(field => {
+                                        // Hide manual URL/method/headers/body when an HTTP block is selected
+                                        if (sourceType === 'http' && sourceConfig.blockId) {
+                                            return field.key === 'blockId' || field.key === 'dataPath'
+                                        }
+                                        return true
+                                    })
+                                    .map(field => (
+                                        <div key={field.key} className="pl-field">
+                                            <label className="pl-label">
+                                                {field.label}
+                                                {field.required && <span style={{ color: 'var(--color-danger, #ef4444)', marginLeft: 2 }}>*</span>}
+                                            </label>
+                                            {renderConfigField(field)}
+                                        </div>
+                                    ))}
                             </div>
                         </div>
                     )}
@@ -359,20 +394,15 @@ export function ETLEditor({ existingJob, sources, databases, pageId, onSave, onC
                                             }
                                         }}
                                     />
-                                    {triggerType === 'schedule' && (
-                                        <input
-                                            className="pl-input"
-                                            value={triggerConfig}
-                                            onChange={e => setTriggerConfig(e.target.value)}
-                                            placeholder="0 */6 * * *"
-                                        />
-                                    )}
                                     {triggerType === 'file_watch' && (
                                         <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>
                                             watching: {(sourceConfig.filePath || '').split('/').pop() || 'source file'}
                                         </span>
                                     )}
                                 </div>
+                                {triggerType === 'schedule' && (
+                                    <CronBuilder value={triggerConfig} onChange={setTriggerConfig} />
+                                )}
                             </div>
                         </div>
                     </div>

@@ -116,6 +116,48 @@ export namespace app {
 	        this.label = source["label"];
 	    }
 	}
+	export class HTTPBlockInfo {
+	    blockId: string;
+	    method: string;
+	    url: string;
+	    label: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HTTPBlockInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.blockId = source["blockId"];
+	        this.method = source["method"];
+	        this.url = source["url"];
+	        this.label = source["label"];
+	    }
+	}
+	export class HTTPResponse {
+	    statusCode: number;
+	    statusText: string;
+	    headers: Record<string, string>;
+	    body: string;
+	    durationMs: number;
+	    contentType: string;
+	    sizeBytes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new HTTPResponse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.statusCode = source["statusCode"];
+	        this.statusText = source["statusText"];
+	        this.headers = source["headers"];
+	        this.body = source["body"];
+	        this.durationMs = source["durationMs"];
+	        this.contentType = source["contentType"];
+	        this.sizeBytes = source["sizeBytes"];
+	    }
+	}
 	export class LocalDBStats {
 	    rowCount: number;
 	    // Go type: time

@@ -37,13 +37,17 @@ const tools: { id: DrawingSubTool | 'block'; icon: React.ReactNode; title: strin
         id: 'etl-block' as DrawingSubTool, title: 'ETL Sync Block', key: '',
         icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 4h4v4H4zM12 12h4v4h-4z" stroke="currentColor" strokeWidth="1.3" /><path d="M8 6h4M12 6l-2 3M10 9l2 3M8 14h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>,
     },
+    {
+        id: 'http-block' as DrawingSubTool, title: 'HTTP Request', key: '',
+        icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.3" /><path d="M3 10h14M10 3c-2 3-2 11 0 14M10 3c2 3 2 11 0 14" stroke="currentColor" strokeWidth="1" opacity="0.6" /></svg>,
+    },
 ]
 
 // Groups
 const GROUP_1 = ['draw-select']
 const GROUP_2 = ['rectangle', 'ellipse', 'diamond', 'ortho-arrow']
 const GROUP_3 = ['freedraw', 'text']
-const GROUP_4 = ['block', 'db-block', 'code-block', 'localdb-block', 'chart-block', 'etl-block']
+const GROUP_4 = ['block', 'db-block', 'code-block', 'localdb-block', 'chart-block', 'etl-block', 'http-block']
 
 // Tiny component — only re-renders when zoom changes, not the whole toolbar
 function ZoomDisplay() {

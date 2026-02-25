@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/robfig/cron/v3"
 
 	"notes/internal/etl"
 	"notes/internal/etl/sources" // register all sources via init() + used by appDBProvider
@@ -38,6 +40,74 @@ func (r *appBlockResolver) GetBlockContent(_ context.Context, blockID string) (s
 		return "", "", fmt.Errorf("block %s has no database connection", blockID)
 	}
 	return cfg.ConnectionID, cfg.Query, nil
+}
+
+// appHTTPBlockResolver implements sources.HTTPBlockResolver to let
+// the HTTP ETL source resolve an HTTP block reference to url + method + headers + body.
+type appHTTPBlockResolver struct {
+	app *App
+}
+
+func (r *appHTTPBlockResolver) GetHTTPBlockContent(blockID string) (string, string, string, string, error) {
+	block, err := r.app.blocks.GetBlock(blockID)
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("block %s not found: %w", blockID, err)
+	}
+	var cfg struct {
+		Method  string          `json:"method"`
+		URL     string          `json:"url"`
+		Headers json.RawMessage `json:"headers"` // can be array or object
+		Body    json.RawMessage `json:"body"`    // can be string or object
+	}
+	if err := json.Unmarshal([]byte(block.Content), &cfg); err != nil {
+		return "", "", "", "", fmt.Errorf("parse http block config: %w", err)
+	}
+
+	// Resolve headers: convert KV array to JSON object string
+	headersStr := ""
+	if len(cfg.Headers) > 0 {
+		// Try as array of {key, value, enabled}
+		var kvPairs []struct {
+			Key     string `json:"key"`
+			Value   string `json:"value"`
+			Enabled bool   `json:"enabled"`
+		}
+		if json.Unmarshal(cfg.Headers, &kvPairs) == nil {
+			hMap := make(map[string]string)
+			for _, p := range kvPairs {
+				if p.Enabled && p.Key != "" {
+					hMap[p.Key] = p.Value
+				}
+			}
+			if len(hMap) > 0 {
+				b, _ := json.Marshal(hMap)
+				headersStr = string(b)
+			}
+		} else {
+			// Already a JSON object string
+			headersStr = string(cfg.Headers)
+		}
+	}
+
+	// Resolve body: can be { mode, content } object or plain string
+	bodyStr := ""
+	if len(cfg.Body) > 0 {
+		var bodyObj struct {
+			Mode    string `json:"mode"`
+			Content string `json:"content"`
+		}
+		if json.Unmarshal(cfg.Body, &bodyObj) == nil && bodyObj.Content != "" {
+			bodyStr = bodyObj.Content
+		} else {
+			// Try as plain string
+			var s string
+			if json.Unmarshal(cfg.Body, &s) == nil {
+				bodyStr = s
+			}
+		}
+	}
+
+	return cfg.URL, cfg.Method, headersStr, bodyStr, nil
 }
 
 // appDBProvider implements sources.DBProvider to let
@@ -363,6 +433,68 @@ func (a *App) ListPageDatabaseBlocks(pageID string) ([]DatabaseBlockInfo, error)
 	return result, nil
 }
 
+// ── HTTP Block Discovery ──────────────────────────────────
+
+// HTTPBlockInfo describes an HTTP block on a page (for ETL source selection).
+type HTTPBlockInfo struct {
+	BlockID string `json:"blockId"`
+	Method  string `json:"method"`
+	URL     string `json:"url"`
+	Label   string `json:"label"`
+}
+
+// ListPageHTTPBlocks returns all HTTP blocks on a given page.
+func (a *App) ListPageHTTPBlocks(pageID string) ([]HTTPBlockInfo, error) {
+	blocks, err := a.blocks.ListBlocks(pageID)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []HTTPBlockInfo
+	for _, b := range blocks {
+		if b.Type != "http" {
+			continue
+		}
+		var cfg struct {
+			Method string `json:"method"`
+			URL    string `json:"url"`
+		}
+		if err := json.Unmarshal([]byte(b.Content), &cfg); err != nil {
+			continue
+		}
+		if cfg.URL == "" {
+			continue
+		}
+
+		method := cfg.Method
+		if method == "" {
+			method = "GET"
+		}
+
+		// Build label: "GET · api.github.com/repos"
+		label := method
+		if cfg.URL != "" {
+			short := cfg.URL
+			// Strip protocol prefix
+			for _, prefix := range []string{"https://", "http://"} {
+				short = strings.TrimPrefix(short, prefix)
+			}
+			if len(short) > 40 {
+				short = short[:37] + "…"
+			}
+			label += " · " + short
+		}
+
+		result = append(result, HTTPBlockInfo{
+			BlockID: b.ID,
+			Method:  method,
+			URL:     cfg.URL,
+			Label:   label,
+		})
+	}
+	return result, nil
+}
+
 // ── File Watcher ───────────────────────────────────────────
 
 // startETLWatchers sets up fsnotify watchers for all enabled file_watch ETL jobs.
@@ -388,6 +520,44 @@ func (a *App) startETLWatchers() {
 		}
 		entries = append(entries, watchEntry{jobID: j.ID, path: j.TriggerConfig})
 	}
+
+	// ── Cron scheduler for schedule jobs ──
+	var cronJobs []struct {
+		jobID string
+		expr  string
+	}
+	for _, j := range jobs {
+		if j.TriggerType == "schedule" && j.TriggerConfig != "" {
+			cronJobs = append(cronJobs, struct {
+				jobID string
+				expr  string
+			}{jobID: j.ID, expr: j.TriggerConfig})
+		}
+	}
+
+	if len(cronJobs) > 0 {
+		c := cron.New()
+		for _, cj := range cronJobs {
+			jid := cj.jobID // capture for closure
+			_, err := c.AddFunc(cj.expr, func() {
+				log.Printf("etl cron: running job %s", jid)
+				if _, err := a.RunETLJob(jid); err != nil {
+					log.Printf("etl cron: job %s failed: %v", jid, err)
+				}
+				// Emit event to frontend so it can refresh
+				wailsRuntime.EventsEmit(a.ctx, "etl:job-completed", jid)
+			})
+			if err != nil {
+				log.Printf("etl cron: invalid expression %q for job %s: %v", cj.expr, cj.jobID, err)
+				continue
+			}
+		}
+		c.Start()
+		a.etlCron = c
+		log.Printf("etl cron: scheduled %d job(s)", len(cronJobs))
+	}
+
+	// ── File watchers ──
 
 	if len(entries) == 0 {
 		return
@@ -470,7 +640,7 @@ func (a *App) startETLWatchers() {
 	log.Printf("etl watcher: watching %d file(s)", len(pathToJob))
 }
 
-// stopETLWatchers tears down the current file watcher.
+// stopETLWatchers tears down the current file watcher and cron scheduler.
 func (a *App) stopETLWatchers() {
 	if a.etlWatchCancel != nil {
 		a.etlWatchCancel()
@@ -479,5 +649,9 @@ func (a *App) stopETLWatchers() {
 	if a.etlWatcher != nil {
 		a.etlWatcher.Close()
 		a.etlWatcher = nil
+	}
+	if a.etlCron != nil {
+		a.etlCron.Stop()
+		a.etlCron = nil
 	}
 }

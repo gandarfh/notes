@@ -77,6 +77,7 @@ export function useDrawing(
             ['localdb-block', new BlockHandler(onBlockCreate, 'localdb', 700, 450)],
             ['chart-block', new BlockHandler(onBlockCreate, 'chart', 500, 350)],
             ['etl-block', new BlockHandler(onBlockCreate, 'etl', 420, 280)],
+            ['http-block', new BlockHandler(onBlockCreate, 'http', 520, 400)],
             ['ortho-arrow', new ArrowHandler()],
             ['rectangle', new ShapeHandler('rectangle')],
             ['ellipse', new ShapeHandler('ellipse')],
@@ -263,7 +264,7 @@ export function useDrawing(
             useAppStore.getState().setDrawingSubTool(tool)
             // Set cursor based on tool
             const toolCursors: Record<string, string> = {
-                'draw-select': 'default', 'block': 'crosshair', 'db-block': 'crosshair', 'code-block': 'crosshair', 'localdb-block': 'crosshair', 'chart-block': 'crosshair', 'etl-block': 'crosshair',
+                'draw-select': 'default', 'block': 'crosshair', 'db-block': 'crosshair', 'code-block': 'crosshair', 'localdb-block': 'crosshair', 'chart-block': 'crosshair', 'etl-block': 'crosshair', 'http-block': 'crosshair',
                 'rectangle': 'crosshair', 'ellipse': 'crosshair', 'diamond': 'crosshair',
                 'ortho-arrow': 'crosshair', 'freedraw': 'crosshair', 'text': 'text',
             }

@@ -94,6 +94,10 @@ export function DuplicateLocalDBRow(arg1) {
   return window['go']['app']['App']['DuplicateLocalDBRow'](arg1);
 }
 
+export function ExecuteHTTPRequest(arg1, arg2) {
+  return window['go']['app']['App']['ExecuteHTTPRequest'](arg1, arg2);
+}
+
 export function ExecuteQuery(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['ExecuteQuery'](arg1, arg2, arg3, arg4);
 }
@@ -166,6 +170,10 @@ export function ListPageDatabaseBlocks(arg1) {
   return window['go']['app']['App']['ListPageDatabaseBlocks'](arg1);
 }
 
+export function ListPageHTTPBlocks(arg1) {
+  return window['go']['app']['App']['ListPageHTTPBlocks'](arg1);
+}
+
 export function ListPages(arg1) {
   return window['go']['app']['App']['ListPages'](arg1);
 }
@@ -224,6 +232,10 @@ export function RunETLJob(arg1) {
 
 export function SaveBlockDatabaseConfig(arg1, arg2) {
   return window['go']['app']['App']['SaveBlockDatabaseConfig'](arg1, arg2);
+}
+
+export function SaveBlockHTTPConfig(arg1, arg2) {
+  return window['go']['app']['App']['SaveBlockHTTPConfig'](arg1, arg2);
 }
 
 export function SaveImageFile(arg1, arg2) {

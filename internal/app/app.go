@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/robfig/cron/v3"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"notes/internal/dbclient"
@@ -48,6 +49,7 @@ type App struct {
 	etlStore       *storage.ETLStore
 	etlWatcher     *fsnotify.Watcher
 	etlWatchCancel context.CancelFunc
+	etlCron        *cron.Cron
 }
 
 // New creates a new App.
@@ -92,6 +94,7 @@ func (a *App) Startup(ctx context.Context) {
 	a.etlStore = storage.NewETLStore(db)
 	sources.SetBlockResolver(&appBlockResolver{app: a})
 	sources.SetDBProvider(&appDBProvider{app: a})
+	sources.SetHTTPBlockResolver(&appHTTPBlockResolver{app: a})
 	a.startETLWatchers()
 
 	// Embedded terminal: PTY output → base64 → frontend event
