@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { IconPlus, IconX, IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 import type { ColumnDef } from '../../bridge/wails'
 import { Select } from './Select'
@@ -388,6 +389,14 @@ function StageBody({ stage, dbOptions, dbColumns, availableColumns, colOptions, 
 
 function AddStageMenu({ onAdd }: { onAdd: (type: Stage['type']) => void }) {
     const [open, setOpen] = useState(false)
+    const triggerRef = useRef<HTMLDivElement>(null)
+    const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+    useEffect(() => {
+        if (!open || !triggerRef.current) return
+        const rect = triggerRef.current.getBoundingClientRect()
+        setPos({ top: rect.bottom + 2, left: rect.left })
+    }, [open])
 
     const types: { type: Stage['type']; label: string; desc: string }[] = [
         { type: 'source', label: 'Source', desc: 'Load data from a database' },
@@ -401,19 +410,33 @@ function AddStageMenu({ onAdd }: { onAdd: (type: Stage['type']) => void }) {
     ]
 
     return (
-        <div className="pl-add-wrap">
+        <div className="pl-add-wrap" ref={triggerRef}>
             <button className="pl-add-btn" onClick={() => setOpen(!open)}>
                 <IconPlus size={11} /> Add Stage
             </button>
-            {open && (
-                <div className="pl-add-menu" onMouseLeave={() => setOpen(false)}>
-                    {types.map(t => (
-                        <div key={t.type} className="pl-add-option" onClick={() => { onAdd(t.type); setOpen(false) }}>
-                            <span className="pl-add-option-label">{t.label}</span>
-                            <span className="pl-add-option-desc">{t.desc}</span>
-                        </div>
-                    ))}
-                </div>
+            {open && pos && createPortal(
+                <>
+                    <div
+                        style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+                        onClick={() => setOpen(false)}
+                    />
+                    <div
+                        className="pl-add-menu"
+                        style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: 200, zIndex: 9999 }}
+                    >
+                        {types.map(t => (
+                            <div
+                                key={t.type}
+                                className="pl-add-option"
+                                onClick={() => { onAdd(t.type); setOpen(false) }}
+                            >
+                                <span className="pl-add-option-label">{t.label}</span>
+                                <span className="pl-add-option-desc">{t.desc}</span>
+                            </div>
+                        ))}
+                    </div>
+                </>,
+                document.body
             )}
         </div>
     )

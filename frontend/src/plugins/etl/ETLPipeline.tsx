@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { IconPlus, IconX, IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 import { api } from '../../bridge/wails'
 import { Select } from '../chart/Select'
@@ -159,16 +160,15 @@ export function ETLPipeline({ stages, sourceType, sourceConfig, onChange }: ETLP
 
     if (loadingSchema) {
         return (
-            <div className="pl-stage">
-                <div className="pl-stage-body" style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 11 }}>
-                    Discovering source columns…
+            <>
+                <div className="pl-stage">
+                    <div className="pl-stage-body" style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 11 }}>
+                        Discovering source columns…
+                    </div>
                 </div>
-            </div>
+                <AddTransformMenu onAdd={addStage} />
+            </>
         )
-    }
-
-    if (sourceColumns.length === 0 && stages.length === 0) {
-        return null // No source configured yet
     }
 
     return (
@@ -476,23 +476,45 @@ function TransformStageBody({ stage, availableCols, colOptions, onChange }: {
 
 function AddTransformMenu({ onAdd }: { onAdd: (type: TransformType) => void }) {
     const [open, setOpen] = useState(false)
+    const triggerRef = useRef<HTMLDivElement>(null)
+    const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+    useEffect(() => {
+        if (!open || !triggerRef.current) return
+        const rect = triggerRef.current.getBoundingClientRect()
+        setPos({ top: rect.bottom + 2, left: rect.left })
+    }, [open])
 
     const types: TransformType[] = ['filter', 'select', 'rename', 'compute', 'dedupe', 'sort', 'limit', 'type_cast']
 
     return (
-        <div className="pl-add-wrap">
+        <div className="pl-add-wrap" ref={triggerRef}>
             <button className="pl-add-btn" onClick={() => setOpen(!open)}>
                 <IconPlus size={11} /> Add Transform
             </button>
-            {open && (
-                <div className="pl-add-menu" onMouseLeave={() => setOpen(false)}>
-                    {types.map(t => (
-                        <div key={t} className="pl-add-option" onClick={() => { onAdd(t); setOpen(false) }}>
-                            <span className="pl-add-option-label">{STAGE_LABELS[t]}</span>
-                            <span className="pl-add-option-desc">{STAGE_DESCS[t]}</span>
-                        </div>
-                    ))}
-                </div>
+            {open && pos && createPortal(
+                <>
+                    <div
+                        style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+                        onClick={() => setOpen(false)}
+                    />
+                    <div
+                        className="pl-add-menu"
+                        style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: 200, zIndex: 9999 }}
+                    >
+                        {types.map(t => (
+                            <div
+                                key={t}
+                                className="pl-add-option"
+                                onClick={() => { onAdd(t); setOpen(false) }}
+                            >
+                                <span className="pl-add-option-label">{STAGE_LABELS[t]}</span>
+                                <span className="pl-add-option-desc">{STAGE_DESCS[t]}</span>
+                            </div>
+                        ))}
+                    </div>
+                </>,
+                document.body
             )}
         </div>
     )

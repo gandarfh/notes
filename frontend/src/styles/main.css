@@ -4434,6 +4434,9 @@ th:hover .chart-data-remove-series {
   display: flex;
   flex-direction: column;
   gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Custom Select */
@@ -4501,11 +4504,7 @@ th:hover .chart-data-remove-series {
 }
 
 .pl-sel-menu {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  z-index: 20;
+  z-index: 9999;
   background: var(--color-surface);
   border: 1px solid var(--color-border-default);
   border-radius: 6px;
@@ -4513,7 +4512,6 @@ th:hover .chart-data-remove-series {
   padding: 3px;
   max-height: 200px;
   overflow-y: auto;
-  min-width: 100%;
 }
 
 .pl-sel-option {
@@ -4865,17 +4863,13 @@ th:hover .chart-data-remove-series {
 }
 
 .pl-add-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 10;
+  z-index: 9999;
   background: var(--color-surface);
   border: 1px solid var(--color-border-default);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
   padding: 4px;
   min-width: 200px;
-  margin-top: 2px;
 }
 
 .pl-add-option {

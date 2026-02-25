@@ -134,9 +134,25 @@ export function Canvas({ onEditBlock }: CanvasProps) {
     const applyViewport = useCallback((v: { x: number; y: number; zoom: number }) => {
         const w = window as any
         w.__perfMark?.('applyViewport')
-        const t = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.zoom})`
-        if (drawingLayerRef.current) drawingLayerRef.current.style.transform = t
-        if (blockLayerRef.current) blockLayerRef.current.style.transform = t
+        // Drawing layer: always uses transform: scale() — canvas context handles its own resolution
+        if (drawingLayerRef.current) {
+            drawingLayerRef.current.style.transform = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.zoom})`
+        }
+        // Block layer: hybrid zoom strategy
+        // - Zoom IN (>100%): CSS zoom for crisp enlarged text
+        // - Zoom OUT (≤100%): transform: scale() to avoid layout issues (blur imperceptible at small sizes)
+        if (blockLayerRef.current) {
+            if (v.zoom > 1) {
+                // CSS zoom: re-renders at target resolution (crisp text)
+                // Translate divided by zoom because CSS zoom multiplies all CSS lengths
+                blockLayerRef.current.style.transform = `translate3d(${v.x / v.zoom}px, ${v.y / v.zoom}px, 0)`
+                blockLayerRef.current.style.setProperty('zoom', String(v.zoom))
+            } else {
+                // transform: scale(): GPU-composited, no layout issues at small sizes
+                blockLayerRef.current.style.transform = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.zoom})`
+                blockLayerRef.current.style.setProperty('zoom', '1')
+            }
+        }
         // Canvas re-render needed — canvas is not CSS-transformed, viewport is in the context
         renderDrawing(v)
         w.__perfEnd?.('applyViewport')
@@ -392,7 +408,12 @@ export function Canvas({ onEditBlock }: CanvasProps) {
     }, [applyViewport, commitViewport])
 
     const initV = viewportRef.current
-    const initTransform = `translate3d(${initV.x}px, ${initV.y}px, 0) scale(${initV.zoom})`
+    const initDrawingTransform = `translate3d(${initV.x}px, ${initV.y}px, 0) scale(${initV.zoom})`
+    // Hybrid: CSS zoom for >100%, scale for ≤100%
+    const initBlockTransform = initV.zoom > 1
+        ? `translate3d(${initV.x / initV.zoom}px, ${initV.y / initV.zoom}px, 0)`
+        : `translate3d(${initV.x}px, ${initV.y}px, 0) scale(${initV.zoom})`
+    const initBlockZoom = initV.zoom > 1 ? initV.zoom : 1
     const blockIds = useMemo(() => Array.from(blocks.keys()), [blocks])
 
     return (
@@ -419,7 +440,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             <div
                 ref={drawingLayerRef}
                 className="absolute inset-0 z-[1]"
-                style={{ transform: initTransform, transformOrigin: '0 0', pointerEvents: 'none', willChange: 'transform', backfaceVisibility: 'hidden' as const }}
+                style={{ transform: initDrawingTransform, transformOrigin: '0 0', pointerEvents: 'none', willChange: 'transform', backfaceVisibility: 'hidden' as const }}
             >
                 {/* Inline text editor — inside viewport transform for pixel-perfect alignment */}
                 {editorRequest && (
@@ -435,7 +456,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
                 ref={blockLayerRef}
                 id="block-layer"
                 className="absolute inset-0 z-[3]"
-                style={{ transform: initTransform, transformOrigin: '0 0', pointerEvents: 'none', willChange: 'transform', backfaceVisibility: 'hidden' as const }}
+                style={{ transform: initBlockTransform, zoom: initBlockZoom, transformOrigin: '0 0', pointerEvents: 'none', willChange: 'transform', backfaceVisibility: 'hidden' as const } as React.CSSProperties}
             >
                 {blockIds.map(id => (
                     <BlockContainer key={id} blockId={id} onEditBlock={onEditBlock} />
