@@ -3,6 +3,7 @@ package etl
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -258,6 +259,54 @@ func buildTransformers(configs []TransformConfig, dedupeKey string) []Transforme
 					ts = append(ts, &FlattenTransform{SourceField: sourceField, Fields: fields})
 				}
 			}
+
+		case "string":
+			field, _ := tc.Config["field"].(string)
+			op, _ := tc.Config["op"].(string)
+			if field == "" && op == "concat" {
+				// concat may not need a source field
+			} else if field == "" || op == "" {
+				continue
+			}
+			st := &StringTransform{
+				Field:       field,
+				Op:          op,
+				Search:      strVal(tc.Config["search"]),
+				ReplaceWith: strVal(tc.Config["replaceWith"]),
+				TargetField: strVal(tc.Config["targetField"]),
+				Separator:   strVal(tc.Config["separator"]),
+				Index:       intVal(tc.Config["index"]),
+				Start:       intVal(tc.Config["start"]),
+				End:         intVal(tc.Config["end"]),
+			}
+			if partsRaw, ok := tc.Config["parts"].([]any); ok {
+				for _, p := range partsRaw {
+					st.Parts = append(st.Parts, fmt.Sprint(p))
+				}
+			}
+			ts = append(ts, st)
+
+		case "date_part":
+			field, _ := tc.Config["field"].(string)
+			part, _ := tc.Config["part"].(string)
+			targetField, _ := tc.Config["targetField"].(string)
+			if field != "" && part != "" {
+				ts = append(ts, &DatePartTransform{Field: field, Part: part, TargetField: targetField})
+			}
+
+		case "default_value":
+			field, _ := tc.Config["field"].(string)
+			defaultVal, _ := tc.Config["defaultValue"].(string)
+			if field != "" {
+				ts = append(ts, &DefaultValueTransform{Field: field, DefaultValue: defaultVal})
+			}
+
+		case "math":
+			field, _ := tc.Config["field"].(string)
+			op, _ := tc.Config["op"].(string)
+			if field != "" && op != "" {
+				ts = append(ts, &MathTransform{Field: field, Op: op})
+			}
 		}
 	}
 
@@ -307,4 +356,26 @@ func deriveSchemaFromRecords(records []Record, sourceSchema *Schema) *Schema {
 	}
 
 	return &Schema{Fields: fields}
+}
+
+// ── Config Helpers ─────────────────────────────────────────
+
+func strVal(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}
+
+func intVal(v any) int {
+	switch n := v.(type) {
+	case float64:
+		return int(n)
+	case int:
+		return n
+	case string:
+		i, _ := strconv.Atoi(n)
+		return i
+	}
+	return 0
 }

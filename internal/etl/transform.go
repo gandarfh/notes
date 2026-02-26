@@ -3,8 +3,10 @@ package etl
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ── Transformer ────────────────────────────────────────────
@@ -174,7 +176,7 @@ func (t *LimitTransform) Transform(r Record) (Record, bool) {
 // TypeCastTransform converts a field's value to a target type.
 type TypeCastTransform struct {
 	Field    string
-	CastType string // "number" | "string" | "bool"
+	CastType string // "number" | "string" | "bool" | "date" | "datetime"
 }
 
 func (t *TypeCastTransform) Transform(r Record) (Record, bool) {
@@ -189,8 +191,231 @@ func (t *TypeCastTransform) Transform(r Record) (Record, bool) {
 		r.Data[t.Field] = fmt.Sprint(v)
 	case "bool":
 		r.Data[t.Field] = toBool(v)
+	case "date":
+		if parsed, ok := tryParseTime(v); ok {
+			r.Data[t.Field] = parsed.Format("2006-01-02")
+		}
+	case "datetime":
+		if parsed, ok := tryParseTime(v); ok {
+			r.Data[t.Field] = parsed.Format(time.RFC3339)
+		}
 	}
 	return r, true
+}
+
+// StringTransform performs string manipulation on a field.
+type StringTransform struct {
+	Field       string   // source field
+	Op          string   // "upper" | "lower" | "trim" | "replace" | "concat" | "split" | "substring"
+	Search      string   // for replace
+	ReplaceWith string   // for replace
+	Parts       []string // for concat: mix of field refs {field} and literals
+	TargetField string   // output field (for concat, split)
+	Separator   string   // for split
+	Index       int      // for split: which part to pick
+	Start       int      // for substring
+	End         int      // for substring
+}
+
+func (t *StringTransform) Transform(r Record) (Record, bool) {
+	switch t.Op {
+	case "upper":
+		if v, ok := r.Data[t.Field]; ok {
+			r.Data[t.Field] = strings.ToUpper(fmt.Sprint(v))
+		}
+	case "lower":
+		if v, ok := r.Data[t.Field]; ok {
+			r.Data[t.Field] = strings.ToLower(fmt.Sprint(v))
+		}
+	case "trim":
+		if v, ok := r.Data[t.Field]; ok {
+			r.Data[t.Field] = strings.TrimSpace(fmt.Sprint(v))
+		}
+	case "replace":
+		if v, ok := r.Data[t.Field]; ok {
+			r.Data[t.Field] = strings.ReplaceAll(fmt.Sprint(v), t.Search, t.ReplaceWith)
+		}
+	case "concat":
+		out := t.TargetField
+		if out == "" {
+			out = t.Field
+		}
+		var sb strings.Builder
+		for _, part := range t.Parts {
+			if strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}") {
+				ref := part[1 : len(part)-1]
+				sb.WriteString(fmt.Sprint(r.Data[ref]))
+			} else {
+				sb.WriteString(part)
+			}
+		}
+		r.Data[out] = sb.String()
+	case "split":
+		if v, ok := r.Data[t.Field]; ok {
+			parts := strings.Split(fmt.Sprint(v), t.Separator)
+			out := t.TargetField
+			if out == "" {
+				out = t.Field
+			}
+			if t.Index >= 0 && t.Index < len(parts) {
+				r.Data[out] = parts[t.Index]
+			} else {
+				r.Data[out] = ""
+			}
+		}
+	case "substring":
+		if v, ok := r.Data[t.Field]; ok {
+			s := fmt.Sprint(v)
+			start := t.Start
+			end := t.End
+			if start < 0 {
+				start = 0
+			}
+			if end <= 0 || end > len(s) {
+				end = len(s)
+			}
+			if start > len(s) {
+				start = len(s)
+			}
+			if start > end {
+				start = end
+			}
+			r.Data[t.Field] = s[start:end]
+		}
+	}
+	return r, true
+}
+
+// DatePartTransform extracts a part of a date/datetime field into a new column.
+type DatePartTransform struct {
+	Field       string // source field containing a date
+	Part        string // "year" | "month" | "day" | "hour" | "minute" | "weekday" | "week"
+	TargetField string // output column name
+}
+
+func (t *DatePartTransform) Transform(r Record) (Record, bool) {
+	v, ok := r.Data[t.Field]
+	if !ok {
+		return r, true
+	}
+	parsed, pOk := tryParseTime(v)
+	if !pOk {
+		return r, true
+	}
+	out := t.TargetField
+	if out == "" {
+		out = t.Field + "_" + t.Part
+	}
+	switch t.Part {
+	case "year":
+		r.Data[out] = parsed.Year()
+	case "month":
+		r.Data[out] = int(parsed.Month())
+	case "day":
+		r.Data[out] = parsed.Day()
+	case "hour":
+		r.Data[out] = parsed.Hour()
+	case "minute":
+		r.Data[out] = parsed.Minute()
+	case "weekday":
+		r.Data[out] = int(parsed.Weekday())
+	case "week":
+		_, week := parsed.ISOWeek()
+		r.Data[out] = week
+	}
+	return r, true
+}
+
+// DefaultValueTransform fills null/empty fields with a default value.
+type DefaultValueTransform struct {
+	Field        string
+	DefaultValue string
+}
+
+func (t *DefaultValueTransform) Transform(r Record) (Record, bool) {
+	v, ok := r.Data[t.Field]
+	if !ok || v == nil || fmt.Sprint(v) == "" {
+		r.Data[t.Field] = t.DefaultValue
+	}
+	return r, true
+}
+
+// MathTransform applies a math function to a numeric field.
+type MathTransform struct {
+	Field string
+	Op    string // "round" | "ceil" | "floor" | "abs"
+}
+
+func (t *MathTransform) Transform(r Record) (Record, bool) {
+	v, ok := r.Data[t.Field]
+	if !ok {
+		return r, true
+	}
+	f := toFloat(v)
+	switch t.Op {
+	case "round":
+		r.Data[t.Field] = math.Round(f)
+	case "ceil":
+		r.Data[t.Field] = math.Ceil(f)
+	case "floor":
+		r.Data[t.Field] = math.Floor(f)
+	case "abs":
+		r.Data[t.Field] = math.Abs(f)
+	}
+	return r, true
+}
+
+// ── Date Parsing Helpers ──────────────────────────────────
+
+// Common date/datetime formats to try when parsing.
+var dateFormats = []string{
+	time.RFC3339,
+	"2006-01-02T15:04:05",
+	"2006-01-02 15:04:05",
+	"2006-01-02",
+	"02/01/2006 15:04:05",
+	"02/01/2006",
+	"01/02/2006",
+	"Jan 2, 2006",
+}
+
+// tryParseTime attempts to parse a value as a time.Time.
+func tryParseTime(v any) (time.Time, bool) {
+	switch tv := v.(type) {
+	case time.Time:
+		return tv, true
+	case string:
+		// Try date format strings first.
+		for _, layout := range dateFormats {
+			if t, err := time.Parse(layout, tv); err == nil {
+				return t, true
+			}
+		}
+		// Try as numeric string (Unix timestamp from MongoDB, etc.)
+		if f, err := strconv.ParseFloat(tv, 64); err == nil {
+			return parseUnixTimestamp(f)
+		}
+	case float64:
+		return parseUnixTimestamp(tv)
+	case int:
+		return parseUnixTimestamp(float64(tv))
+	case int64:
+		return parseUnixTimestamp(float64(tv))
+	}
+	return time.Time{}, false
+}
+
+// parseUnixTimestamp converts a numeric value to time, auto-detecting seconds vs milliseconds.
+func parseUnixTimestamp(v float64) (time.Time, bool) {
+	// Unix timestamp in seconds (10 digits: 2001–2286)
+	if v > 1e9 && v < 1e13 {
+		return time.Unix(int64(v), 0), true
+	}
+	// Unix timestamp in milliseconds (13 digits)
+	if v >= 1e13 {
+		return time.UnixMilli(int64(v)), true
+	}
+	return time.Time{}, false
 }
 
 // FlattenTransform extracts fields from a JSON/map column into new top-level columns.

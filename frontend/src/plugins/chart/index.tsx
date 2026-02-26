@@ -92,6 +92,7 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
     const [titleValue, setTitleValue] = useState('')
     const [refreshKey, setRefreshKey] = useState(0)
     const [pipelineError, setPipelineError] = useState<string | null>(null)
+    const [executedRows, setExecutedRows] = useState<Row[]>([])
 
     // Column name resolver
     const resolveCol = useMemo(() => buildColNameResolver(dbColumns), [dbColumns])
@@ -141,6 +142,8 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
 
         setPipelineError(null)
         executePipeline(pipeline).then(rows => {
+            setExecutedRows(rows)
+
             // Collect actual keys from output rows
             const availableKeys = new Set<string>()
             for (const row of rows) {
@@ -230,6 +233,7 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
                     config={config.pipeline}
                     databases={databases.map(d => ({ id: d.id, name: d.name }))}
                     dbColumns={dbColumns}
+                    executedRows={executedRows}
                     onChange={handlePipelineChange}
                 />
             )}

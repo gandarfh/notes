@@ -73,6 +73,52 @@ export interface PercentStage {
     as?: string          // output column name (default: "{column}_%")
 }
 
+export interface DatePartStage {
+    type: 'date_part'
+    field: string
+    part: 'year' | 'month' | 'day' | 'hour' | 'minute' | 'weekday' | 'week'
+    targetField: string
+}
+
+export interface StringStage {
+    type: 'string'
+    field: string
+    op: 'upper' | 'lower' | 'trim' | 'replace' | 'concat' | 'split' | 'substring'
+    search?: string
+    replaceWith?: string
+    parts?: string[]
+    targetField?: string
+    separator?: string
+    index?: number
+    start?: number
+    end?: number
+}
+
+export interface MathStage {
+    type: 'math'
+    field: string
+    op: 'round' | 'ceil' | 'floor' | 'abs'
+}
+
+export interface DefaultValueStage {
+    type: 'default_value'
+    field: string
+    defaultValue: string
+}
+
+export interface TypeCastStage {
+    type: 'type_cast'
+    field: string
+    castType: 'number' | 'string' | 'bool' | 'date' | 'datetime'
+}
+
+export interface PivotStage {
+    type: 'pivot'
+    rowKey: string       // column that stays as rows (e.g. 'month')
+    pivotColumn: string  // column whose values become new columns (e.g. 'LANGUAGE')
+    valueColumn: string  // column whose values fill the cells (e.g. 'count')
+}
+
 export type Stage =
     | SourceStage
     | JoinStage
@@ -82,6 +128,12 @@ export type Stage =
     | SortStage
     | LimitStage
     | PercentStage
+    | DatePartStage
+    | StringStage
+    | MathStage
+    | DefaultValueStage
+    | TypeCastStage
+    | PivotStage
 
 // ── Viz Config ─────────────────────────────────────────────
 
@@ -132,6 +184,24 @@ export async function executePipeline(config: PipelineConfig): Promise<Row[]> {
                 break
             case 'percent':
                 rows = executePercent(rows, stage)
+                break
+            case 'date_part':
+                rows = executeDatePart(rows, stage)
+                break
+            case 'string':
+                rows = executeString(rows, stage)
+                break
+            case 'math':
+                rows = executeMath(rows, stage)
+                break
+            case 'default_value':
+                rows = executeDefaultValue(rows, stage)
+                break
+            case 'type_cast':
+                rows = executeTypeCast(rows, stage)
+                break
+            case 'pivot':
+                rows = executePivot(rows, stage)
                 break
         }
     }
@@ -342,6 +412,190 @@ function executePercent(rows: Row[], stage: PercentStage): Row[] {
     })
 }
 
+function executeDatePart(rows: Row[], stage: DatePartStage): Row[] {
+    if (!stage.field || !stage.part) return rows
+    const out = stage.targetField || `${stage.field}_${stage.part}`
+    return rows.map(row => {
+        const next = { ...row }
+        const raw = row[stage.field]
+        const num = Number(raw)
+        let dt: Date | null = null
+        if (!isNaN(num) && num > 1e9) {
+            dt = new Date(num > 1e12 ? num : num * 1000)
+        } else {
+            const ts = Date.parse(String(raw ?? ''))
+            if (!isNaN(ts)) dt = new Date(ts)
+        }
+        if (dt) {
+            switch (stage.part) {
+                case 'year': next[out] = dt.getUTCFullYear(); break
+                case 'month': next[out] = dt.getUTCMonth() + 1; break
+                case 'day': next[out] = dt.getUTCDate(); break
+                case 'hour': next[out] = dt.getUTCHours(); break
+                case 'minute': next[out] = dt.getUTCMinutes(); break
+                case 'weekday': next[out] = dt.getUTCDay(); break
+                case 'week': {
+                    const oneJan = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1))
+                    next[out] = Math.ceil(((dt.getTime() - oneJan.getTime()) / 86400000 + oneJan.getUTCDay() + 1) / 7)
+                    break
+                }
+            }
+        }
+        return next
+    })
+}
+
+function executeString(rows: Row[], stage: StringStage): Row[] {
+    const { field, op } = stage
+    if (!field && op !== 'concat') return rows
+    return rows.map(row => {
+        const next = { ...row }
+        switch (op) {
+            case 'upper': if (field in next) next[field] = String(next[field] ?? '').toUpperCase(); break
+            case 'lower': if (field in next) next[field] = String(next[field] ?? '').toLowerCase(); break
+            case 'trim': if (field in next) next[field] = String(next[field] ?? '').trim(); break
+            case 'replace': {
+                if (field in next && stage.search) {
+                    next[field] = String(next[field] ?? '').replaceAll(stage.search, stage.replaceWith || '')
+                }
+                break
+            }
+            case 'concat': {
+                const parts = stage.parts || []
+                const target = stage.targetField || field
+                next[target] = parts.map(p => {
+                    if (p.startsWith('{') && p.endsWith('}')) return String(next[p.slice(1, -1)] ?? '')
+                    return p
+                }).join('')
+                break
+            }
+            case 'split': {
+                const sep = stage.separator || ','
+                const idx = stage.index || 0
+                const target = stage.targetField || field
+                if (field in next) {
+                    const parts = String(next[field] ?? '').split(sep)
+                    next[target] = idx >= 0 && idx < parts.length ? parts[idx] : ''
+                }
+                break
+            }
+            case 'substring': {
+                const start = stage.start || 0
+                const end = stage.end || 0
+                if (field in next) {
+                    const s = String(next[field] ?? '')
+                    next[field] = end > 0 ? s.slice(start, end) : s.slice(start)
+                }
+                break
+            }
+        }
+        return next
+    })
+}
+
+function executeMath(rows: Row[], stage: MathStage): Row[] {
+    if (!stage.field || !stage.op) return rows
+    return rows.map(row => {
+        const next = { ...row }
+        if (stage.field in next) {
+            const n = Number(next[stage.field])
+            if (!isNaN(n)) {
+                switch (stage.op) {
+                    case 'round': next[stage.field] = Math.round(n); break
+                    case 'ceil': next[stage.field] = Math.ceil(n); break
+                    case 'floor': next[stage.field] = Math.floor(n); break
+                    case 'abs': next[stage.field] = Math.abs(n); break
+                }
+            }
+        }
+        return next
+    })
+}
+
+function executeDefaultValue(rows: Row[], stage: DefaultValueStage): Row[] {
+    if (!stage.field) return rows
+    return rows.map(row => {
+        const next = { ...row }
+        if (!(stage.field in next) || next[stage.field] == null || String(next[stage.field]) === '') {
+            next[stage.field] = stage.defaultValue ?? ''
+        }
+        return next
+    })
+}
+
+function executeTypeCast(rows: Row[], stage: TypeCastStage): Row[] {
+    if (!stage.field || !stage.castType) return rows
+    return rows.map(row => {
+        const next = { ...row }
+        if (stage.field in next) {
+            switch (stage.castType) {
+                case 'number': next[stage.field] = Number(next[stage.field]) || 0; break
+                case 'string': next[stage.field] = String(next[stage.field] ?? ''); break
+                case 'bool': next[stage.field] = Boolean(next[stage.field]); break
+                case 'date': {
+                    const raw = next[stage.field]
+                    const num = Number(raw)
+                    let dt: Date | null = null
+                    if (!isNaN(num) && num > 1e9) dt = new Date(num > 1e12 ? num : num * 1000)
+                    else { const ts = Date.parse(String(raw ?? '')); if (!isNaN(ts)) dt = new Date(ts) }
+                    if (dt) next[stage.field] = dt.toISOString().slice(0, 10)
+                    break
+                }
+                case 'datetime': {
+                    const raw = next[stage.field]
+                    const num = Number(raw)
+                    let dt: Date | null = null
+                    if (!isNaN(num) && num > 1e9) dt = new Date(num > 1e12 ? num : num * 1000)
+                    else { const ts = Date.parse(String(raw ?? '')); if (!isNaN(ts)) dt = new Date(ts) }
+                    if (dt) next[stage.field] = dt.toISOString()
+                    break
+                }
+            }
+        }
+        return next
+    })
+}
+
+function executePivot(rows: Row[], stage: PivotStage): Row[] {
+    if (!stage.rowKey || !stage.pivotColumn || !stage.valueColumn) return rows
+
+    // 1. Discover all unique pivot values
+    const pivotValues = new Set<string>()
+    for (const row of rows) {
+        pivotValues.add(String(row[stage.pivotColumn] ?? ''))
+    }
+
+    // 2. Group rows by rowKey
+    const groups = new Map<string, Row[]>()
+    for (const row of rows) {
+        const key = String(row[stage.rowKey] ?? '')
+        if (!groups.has(key)) groups.set(key, [])
+        groups.get(key)!.push(row)
+    }
+
+    // 3. Build pivoted rows
+    const result: Row[] = []
+    groups.forEach((groupRows) => {
+        const out: Row = { [stage.rowKey]: groupRows[0][stage.rowKey] }
+
+        // Initialize all pivot columns to 0
+        for (const pv of pivotValues) {
+            out[pv] = 0
+        }
+
+        // Fill with actual values
+        for (const row of groupRows) {
+            const col = String(row[stage.pivotColumn] ?? '')
+            const val = row[stage.valueColumn]
+            out[col] = typeof val === 'number' ? val : Number(val) || 0
+        }
+
+        result.push(out)
+    })
+
+    return result
+}
+
 // ── Helpers ────────────────────────────────────────────────
 
 /** Get available columns after executing stages up to a given index */
@@ -379,6 +633,17 @@ export function getColumnsAtStage(
                 cols.add(s.as || `${s.column}_%`)
                 break
             }
+            case 'date_part': {
+                cols.add(s.targetField || `${s.field}_${s.part}`)
+                break
+            }
+            case 'string': {
+                if ((s.op === 'concat' || s.op === 'split') && s.targetField) {
+                    cols.add(s.targetField)
+                }
+                break
+            }
+            // pivot: dynamic columns — can't track statically, but rowKey stays
         }
     }
 
@@ -395,6 +660,12 @@ export const STAGE_LABELS: Record<Stage['type'], string> = {
     sort: 'Sort',
     limit: 'Limit',
     percent: 'Percent',
+    date_part: 'Date Part',
+    string: 'String',
+    math: 'Math',
+    default_value: 'Default Value',
+    type_cast: 'Type Cast',
+    pivot: 'Pivot',
 }
 
 export const FILTER_OPS: { value: FilterOp; label: string }[] = [

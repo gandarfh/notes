@@ -121,6 +121,32 @@ function applyTransformsPreview(records: SampleRecord[], transforms: TransformSt
                             case 'number': d[field] = Number(d[field]) || 0; break
                             case 'string': d[field] = String(d[field] ?? ''); break
                             case 'bool': d[field] = Boolean(d[field]); break
+                            case 'date': {
+                                const raw = d[field]
+                                const num = Number(raw)
+                                let dt: Date | null = null
+                                if (!isNaN(num) && num > 1e9) {
+                                    dt = new Date(num > 1e12 ? num : num * 1000) // ms vs s
+                                } else {
+                                    const ts = Date.parse(String(raw ?? ''))
+                                    if (!isNaN(ts)) dt = new Date(ts)
+                                }
+                                if (dt) d[field] = dt.toISOString().slice(0, 10)
+                                break
+                            }
+                            case 'datetime': {
+                                const raw = d[field]
+                                const num = Number(raw)
+                                let dt: Date | null = null
+                                if (!isNaN(num) && num > 1e9) {
+                                    dt = new Date(num > 1e12 ? num : num * 1000)
+                                } else {
+                                    const ts = Date.parse(String(raw ?? ''))
+                                    if (!isNaN(ts)) dt = new Date(ts)
+                                }
+                                if (dt) d[field] = dt.toISOString()
+                                break
+                            }
                         }
                     }
                     return { data: d }
@@ -145,6 +171,125 @@ function applyTransformsPreview(records: SampleRecord[], transforms: TransformSt
                             if (!f.path) continue
                             const outName = f.alias || f.path
                             d[outName] = extractJsonPath(m, f.path)
+                        }
+                    }
+                    return { data: d }
+                })
+                break
+            }
+            case 'string': {
+                const { field, op } = t.config
+                if (!field && op !== 'concat') break
+                result = result.map(r => {
+                    const d = { ...r.data }
+                    switch (op) {
+                        case 'upper': if (field in d) d[field] = String(d[field] ?? '').toUpperCase(); break
+                        case 'lower': if (field in d) d[field] = String(d[field] ?? '').toLowerCase(); break
+                        case 'trim': if (field in d) d[field] = String(d[field] ?? '').trim(); break
+                        case 'replace': {
+                            const search = t.config.search as string || ''
+                            const replaceWith = t.config.replaceWith as string || ''
+                            if (field in d && search) {
+                                d[field] = String(d[field] ?? '').replaceAll(search, replaceWith)
+                            }
+                            break
+                        }
+                        case 'concat': {
+                            const parts = (t.config.parts || []) as string[]
+                            const target = (t.config.targetField as string) || field
+                            d[target] = parts.map(p => {
+                                if (p.startsWith('{') && p.endsWith('}')) {
+                                    const ref = p.slice(1, -1)
+                                    return String(d[ref] ?? '')
+                                }
+                                return p
+                            }).join('')
+                            break
+                        }
+                        case 'split': {
+                            const sep = (t.config.separator as string) || ','
+                            const idx = Number(t.config.index) || 0
+                            const target = (t.config.targetField as string) || field
+                            if (field in d) {
+                                const parts = String(d[field] ?? '').split(sep)
+                                d[target] = idx >= 0 && idx < parts.length ? parts[idx] : ''
+                            }
+                            break
+                        }
+                        case 'substring': {
+                            const start = Number(t.config.start) || 0
+                            const end = Number(t.config.end) || 0
+                            if (field in d) {
+                                const s = String(d[field] ?? '')
+                                d[field] = end > 0 ? s.slice(start, end) : s.slice(start)
+                            }
+                            break
+                        }
+                    }
+                    return { data: d }
+                })
+                break
+            }
+            case 'date_part': {
+                const { field, part, targetField } = t.config
+                if (!field || !part) break
+                result = result.map(r => {
+                    const d = { ...r.data }
+                    const out = (targetField as string) || `${field}_${part}`
+                    const raw = d[field]
+                    const num = Number(raw)
+                    let dt: Date | null = null
+                    if (!isNaN(num) && num > 1e9) {
+                        dt = new Date(num > 1e12 ? num : num * 1000)
+                    } else {
+                        const ts = Date.parse(String(raw ?? ''))
+                        if (!isNaN(ts)) dt = new Date(ts)
+                    }
+                    if (dt) {
+                        switch (part) {
+                            case 'year': d[out] = dt.getUTCFullYear(); break
+                            case 'month': d[out] = dt.getUTCMonth() + 1; break
+                            case 'day': d[out] = dt.getUTCDate(); break
+                            case 'hour': d[out] = dt.getUTCHours(); break
+                            case 'minute': d[out] = dt.getUTCMinutes(); break
+                            case 'weekday': d[out] = dt.getUTCDay(); break
+                            case 'week': {
+                                const oneJan = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1))
+                                d[out] = Math.ceil(((dt.getTime() - oneJan.getTime()) / 86400000 + oneJan.getUTCDay() + 1) / 7)
+                                break
+                            }
+                        }
+                    }
+                    return { data: d }
+                })
+                break
+            }
+            case 'default_value': {
+                const { field, defaultValue } = t.config
+                if (!field) break
+                result = result.map(r => {
+                    const d = { ...r.data }
+                    if (!(field in d) || d[field] == null || String(d[field]) === '') {
+                        d[field] = defaultValue ?? ''
+                    }
+                    return { data: d }
+                })
+                break
+            }
+            case 'math': {
+                const { field, op } = t.config
+                if (!field || !op) break
+                result = result.map(r => {
+                    const d = { ...r.data }
+                    if (field in d) {
+                        const n = Number(d[field])
+                        if (!isNaN(n)) {
+                            switch (op) {
+                                case 'round': d[field] = Math.round(n); break
+                                case 'ceil': d[field] = Math.ceil(n); break
+                                case 'floor': d[field] = Math.floor(n); break
+                                case 'abs': d[field] = Math.abs(n); break
+                            }
                         }
                     }
                     return { data: d }

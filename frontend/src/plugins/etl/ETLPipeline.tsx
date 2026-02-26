@@ -6,7 +6,7 @@ import { Select } from '../chart/Select'
 
 // ── Types ──────────────────────────────────────────────────
 
-export type TransformType = 'filter' | 'rename' | 'select' | 'dedupe' | 'compute' | 'sort' | 'limit' | 'type_cast' | 'flatten'
+export type TransformType = 'filter' | 'rename' | 'select' | 'dedupe' | 'compute' | 'sort' | 'limit' | 'type_cast' | 'flatten' | 'string' | 'date_part' | 'default_value' | 'math'
 
 export interface TransformStage {
     type: TransformType
@@ -36,6 +36,10 @@ export const STAGE_LABELS: Record<TransformType, string> = {
     limit: 'Limit',
     type_cast: 'Type Cast',
     flatten: 'Flatten JSON',
+    string: 'String',
+    date_part: 'Date Part',
+    default_value: 'Default Value',
+    math: 'Math',
 }
 
 export const STAGE_DESCS: Record<TransformType, string> = {
@@ -48,6 +52,10 @@ export const STAGE_DESCS: Record<TransformType, string> = {
     limit: 'Cap number of rows',
     type_cast: 'Convert column types',
     flatten: 'Extract fields from JSON column',
+    string: 'Manipulate text values',
+    date_part: 'Extract part of a date',
+    default_value: 'Fill empty values',
+    math: 'Apply math functions',
 }
 
 // ── Column Tracking ────────────────────────────────────────
@@ -88,7 +96,19 @@ export function getColumnsAtStage(
                 }
                 break
             }
-            // filter, dedupe, sort, limit, type_cast don't change column set
+            case 'string': {
+                if (s.config.op === 'concat' || s.config.op === 'split') {
+                    const tgt = s.config.targetField as string
+                    if (tgt && !cols.includes(tgt)) cols.push(tgt)
+                }
+                break
+            }
+            case 'date_part': {
+                const tgt = (s.config.targetField as string) || `${s.config.field || ''}_${s.config.part || ''}`
+                if (tgt && !cols.includes(tgt)) cols.push(tgt)
+                break
+            }
+            // filter, dedupe, sort, limit, type_cast, default_value, math don't change column set
         }
     }
 
@@ -108,6 +128,10 @@ function defaultStage(type: TransformType): TransformStage {
         case 'limit': return { type, config: { count: 100 } }
         case 'type_cast': return { type, config: { field: '', castType: 'number' } }
         case 'flatten': return { type, config: { sourceField: '', fields: [{ path: '', alias: '' }] } }
+        case 'string': return { type, config: { field: '', op: 'upper' } }
+        case 'date_part': return { type, config: { field: '', part: 'year', targetField: '' } }
+        case 'default_value': return { type, config: { field: '', defaultValue: '' } }
+        case 'math': return { type, config: { field: '', op: 'round' } }
     }
 }
 
@@ -472,6 +496,8 @@ function TransformStageBody({ stage, availableCols, colOptions, onChange }: {
                             { value: 'number', label: 'Number' },
                             { value: 'string', label: 'String' },
                             { value: 'bool', label: 'Boolean' },
+                            { value: 'date', label: 'Date' },
+                            { value: 'datetime', label: 'Date & Time' },
                         ]}
                         onChange={v => updateConfig({ castType: v })}
                     />
@@ -532,9 +558,231 @@ function TransformStageBody({ stage, availableCols, colOptions, onChange }: {
             )
         }
 
+        case 'string': {
+            const op = (stage.config.op || 'upper') as string
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div className="pl-inline">
+                        {op !== 'concat' && (
+                            <Select
+                                value={stage.config.field || ''}
+                                options={colOptions}
+                                placeholder="Column…"
+                                onChange={v => updateConfig({ field: v })}
+                            />
+                        )}
+                        <Select
+                            value={op}
+                            options={[
+                                { value: 'upper', label: 'UPPER' },
+                                { value: 'lower', label: 'lower' },
+                                { value: 'trim', label: 'Trim' },
+                                { value: 'replace', label: 'Replace' },
+                                { value: 'concat', label: 'Concat' },
+                                { value: 'split', label: 'Split' },
+                                { value: 'substring', label: 'Substring' },
+                            ]}
+                            onChange={v => updateConfig({ op: v })}
+                        />
+                    </div>
+                    {op === 'replace' && (
+                        <div className="pl-inline">
+                            <input
+                                className="pl-input"
+                                value={stage.config.search || ''}
+                                onChange={e => updateConfig({ search: e.target.value })}
+                                placeholder="Search…"
+                            />
+                            <span className="pl-kw">→</span>
+                            <input
+                                className="pl-input"
+                                value={stage.config.replaceWith || ''}
+                                onChange={e => updateConfig({ replaceWith: e.target.value })}
+                                placeholder="Replace with…"
+                            />
+                        </div>
+                    )}
+                    {op === 'concat' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div className="pl-inline">
+                                <span className="pl-kw">into</span>
+                                <input
+                                    className="pl-input"
+                                    value={stage.config.targetField || ''}
+                                    onChange={e => updateConfig({ targetField: e.target.value })}
+                                    placeholder="Output column…"
+                                />
+                            </div>
+                            <input
+                                className="pl-input"
+                                value={(stage.config.parts || []).join('')}
+                                onChange={e => updateConfig({ parts: parseConcatParts(e.target.value, availableCols) })}
+                                placeholder="{first_name} {last_name}"
+                            />
+                        </div>
+                    )}
+                    {op === 'split' && (
+                        <div className="pl-inline">
+                            <span className="pl-kw">by</span>
+                            <input
+                                className="pl-input"
+                                style={{ width: 50 }}
+                                value={stage.config.separator || ''}
+                                onChange={e => updateConfig({ separator: e.target.value })}
+                                placeholder=","
+                            />
+                            <span className="pl-kw">#</span>
+                            <input
+                                className="pl-input"
+                                type="number"
+                                style={{ width: 50 }}
+                                value={stage.config.index ?? 0}
+                                onChange={e => updateConfig({ index: parseInt(e.target.value) || 0 })}
+                                min={0}
+                            />
+                            <span className="pl-kw">→</span>
+                            <input
+                                className="pl-input"
+                                value={stage.config.targetField || ''}
+                                onChange={e => updateConfig({ targetField: e.target.value })}
+                                placeholder="Output col…"
+                            />
+                        </div>
+                    )}
+                    {op === 'substring' && (
+                        <div className="pl-inline">
+                            <span className="pl-kw">from</span>
+                            <input
+                                className="pl-input"
+                                type="number"
+                                style={{ width: 50 }}
+                                value={stage.config.start ?? 0}
+                                onChange={e => updateConfig({ start: parseInt(e.target.value) || 0 })}
+                                min={0}
+                            />
+                            <span className="pl-kw">to</span>
+                            <input
+                                className="pl-input"
+                                type="number"
+                                style={{ width: 50 }}
+                                value={stage.config.end ?? 0}
+                                onChange={e => updateConfig({ end: parseInt(e.target.value) || 0 })}
+                                min={0}
+                            />
+                        </div>
+                    )}
+                </div>
+            )
+        }
+
+        case 'date_part':
+            return (
+                <div className="pl-inline">
+                    <Select
+                        value={stage.config.field || ''}
+                        options={colOptions}
+                        placeholder="Date column…"
+                        onChange={v => updateConfig({ field: v })}
+                    />
+                    <span className="pl-kw">→</span>
+                    <Select
+                        value={stage.config.part || 'year'}
+                        options={[
+                            { value: 'year', label: 'Year' },
+                            { value: 'month', label: 'Month' },
+                            { value: 'day', label: 'Day' },
+                            { value: 'hour', label: 'Hour' },
+                            { value: 'minute', label: 'Minute' },
+                            { value: 'weekday', label: 'Weekday' },
+                            { value: 'week', label: 'Week #' },
+                        ]}
+                        onChange={v => updateConfig({ part: v })}
+                    />
+                    <span className="pl-kw">as</span>
+                    <input
+                        className="pl-input"
+                        value={stage.config.targetField || ''}
+                        onChange={e => updateConfig({ targetField: e.target.value })}
+                        placeholder="Output col…"
+                    />
+                </div>
+            )
+
+        case 'default_value':
+            return (
+                <div className="pl-inline">
+                    <Select
+                        value={stage.config.field || ''}
+                        options={colOptions}
+                        placeholder="Column…"
+                        onChange={v => updateConfig({ field: v })}
+                    />
+                    <span className="pl-kw">default</span>
+                    <input
+                        className="pl-input"
+                        value={stage.config.defaultValue || ''}
+                        onChange={e => updateConfig({ defaultValue: e.target.value })}
+                        placeholder="Default value…"
+                    />
+                </div>
+            )
+
+        case 'math':
+            return (
+                <div className="pl-inline">
+                    <Select
+                        value={stage.config.field || ''}
+                        options={colOptions}
+                        placeholder="Column…"
+                        onChange={v => updateConfig({ field: v })}
+                    />
+                    <span className="pl-kw">→</span>
+                    <Select
+                        value={stage.config.op || 'round'}
+                        options={[
+                            { value: 'round', label: 'Round' },
+                            { value: 'ceil', label: 'Ceil' },
+                            { value: 'floor', label: 'Floor' },
+                            { value: 'abs', label: 'Abs' },
+                        ]}
+                        onChange={v => updateConfig({ op: v })}
+                    />
+                </div>
+            )
+
         default:
             return null
     }
+}
+
+// ── Helpers ────────────────────────────────────────────────
+
+/** Parse a concat expression like "{first} {last}" into parts array */
+function parseConcatParts(input: string, _cols: string[]): string[] {
+    const parts: string[] = []
+    let i = 0
+    while (i < input.length) {
+        if (input[i] === '{') {
+            const end = input.indexOf('}', i)
+            if (end !== -1) {
+                parts.push(input.slice(i, end + 1))
+                i = end + 1
+            } else {
+                parts.push(input.slice(i))
+                break
+            }
+        } else {
+            const next = input.indexOf('{', i)
+            if (next !== -1) {
+                parts.push(input.slice(i, next))
+                i = next
+            } else {
+                parts.push(input.slice(i))
+                break
+            }
+        }
+    }
+    return parts
 }
 
 // ── Add Transform Menu ─────────────────────────────────────
@@ -550,7 +798,7 @@ function AddTransformMenu({ onAdd }: { onAdd: (type: TransformType) => void }) {
         setPos({ top: rect.bottom + 2, left: rect.left })
     }, [open])
 
-    const types: TransformType[] = ['filter', 'select', 'rename', 'compute', 'dedupe', 'sort', 'limit', 'type_cast', 'flatten']
+    const types: TransformType[] = ['filter', 'select', 'rename', 'compute', 'string', 'date_part', 'type_cast', 'dedupe', 'sort', 'limit', 'flatten', 'default_value', 'math']
 
     return (
         <div className="pl-add-wrap" ref={triggerRef}>

@@ -204,6 +204,8 @@ func mapFieldType(t string) string {
 		return "number"
 	case "boolean":
 		return "checkbox"
+	case "date":
+		return "date"
 	case "datetime":
 		return "datetime"
 	default:

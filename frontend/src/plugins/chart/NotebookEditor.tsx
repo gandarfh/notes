@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { IconPlus, IconX, IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 import type { ColumnDef } from '../../bridge/wails'
+import type { Row } from './pipeline'
 import { Select } from './Select'
 import {
     type PipelineConfig, type Stage, type FilterCondition, type MetricDef,
     type Aggregation, type FilterOp, type VizConfig,
+    type StringStage,
     defaultPipelineConfig, getColumnsAtStage,
     STAGE_LABELS, FILTER_OPS, AGG_OPTIONS,
 } from './pipeline'
@@ -19,12 +21,13 @@ interface Props {
     config: PipelineConfig
     databases: { id: string; name: string }[]
     dbColumns: Record<string, ColumnDef[]>
+    executedRows?: Row[]
     onChange: (config: PipelineConfig) => void
 }
 
 // ── Editor ─────────────────────────────────────────────────
 
-export function NotebookEditor({ config, databases, dbColumns, onChange }: Props) {
+export function NotebookEditor({ config, databases, dbColumns, executedRows, onChange }: Props) {
     const updateStage = (idx: number, stage: Stage) => {
         const next = [...config.stages]
         next[idx] = stage
@@ -54,6 +57,12 @@ export function NotebookEditor({ config, databases, dbColumns, onChange }: Props
             case 'sort': stage = { type: 'sort', column: '', direction: 'asc' }; break
             case 'limit': stage = { type: 'limit', count: 100 }; break
             case 'percent': stage = { type: 'percent', column: '' }; break
+            case 'date_part': stage = { type: 'date_part', field: '', part: 'year', targetField: '' }; break
+            case 'string': stage = { type: 'string', field: '', op: 'upper' }; break
+            case 'math': stage = { type: 'math', field: '', op: 'round' }; break
+            case 'default_value': stage = { type: 'default_value', field: '', defaultValue: '' }; break
+            case 'type_cast': stage = { type: 'type_cast', field: '', castType: 'number' }; break
+            case 'pivot': stage = { type: 'pivot', rowKey: '', pivotColumn: '', valueColumn: '' }; break
             default: return
         }
         onChange({ ...config, stages: [...config.stages, stage] })
@@ -64,7 +73,17 @@ export function NotebookEditor({ config, databases, dbColumns, onChange }: Props
     }
 
     // Available columns at the end of the pipeline
-    const finalCols = getColumnsAtStage(config.stages, config.stages.length - 1, dbColumns)
+    // If we have executed rows, derive columns from actual data (handles pivot's dynamic columns)
+    const finalCols = useMemo(() => {
+        if (executedRows && executedRows.length > 0) {
+            const cols = new Set<string>()
+            for (const row of executedRows) {
+                for (const key of Object.keys(row)) cols.add(key)
+            }
+            return Array.from(cols)
+        }
+        return getColumnsAtStage(config.stages, config.stages.length - 1, dbColumns)
+    }, [executedRows, config.stages, dbColumns])
 
     // Column name resolver
     const colName = (id: string, dbId?: string): string => {
@@ -380,9 +399,179 @@ function StageBody({ stage, dbOptions, dbColumns, availableColumns, colOptions, 
                 </div>
             )
 
+        case 'date_part':
+            return (
+                <div className="pl-inline">
+                    <Select value={stage.field} options={colOptions} placeholder="Date column…" onChange={v => onChange({ ...stage, field: v })} />
+                    <span className="pl-kw">→</span>
+                    <Select
+                        value={stage.part}
+                        options={[
+                            { value: 'year', label: 'Year' },
+                            { value: 'month', label: 'Month' },
+                            { value: 'day', label: 'Day' },
+                            { value: 'hour', label: 'Hour' },
+                            { value: 'minute', label: 'Minute' },
+                            { value: 'weekday', label: 'Weekday' },
+                            { value: 'week', label: 'Week #' },
+                        ]}
+                        onChange={v => onChange({ ...stage, part: v as any })}
+                        size="sm"
+                    />
+                    <span className="pl-kw">as</span>
+                    <input className="pl-input pl-input-sm" value={stage.targetField || ''} onChange={e => onChange({ ...stage, targetField: e.target.value })} placeholder="Output col…" />
+                </div>
+            )
+
+        case 'string': {
+            const op = stage.op || 'upper'
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div className="pl-inline">
+                        {op !== 'concat' && (
+                            <Select value={stage.field} options={colOptions} placeholder="Column…" onChange={v => onChange({ ...stage, field: v })} />
+                        )}
+                        <Select
+                            value={op}
+                            options={[
+                                { value: 'upper', label: 'UPPER' },
+                                { value: 'lower', label: 'lower' },
+                                { value: 'trim', label: 'Trim' },
+                                { value: 'replace', label: 'Replace' },
+                                { value: 'concat', label: 'Concat' },
+                                { value: 'split', label: 'Split' },
+                                { value: 'substring', label: 'Substring' },
+                            ]}
+                            onChange={v => onChange({ ...stage, op: v as StringStage['op'] })}
+                            size="sm"
+                        />
+                    </div>
+                    {op === 'replace' && (
+                        <div className="pl-inline">
+                            <input className="pl-input" value={stage.search || ''} onChange={e => onChange({ ...stage, search: e.target.value })} placeholder="Search…" />
+                            <span className="pl-kw">→</span>
+                            <input className="pl-input" value={stage.replaceWith || ''} onChange={e => onChange({ ...stage, replaceWith: e.target.value })} placeholder="Replace…" />
+                        </div>
+                    )}
+                    {op === 'concat' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div className="pl-inline">
+                                <span className="pl-kw">into</span>
+                                <input className="pl-input" value={stage.targetField || ''} onChange={e => onChange({ ...stage, targetField: e.target.value })} placeholder="Output col…" />
+                            </div>
+                            <input className="pl-input" value={(stage.parts || []).join('')} onChange={e => onChange({ ...stage, parts: parseConcatParts(e.target.value) })} placeholder="{first} {last}" />
+                        </div>
+                    )}
+                    {op === 'split' && (
+                        <div className="pl-inline">
+                            <span className="pl-kw">by</span>
+                            <input className="pl-input" style={{ width: 50 }} value={stage.separator || ''} onChange={e => onChange({ ...stage, separator: e.target.value })} placeholder="," />
+                            <span className="pl-kw">#</span>
+                            <input className="pl-input" type="number" style={{ width: 50 }} value={stage.index ?? 0} onChange={e => onChange({ ...stage, index: parseInt(e.target.value) || 0 })} min={0} />
+                            <span className="pl-kw">→</span>
+                            <input className="pl-input" value={stage.targetField || ''} onChange={e => onChange({ ...stage, targetField: e.target.value })} placeholder="Output col…" />
+                        </div>
+                    )}
+                    {op === 'substring' && (
+                        <div className="pl-inline">
+                            <span className="pl-kw">from</span>
+                            <input className="pl-input" type="number" style={{ width: 50 }} value={stage.start ?? 0} onChange={e => onChange({ ...stage, start: parseInt(e.target.value) || 0 })} min={0} />
+                            <span className="pl-kw">to</span>
+                            <input className="pl-input" type="number" style={{ width: 50 }} value={stage.end ?? 0} onChange={e => onChange({ ...stage, end: parseInt(e.target.value) || 0 })} min={0} />
+                        </div>
+                    )}
+                </div>
+            )
+        }
+
+        case 'math':
+            return (
+                <div className="pl-inline">
+                    <Select value={stage.field} options={colOptions} placeholder="Column…" onChange={v => onChange({ ...stage, field: v })} />
+                    <span className="pl-kw">→</span>
+                    <Select
+                        value={stage.op}
+                        options={[
+                            { value: 'round', label: 'Round' },
+                            { value: 'ceil', label: 'Ceil' },
+                            { value: 'floor', label: 'Floor' },
+                            { value: 'abs', label: 'Abs' },
+                        ]}
+                        onChange={v => onChange({ ...stage, op: v as any })}
+                        size="sm"
+                    />
+                </div>
+            )
+
+        case 'default_value':
+            return (
+                <div className="pl-inline">
+                    <Select value={stage.field} options={colOptions} placeholder="Column…" onChange={v => onChange({ ...stage, field: v })} />
+                    <span className="pl-kw">default</span>
+                    <input className="pl-input" value={stage.defaultValue || ''} onChange={e => onChange({ ...stage, defaultValue: e.target.value })} placeholder="Default value…" />
+                </div>
+            )
+
+        case 'type_cast':
+            return (
+                <div className="pl-inline">
+                    <Select value={stage.field} options={colOptions} placeholder="Column…" onChange={v => onChange({ ...stage, field: v })} />
+                    <span className="pl-kw">→</span>
+                    <Select
+                        value={stage.castType}
+                        options={[
+                            { value: 'number', label: 'Number' },
+                            { value: 'string', label: 'String' },
+                            { value: 'bool', label: 'Boolean' },
+                            { value: 'date', label: 'Date' },
+                            { value: 'datetime', label: 'Date & Time' },
+                        ]}
+                        onChange={v => onChange({ ...stage, castType: v as any })}
+                        size="sm"
+                    />
+                </div>
+            )
+
+        case 'pivot':
+            return (
+                <div className="pl-join">
+                    <div className="pl-field">
+                        <label className="pl-label">Rows</label>
+                        <Select value={stage.rowKey} options={colOptions} placeholder="Row key…" onChange={v => onChange({ ...stage, rowKey: v })} />
+                    </div>
+                    <div className="pl-field">
+                        <label className="pl-label">Columns</label>
+                        <Select value={stage.pivotColumn} options={colOptions} placeholder="Pivot column…" onChange={v => onChange({ ...stage, pivotColumn: v })} />
+                    </div>
+                    <div className="pl-field">
+                        <label className="pl-label">Values</label>
+                        <Select value={stage.valueColumn} options={colOptions} placeholder="Value column…" onChange={v => onChange({ ...stage, valueColumn: v })} />
+                    </div>
+                </div>
+            )
+
         default:
             return null
     }
+}
+
+// ── Helpers ────────────────────────────────────────────────
+
+function parseConcatParts(input: string): string[] {
+    const parts: string[] = []
+    let i = 0
+    while (i < input.length) {
+        if (input[i] === '{') {
+            const end = input.indexOf('}', i)
+            if (end !== -1) { parts.push(input.slice(i, end + 1)); i = end + 1 }
+            else { parts.push(input.slice(i)); break }
+        } else {
+            const next = input.indexOf('{', i)
+            if (next !== -1) { parts.push(input.slice(i, next)); i = next }
+            else { parts.push(input.slice(i)); break }
+        }
+    }
+    return parts
 }
 
 // ── Add Stage Menu ─────────────────────────────────────────
@@ -403,7 +592,13 @@ function AddStageMenu({ onAdd }: { onAdd: (type: Stage['type']) => void }) {
         { type: 'join', label: 'Join', desc: 'Merge with another database' },
         { type: 'filter', label: 'Filter', desc: 'Keep rows matching conditions' },
         { type: 'compute', label: 'Compute', desc: 'Add calculated columns' },
+        { type: 'string', label: 'String', desc: 'Manipulate text values' },
+        { type: 'date_part', label: 'Date Part', desc: 'Extract part of a date' },
+        { type: 'type_cast', label: 'Type Cast', desc: 'Convert column types' },
+        { type: 'math', label: 'Math', desc: 'Apply math functions' },
+        { type: 'default_value', label: 'Default Value', desc: 'Fill empty values' },
         { type: 'group', label: 'Group', desc: 'Aggregate by categories' },
+        { type: 'pivot', label: 'Pivot', desc: 'Turn row values into columns' },
         { type: 'percent', label: 'Percent', desc: 'Add % of total column' },
         { type: 'sort', label: 'Sort', desc: 'Order rows' },
         { type: 'limit', label: 'Limit', desc: 'Cap row count' },
