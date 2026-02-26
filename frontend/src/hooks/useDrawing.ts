@@ -1,7 +1,8 @@
+import { GRID_SIZE } from '../constants'
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useAppStore } from '../store'
 import { setDrawingKeyHandler } from '../input'
-import type { ElementTypeCategory } from '../store/types'
+import type { ElementTypeCategory, ElementStyleDefaults } from '../store/types'
 
 // Map any element type string to its style default category
 function elementTypeCategory(type: string): ElementTypeCategory {
@@ -28,7 +29,6 @@ import { TextHandler } from '../drawing/handlers/text'
 import { BlockHandler, type BlockCreationCallback } from '../drawing/handlers/block'
 import { genId } from '../drawing/types'
 
-const GRID_SIZE = 30
 
 /**
  * useDrawing — React hook that replaces CanvasDrawing class.
@@ -545,7 +545,7 @@ export function useDrawing(
         // Persist as per-type defaults
         for (const t of affectedTypes) {
             const cat = elementTypeCategory(t)
-            useAppStore.getState().setStyleDefaults(cat, patch as any)
+            useAppStore.getState().setStyleDefaults(cat, patch as Partial<ElementStyleDefaults>)
         }
         // Update style selection state immediately
         setStyleSelection(elementsRef.current.filter(e => ids.has(e.id)))

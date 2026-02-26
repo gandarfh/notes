@@ -1,5 +1,7 @@
+import { GRID_SIZE } from '../../constants'
 import { useRef, useEffect, useCallback, useMemo } from 'react'
 import { useAppStore } from '../../store'
+import type { ElementTypeCategory, ElementStyleDefaults } from '../../store/types'
 import { api } from '../../bridge/wails'
 import { BlockContainer } from '../Block/BlockContainer'
 import { InlineEditor } from '../Drawing/InlineEditor'
@@ -9,6 +11,10 @@ import { usePerfMonitor } from '../../hooks/usePerfMonitor'
 import { setClearDrawingSelection, closeEditorGlobal } from '../../input/drawingBridge'
 
 // ── Connection Layer ───────────────────────────────────────
+
+function escapeHtml(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
 
 function ConnectionLayer({ svgRef }: { svgRef: React.RefObject<SVGSVGElement | null> }) {
     const connections = useAppStore(s => s.connections)
@@ -43,7 +49,7 @@ function ConnectionLayer({ svgRef }: { svgRef: React.RefObject<SVGSVGElement | n
 
             if (conn.label) {
                 const mx = (fx + tx) / 2, my = (fy + ty) / 2
-                html += `<text x="${mx}" y="${my - 6}" fill="var(--color-text-muted)" font-size="11" text-anchor="middle" font-family="var(--font-sans)">${conn.label}</text>`
+                html += `<text x="${mx}" y="${my - 6}" fill="var(--color-text-muted)" font-size="11" text-anchor="middle" font-family="var(--font-sans)">${escapeHtml(conn.label)}</text>`
             }
         }
 
@@ -59,7 +65,7 @@ const TOOL_TO_ELEMENT: Record<string, string> = {
     'rectangle': 'rectangle', 'ellipse': 'ellipse', 'diamond': 'diamond',
     'ortho-arrow': 'ortho-arrow', 'freedraw': 'freedraw', 'text': 'text',
 }
-const ELEMENT_TO_CAT: Record<string, string> = {
+const ELEMENT_TO_CAT: Record<string, ElementTypeCategory> = {
     'rectangle': 'rectangle', 'ellipse': 'ellipse', 'diamond': 'diamond',
     'ortho-arrow': 'arrow', 'freedraw': 'freedraw', 'text': 'text',
 }
@@ -67,7 +73,7 @@ const ELEMENT_TO_CAT: Record<string, string> = {
 function PhantomStylePanel({ drawingSubTool }: { drawingSubTool: string }) {
     const elType = TOOL_TO_ELEMENT[drawingSubTool]
     const cat = elType ? ELEMENT_TO_CAT[elType] : null
-    const defaults = useAppStore(s => cat ? s.styleDefaults[cat as keyof typeof s.styleDefaults] : null)
+    const defaults = useAppStore(s => cat ? s.styleDefaults[cat] : null)
 
     if (!elType || !cat || !defaults) return null
 
@@ -80,7 +86,7 @@ function PhantomStylePanel({ drawingSubTool }: { drawingSubTool: string }) {
         <StylePanel
             elements={[phantom]}
             onUpdate={(patch) => {
-                useAppStore.getState().setStyleDefaults(cat as any, patch as any)
+                useAppStore.getState().setStyleDefaults(cat, patch as Partial<ElementStyleDefaults>)
             }}
         />
     )
@@ -92,7 +98,6 @@ interface CanvasProps {
     onEditBlock: (blockId: string, lineNumber: number) => void
 }
 
-const GRID_SIZE = 30
 
 export function Canvas({ onEditBlock }: CanvasProps) {
     const containerRef = useRef<HTMLDivElement>(null)

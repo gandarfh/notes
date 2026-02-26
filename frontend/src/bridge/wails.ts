@@ -68,21 +68,21 @@ declare global {
           BatchUpdateLocalDBRows(dbID: string, mutationsJSON: string): Promise<void>
           GetLocalDatabaseStats(dbID: string): Promise<LocalDBStats>
           // ETL plugin
-          ListETLSources(): Promise<any[]>
-          CreateETLJob(input: any): Promise<any>
-          GetETLJob(id: string): Promise<any>
-          ListETLJobs(): Promise<any[]>
-          UpdateETLJob(id: string, input: any): Promise<void>
+          ListETLSources(): Promise<ETLSourceSpec[]>
+          CreateETLJob(input: ETLJobInput): Promise<ETLSyncJob>
+          GetETLJob(id: string): Promise<ETLSyncJob>
+          ListETLJobs(): Promise<ETLSyncJob[]>
+          UpdateETLJob(id: string, input: ETLJobInput): Promise<void>
           DeleteETLJob(id: string): Promise<void>
-          RunETLJob(id: string): Promise<any>
-          PreviewETLSource(sourceType: string, sourceConfigJSON: string): Promise<any>
-          ListETLRunLogs(jobID: string): Promise<any[]>
+          RunETLJob(id: string): Promise<ETLSyncResult>
+          PreviewETLSource(sourceType: string, sourceConfigJSON: string): Promise<ETLPreviewResult>
+          ListETLRunLogs(jobID: string): Promise<ETLRunLog[]>
           PickETLFile(): Promise<string>
-          ListPageDatabaseBlocks(pageID: string): Promise<any[]>
-          DiscoverETLSchema(sourceType: string, sourceConfigJSON: string): Promise<any>
-          ExecuteHTTPRequest(blockID: string, configJSON: string): Promise<any>
+          ListPageDatabaseBlocks(pageID: string): Promise<PageBlockRef[]>
+          DiscoverETLSchema(sourceType: string, sourceConfigJSON: string): Promise<ETLSchemaInfo>
+          ExecuteHTTPRequest(blockID: string, configJSON: string): Promise<HTTPResponse>
           SaveBlockHTTPConfig(blockID: string, config: string): Promise<void>
-          ListPageHTTPBlocks(pageID: string): Promise<any[]>
+          ListPageHTTPBlocks(pageID: string): Promise<PageBlockRef[]>
         }
       }
     }
@@ -275,6 +275,110 @@ export interface LocalDBRow {
 export interface LocalDBStats {
   rowCount: number
   lastUpdated: string
+}
+
+// ── ETL Plugin Types ──────────────────────────────────────
+
+export interface ETLSourceSpec {
+  type: string
+  label: string
+  icon: string
+  configFields: ETLConfigField[]
+}
+
+export interface ETLConfigField {
+  key: string
+  label: string
+  type: string
+  required: boolean
+  options?: string[]
+  default?: string
+  help?: string
+  placeholder?: string
+}
+
+export interface ETLJobInput {
+  name: string
+  sourceType: string
+  sourceConfig: Record<string, string>
+  transforms: ETLTransformConfig[]
+  targetDbId: string
+  syncMode: string
+  dedupeKey: string
+  triggerType: string
+  triggerConfig: string
+  enabled: boolean
+}
+
+export interface ETLTransformConfig {
+  type: string
+  config: Record<string, string>
+}
+
+export interface ETLSyncJob {
+  id: string
+  name: string
+  sourceType: string
+  sourceConfig: Record<string, string>
+  transforms: ETLTransformConfig[]
+  targetDbId: string
+  syncMode: string
+  dedupeKey: string
+  triggerType: string
+  triggerConfig: string
+  enabled: boolean
+  lastRunAt: string
+  lastStatus: string
+  lastError: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ETLSyncResult {
+  jobId: string
+  status: string
+  rowsRead: number
+  rowsWritten: number
+  duration: number
+  error?: string
+}
+
+export interface ETLPreviewResult {
+  columns: string[]
+  rows: Record<string, string>[]
+  totalRows: number
+}
+
+export interface ETLRunLog {
+  id: string
+  jobId: string
+  startedAt: string
+  finishedAt: string
+  status: string
+  rowsRead: number
+  rowsWritten: number
+  error?: string
+}
+
+export interface ETLSchemaInfo {
+  fields: Array<{ name: string; type: string }>
+}
+
+export interface PageBlockRef {
+  id: string
+  name: string
+  type: string
+}
+
+// ── HTTP Plugin Types ─────────────────────────────────────
+
+export interface HTTPResponse {
+  statusCode: number
+  statusText: string
+  headers: Record<string, string>
+  body: string
+  durationMs: number
+  size: number
 }
 
 function getAPI() {

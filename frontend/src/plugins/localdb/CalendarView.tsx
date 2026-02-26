@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isToday, parseISO, parse, isValid } from 'date-fns'
-import type { ColumnDef, LocalDBRow, ViewConfig } from '../../bridge/wails'
+import type { ColumnDef, LocalDBRow, ViewConfig } from './types'
 
 // ── Calendar View ──────────────────────────────────────────
 // Month grid with clickable days → centered detail modal.

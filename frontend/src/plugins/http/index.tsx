@@ -1,7 +1,8 @@
+import './http.css'
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
-import { api } from '../../bridge/wails'
-import { useAppStore } from '../../store'
+import type { PluginContext } from '../sdk'
+import { useWheelCapture } from '../shared'
 import { RequestEditor } from './RequestEditor'
 import { ResponseViewer } from './ResponseViewer'
 
@@ -93,7 +94,7 @@ function serializeContent(config: HTTPBlockConfig, response: HTTPResponseData | 
 
 // ── Main Renderer ──────────────────────────────────────────
 
-function HTTPRenderer({ block, isSelected }: BlockRendererProps) {
+function HTTPRenderer({ block, isSelected, ctx }: BlockRendererProps) {
     const initial = useMemo(() => parseContent(block.content), [])
     const [localConfig, setLocalConfig] = useState<HTTPBlockConfig>(initial.config)
     const [response, setResponse] = useState<HTTPResponseData | null>(initial.lastResponse)
@@ -115,8 +116,6 @@ function HTTPRenderer({ block, isSelected }: BlockRendererProps) {
         }
     }
 
-    const updateBlock = useAppStore(s => s.updateBlock)
-
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const blockRef = useRef<HTMLDivElement>(null)
@@ -129,10 +128,10 @@ function HTTPRenderer({ block, isSelected }: BlockRendererProps) {
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
         saveTimerRef.current = setTimeout(() => {
             const json = serializeContent(newConfig, responseRef.current)
-            api.saveBlockHTTPConfig(block.id, json)
-            updateBlock(block.id, { content: json })
+            ctx?.rpc.call('SaveBlockHTTPConfig', block.id, json)
+            ctx?.storage.setContent(json)
         }, 500)
-    }, [block.id, updateBlock])
+    }, [block.id, ctx])
 
     useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }, [])
 
@@ -159,7 +158,7 @@ function HTTPRenderer({ block, isSelected }: BlockRendererProps) {
 
             const finalURL = buildURL(c.url, c.params)
 
-            const result = await api.executeHTTPRequest(block.id, JSON.stringify({
+            const result = await ctx!.rpc.call<HTTPResponseData>('ExecuteHTTPRequest', block.id, JSON.stringify({
                 method: c.method,
                 url: finalURL,
                 headers: headersObj,
@@ -170,24 +169,21 @@ function HTTPRenderer({ block, isSelected }: BlockRendererProps) {
 
             // Persist config + response together
             const json = serializeContent(c, result)
-            await api.saveBlockHTTPConfig(block.id, json)
-            updateBlock(block.id, { content: json })
+            await ctx!.rpc.call('SaveBlockHTTPConfig', block.id, json)
+            ctx!.storage.setContent(json)
             lastContentRef.current = json
+
+            // Emit event for ETL or other plugins
+            ctx!.events.emit('http:response-received', { blockId: block.id, statusCode: result.statusCode })
         } catch (e: any) {
             setError(String(e))
         } finally {
             setLoading(false)
         }
-    }, [block.id, updateBlock])
+    }, [block.id, ctx])
 
-    // Scroll handling
-    useEffect(() => {
-        const el = blockRef.current
-        if (!el || !isSelected) return
-        const handler = (e: WheelEvent) => { e.stopPropagation() }
-        el.addEventListener('wheel', handler, { passive: true })
-        return () => el.removeEventListener('wheel', handler)
-    }, [isSelected])
+    // Scroll handling via shared hook
+    useWheelCapture(blockRef, isSelected)
 
     return (
         <div className="http-block" ref={blockRef} onMouseDown={e => e.stopPropagation()}>
@@ -229,4 +225,7 @@ export const httpPlugin: BlockPlugin = {
     defaultSize: { width: 580, height: 500 },
     Renderer: HTTPRenderer,
     headerLabel: 'HTTP',
+    publicAPI: (ctx) => ({
+        listBlocksOnPage: (pageId: string) => ctx.rpc.call('ListPageHTTPBlocks', pageId),
+    }),
 }

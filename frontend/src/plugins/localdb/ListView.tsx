@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ColumnDef, LocalDBRow, ViewConfig } from '../../bridge/wails'
+import type { ColumnDef, LocalDBRow, ViewConfig } from './types'
 import { CellRenderer } from './CellRenderer'
 
 // ── List View ──────────────────────────────────────────────

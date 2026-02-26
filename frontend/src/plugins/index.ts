@@ -9,8 +9,13 @@ import { localdbPlugin } from './localdb'
 import { chartPlugin } from './chart'
 import { etlPlugin } from './etl'
 import { httpPlugin } from './http'
+import { useAppStore } from '../store'
 
 export function registerBuiltinPlugins() {
+    // Wire SDK runtime globals (used by contextFactory via lazy access)
+    ; (window as any).__pluginSDK_appStore = useAppStore
+        ; (window as any).__pluginSDK_registry = BlockRegistry
+
     BlockRegistry.register(markdownPlugin)
     BlockRegistry.register(drawingPlugin)
     BlockRegistry.register(imagePlugin)

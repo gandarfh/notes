@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useState, useRef, useEffect } from 'react'
-import type { ColumnDef, ViewConfig } from '../../bridge/wails'
+import type { ColumnDef, ViewConfig } from './types'
 import type { ViewType } from './ViewSwitcher'
 
 // ── View Config Bar ────────────────────────────────────────

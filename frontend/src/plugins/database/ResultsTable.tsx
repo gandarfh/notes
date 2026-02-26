@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import type { QueryResultView, Mutation } from '../../bridge/wails'
+import type { QueryResultView, Mutation } from './types'
 import { IconCheck } from '@tabler/icons-react'
 
 // Pending edit: { rowIdx: { colIdx: newValue } }

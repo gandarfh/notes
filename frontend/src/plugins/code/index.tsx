@@ -1,5 +1,6 @@
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.min.css'
+import DOMPurify from 'dompurify'
 import { useState, useEffect, useMemo, memo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 import { getBlockFontSize } from '../../components/Block/BlockContainer'
@@ -74,7 +75,7 @@ const CodeRenderer = memo(function CodeRenderer({ block }: BlockRendererProps) {
                                 <td
                                     className="code-line"
                                     dangerouslySetInnerHTML={{
-                                        __html: codeHtml!.split('\n')[i] || ''
+                                        __html: DOMPurify.sanitize(codeHtml!.split('\n')[i] || '')
                                     }}
                                 />
                             </tr>

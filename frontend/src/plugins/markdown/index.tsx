@@ -5,6 +5,7 @@ import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.min.css'
 import 'katex/dist/katex.min.css'
 import mermaid from 'mermaid'
+import DOMPurify from 'dompurify'
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 import { getBlockFontSize } from '../../components/Block/BlockContainer'
@@ -291,7 +292,7 @@ const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: Bl
             className={`markdown-preview ${isEditing ? '' : 'cursor-text select-text'}`}
             style={{ fontSize: `${fontSize}px` }}
             onClick={handleClick}
-            dangerouslySetInnerHTML={{ __html: finalHtml }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(finalHtml, { ADD_TAGS: ['section', 'input'], ADD_ATTR: ['checked', 'disabled', 'data-source-line', 'data-mermaid', 'data-zoom'] }) }}
         />
     )
 })

@@ -1,9 +1,11 @@
+import { GRID_SIZE, snapToGrid } from '../../constants'
 import { useRef, useState, useCallback, useMemo, useEffect, memo } from 'react'
 import { useAppStore } from '../../store'
 import { BlockRegistry } from '../../plugins'
 import { clearDrawingSelectionGlobal, closeEditorGlobal } from '../../input/drawingBridge'
 import { IconEdit, IconX, IconLink } from '@tabler/icons-react'
 import { api } from '../../bridge/wails'
+import { createPluginContext } from '../../plugins/sdk/runtime/contextFactory'
 
 // ── Font-size helpers ──────────────────────────────────────
 
@@ -191,8 +193,6 @@ interface BlockContainerProps {
     onEditBlock: (blockId: string, lineNumber: number) => void
 }
 
-const GRID_SIZE = 30
-const snapToGrid = (v: number) => Math.round(v / GRID_SIZE) * GRID_SIZE
 
 export const BlockContainer = memo(function BlockContainer({ blockId, onEditBlock }: BlockContainerProps) {
     const block = useAppStore(s => s.blocks.get(blockId))
@@ -459,6 +459,7 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                         block={block}
                         isEditing={isEditing}
                         isSelected={isSelected}
+                        ctx={createPluginContext(block)}
                         onContentChange={(content) => {
                             updateBlock(blockId, { content })
                             useAppStore.getState().saveBlockContent(blockId, content)

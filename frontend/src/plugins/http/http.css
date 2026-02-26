@@ -1,0 +1,510 @@
+.http-block {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Latin Modern Roman', serif;
+  font-size: 12px;
+}
+
+/* ── Split Panes ─────────────────────────────────────────── */
+.http-pane {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  min-height: 0;
+}
+
+.http-pane-request {
+  flex: 1 1 50%;
+  border-bottom: 2px solid var(--color-border-subtle);
+}
+
+/* When there's no response, request takes full height */
+.http-pane-request:only-child {
+  flex: 1;
+  border-bottom: none;
+}
+
+.http-pane-response {
+  flex: 1 1 50%;
+}
+
+/* ── URL Bar ──────────────────────────────────────────────── */
+.http-url-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 6px;
+}
+
+.http-method {
+  appearance: none;
+  background: var(--overlay-6);
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  padding: 5px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  cursor: pointer;
+  text-align: center;
+  width: 68px;
+}
+
+.http-method-get {
+  color: #10b981;
+}
+
+.http-method-post {
+  color: #f59e0b;
+}
+
+.http-method-put {
+  color: #3b82f6;
+}
+
+.http-method-patch {
+  color: #8b5cf6;
+}
+
+.http-method-delete {
+  color: #ef4444;
+}
+
+.http-url-input {
+  flex: 1;
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.http-url-input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+.http-send-btn {
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.http-send-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.http-send-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Request Tabs ────────────────────────────────────────── */
+.http-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: 0 4px;
+}
+
+.http-tab {
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.http-tab.active {
+  color: var(--color-text-primary);
+  border-bottom-color: #10b981;
+}
+
+.http-tab:hover:not(.active) {
+  color: var(--color-text-secondary);
+}
+
+/* ── Tab Content ─────────────────────────────────────────── */
+.http-tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* ── Key-Value Table ─────────────────────────────────────── */
+.http-kv-table {
+  font-size: 10px;
+}
+
+.http-kv-header {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-muted);
+}
+
+.http-kv-header .http-kv-col {
+  flex: 1;
+  padding: 0 4px;
+}
+
+.http-kv-header .http-kv-check {
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.http-kv-header .http-kv-actions {
+  width: 20px;
+}
+
+.http-kv-header .http-kv-desc {
+  flex: 0.8;
+}
+
+.http-kv-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 1px 4px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: opacity 0.15s;
+}
+
+.http-kv-row.disabled {
+  opacity: 0.4;
+}
+
+.http-kv-check {
+  width: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.http-kv-check input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  accent-color: #10b981;
+}
+
+.http-kv-input {
+  flex: 1;
+  border: none;
+  padding: 4px;
+  font-size: 10px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  background: transparent;
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.http-kv-input:focus {
+  background: var(--overlay-4);
+  border-radius: 2px;
+}
+
+.http-kv-input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.4;
+}
+
+.http-kv-input.http-kv-desc {
+  flex: 0.8;
+  color: var(--color-text-muted);
+}
+
+.http-kv-remove {
+  width: 20px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.http-kv-row:hover .http-kv-remove {
+  opacity: 0.6;
+}
+
+.http-kv-remove:hover {
+  opacity: 1 !important;
+  color: #ef4444;
+}
+
+.http-kv-add {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 9px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.http-kv-add:hover {
+  color: var(--color-text-primary);
+}
+
+/* ── Auth Panel ──────────────────────────────────────────── */
+.http-auth {
+  padding: 8px;
+}
+
+.http-auth-type {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.http-auth-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.http-auth-option input[type="radio"] {
+  accent-color: #10b981;
+  width: 12px;
+  height: 12px;
+}
+
+.http-auth-input {
+  width: 100%;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 10px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.http-auth-basic {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Body Panel ──────────────────────────────────────────── */
+.http-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.http-body-modes {
+  display: flex;
+  gap: 12px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.http-body-mode {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.http-body-mode input[type="radio"] {
+  accent-color: #f59e0b;
+  width: 12px;
+  height: 12px;
+}
+
+.http-body-editor {
+  flex: 1;
+  min-height: 80px;
+  border-top: none;
+}
+
+.http-body-editor .cm-editor {
+  height: 100%;
+}
+
+/* ── Error ───────────────────────────────────────────────── */
+.http-error {
+  padding: 6px 8px;
+  font-size: 10px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 4px;
+  margin: 4px 8px;
+}
+
+/* ── Response ────────────────────────────────────────────── */
+.http-response {
+  border-top: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.http-response-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.http-status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.http-status-ok {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.http-status-error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.http-status-other {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.http-response-meta {
+  font-size: 9px;
+  color: var(--color-text-muted);
+}
+
+.http-response-tabs {
+  display: flex;
+  gap: 0;
+  margin-left: 8px;
+}
+
+.http-rtab {
+  padding: 2px 8px;
+  font-size: 9px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.http-rtab.active {
+  color: var(--color-text-primary);
+  border-bottom-color: #10b981;
+}
+
+.http-rtab:hover:not(.active) {
+  color: var(--color-text-secondary);
+}
+
+.http-response-copy {
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  margin-left: auto;
+}
+
+.http-response-copy:hover {
+  color: var(--color-text-primary);
+}
+
+/* ── Response Content ────────────────────────────────────── */
+.http-response-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.http-response-content .cm-editor {
+  height: 100%;
+}
+
+.http-response-headers {
+  padding: 6px 8px;
+  overflow-y: auto;
+}
+
+.http-response-header {
+  display: flex;
+  gap: 8px;
+  font-size: 9px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.http-rh-key {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  min-width: 120px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+}
+
+.http-rh-value {
+  color: var(--color-text-muted);
+  word-break: break-all;
+  font-family: 'SF Mono', 'Menlo', monospace;
+}
+
+.http-response-body {
+  flex: 1;
+  margin: 0;
+  padding: 8px;
+  font-size: 10px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  line-height: 1.5;
+  overflow: auto;
+  background: var(--overlay-2);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.etl-sample-table tbody tr:hover {
+  background: var(--overlay-4);
+}
+
+/* Output table — subtle accent highlight */
+.etl-sample-table--output th {
+  color: var(--color-accent);
+}

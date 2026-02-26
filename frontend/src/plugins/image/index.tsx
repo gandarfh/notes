@@ -1,10 +1,9 @@
 import { useEffect, useState, memo } from 'react'
-import { api } from '../../bridge/wails'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 
 // ── Renderer Component ─────────────────────────────────────
 
-const ImageRenderer = memo(function ImageRenderer({ block }: BlockRendererProps) {
+const ImageRenderer = memo(function ImageRenderer({ block, ctx }: BlockRendererProps) {
     const [src, setSrc] = useState(block.content || '')
 
     // Lazily load image data from disk if content is empty but filePath exists
@@ -15,10 +14,10 @@ const ImageRenderer = memo(function ImageRenderer({ block }: BlockRendererProps)
         }
         if (!block.filePath) return
 
-        api.getImageData(block.id).then(dataUrl => {
+        ctx?.rpc.call<string>('GetImageData', block.id).then(dataUrl => {
             if (dataUrl) setSrc(dataUrl)
         }).catch(() => { })
-    }, [block.id, block.content, block.filePath])
+    }, [block.id, block.content, block.filePath, ctx])
 
     if (!src) {
         return (

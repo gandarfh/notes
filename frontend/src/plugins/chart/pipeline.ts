@@ -1,5 +1,4 @@
-import { api } from '../../bridge/wails'
-import type { ColumnDef } from '../../bridge/wails'
+import type { ColumnDef } from './types'
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -155,15 +154,22 @@ export function defaultPipelineConfig(): PipelineConfig {
     }
 }
 
+// ── Data Fetcher (injected by chart/index.tsx) ────────────
+
+export interface DataFetcher {
+    getRows(databaseId: string): Promise<{ dataJson: string }[]>
+}
+
 // ── Pipeline Executor ──────────────────────────────────────
 
-export async function executePipeline(config: PipelineConfig): Promise<Row[]> {
+export async function executePipeline(config: PipelineConfig, fetcher: DataFetcher): Promise<Row[]> {
+    _activeFetcher = fetcher
     let rows: Row[] = []
 
     for (const stage of config.stages) {
         switch (stage.type) {
             case 'source':
-                rows = await fetchSource(stage.databaseId)
+                rows = await fetchSource(stage.databaseId, fetcher)
                 break
             case 'join':
                 rows = await executeJoin(rows, stage)
@@ -212,17 +218,20 @@ export async function executePipeline(config: PipelineConfig): Promise<Row[]> {
 
 // ── Stage Implementations ──────────────────────────────────
 
-async function fetchSource(databaseId: string): Promise<Row[]> {
+async function fetchSource(databaseId: string, fetcher: DataFetcher): Promise<Row[]> {
     if (!databaseId) return []
-    const rawRows = await api.listLocalDBRows(databaseId)
-    return rawRows.map(r => {
+    const rawRows = await fetcher.getRows(databaseId)
+    return rawRows.map((r: { dataJson: string }) => {
         try { return JSON.parse(r.dataJson || '{}') as Row }
         catch { return {} as Row }
     })
 }
 
+// Keep a module-level fetcher ref for join stages (set during executePipeline)
+let _activeFetcher: DataFetcher | null = null
+
 async function executeJoin(left: Row[], stage: JoinStage): Promise<Row[]> {
-    const right = await fetchSource(stage.databaseId)
+    const right = await fetchSource(stage.databaseId, _activeFetcher!)
     if (right.length === 0) return left
 
     // Build lookup from right side

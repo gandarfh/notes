@@ -1,11 +1,11 @@
+import './chart.css'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
-import type { LocalDatabase, ColumnDef } from '../../bridge/wails'
-import { api, onEvent } from '../../bridge/wails'
+import type { LocalDatabase, ColumnDef } from './types'
 import { ChartRenderer, defaultConfig, type ChartConfig, type ChartType, type DataPoint, type SeriesDef } from './ChartRenderer'
 import { ChartTypePicker } from './ChartTypePicker'
 import { NotebookEditor, type PipelineConfig, defaultPipelineConfig } from './NotebookEditor'
-import { executePipeline, type Row } from './pipeline'
+import { executePipeline, type Row, type DataFetcher } from './pipeline'
 
 // ── Block Config ───────────────────────────────────────────
 
@@ -80,7 +80,9 @@ function rowsToChart(
 
 // ── Chart Block Renderer ───────────────────────────────────
 
-function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
+function ChartBlockRenderer({ block, ctx }: BlockRendererProps) {
+    const rpc = ctx!.rpc
+
     // Parse config from block.content (re-parses when content changes)
     const config = useMemo(() => parseBlockConfig(block.content), [block.content])
 
@@ -97,26 +99,37 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
     // Column name resolver
     const resolveCol = useMemo(() => buildColNameResolver(dbColumns), [dbColumns])
 
-    // Auto-refresh when a source database is updated (e.g. by ETL sync)
+    // Auto-refresh when a source database is updated (via SDK event bus)
     useEffect(() => {
         const sourceDbIds = config.pipeline.stages
             .filter((s: any) => s.databaseId)
             .map((s: any) => s.databaseId as string)
         if (sourceDbIds.length === 0) return
-        return onEvent('db:updated', (payload: any) => {
+
+        // Listen for SDK events from localdb plugin
+        const unsub1 = ctx!.events.on('localdb:changed', (payload: any) => {
             if (payload?.databaseId && sourceDbIds.includes(payload.databaseId)) {
                 setRefreshKey(k => k + 1)
             }
         })
-    }, [config.pipeline.stages])
+
+        // Also listen for backend events for backward compat
+        const unsub2 = ctx!.events.onBackend('db:updated', (payload: any) => {
+            if (payload?.databaseId && sourceDbIds.includes(payload.databaseId)) {
+                setRefreshKey(k => k + 1)
+            }
+        })
+
+        return () => { unsub1(); unsub2() }
+    }, [config.pipeline.stages, ctx])
 
     const persist = useCallback((next: ChartBlockConfig) => {
-        onContentChange(JSON.stringify(next))
-    }, [onContentChange])
+        ctx!.storage.setContent(JSON.stringify(next))
+    }, [ctx])
 
     // Load databases & columns
     useEffect(() => {
-        api.listLocalDatabases().then(dbs => {
+        rpc.call<LocalDatabase[]>('ListLocalDatabases').then(dbs => {
             setDatabases(dbs)
             const cols: Record<string, ColumnDef[]> = {}
             dbs.forEach(db => {
@@ -127,7 +140,7 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
             })
             setDbColumns(cols)
         }).catch(() => { })
-    }, [showEditor, refreshKey])
+    }, [showEditor, refreshKey, rpc])
 
     // Execute pipeline whenever pipeline config or columns change
     const pipelineJSON = JSON.stringify(config.pipeline)
@@ -141,7 +154,10 @@ function ChartBlockRenderer({ block, onContentChange }: BlockRendererProps) {
         if (!firstSource || !(firstSource as any).databaseId) return
 
         setPipelineError(null)
-        executePipeline(pipeline).then(rows => {
+        const fetcher: DataFetcher = {
+            getRows: (dbId) => ctx!.rpc.call<{ dataJson: string }[]>('ListLocalDBRows', dbId),
+        }
+        executePipeline(pipeline, fetcher).then(rows => {
             setExecutedRows(rows)
 
             // Collect actual keys from output rows

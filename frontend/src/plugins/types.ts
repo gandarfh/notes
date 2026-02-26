@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { Block } from '../bridge/wails'
+import type { PluginContext } from './sdk'
 
 // ── Block Data (same as backend) ───────────────────────────
 
@@ -27,13 +28,22 @@ export interface BlockPlugin {
     headerLabel?: string
 
     /** Optional: extra toolbar controls when a block of this type is selected */
-    ToolbarExtension?: React.ComponentType<{ blockId: string }>
+    ToolbarExtension?: React.ComponentType<{ ctx: PluginContext }>
 
     /** Optional: context menu items for this block type */
-    contextMenuItems?: (blockId: string) => ContextMenuItem[]
+    contextMenuItems?: (ctx: PluginContext) => ContextMenuItem[]
 
     /** Optional: keyboard shortcuts for this block type */
     shortcuts?: ShortcutDef[]
+
+    /** Lifecycle: called once on registration. Returns cleanup fn. */
+    onInit?(ctx: PluginContext): (() => void) | void
+
+    /** Called when a new block of this type is created */
+    onBlockCreate?(ctx: PluginContext): Promise<void> | void
+
+    /** Public API exposed to other plugins via ctx.plugins.getAPI() */
+    publicAPI?: (ctx: PluginContext) => Record<string, (...args: any[]) => any>
 }
 
 // ── Renderer Props ─────────────────────────────────────────
@@ -43,6 +53,8 @@ export interface BlockRendererProps {
     isEditing: boolean
     isSelected: boolean
     onContentChange: (content: string) => void
+    /** Plugin SDK context — provided by host, optional for backward compat */
+    ctx?: PluginContext
 }
 
 // ── Supporting Types ───────────────────────────────────────

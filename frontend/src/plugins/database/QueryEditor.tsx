@@ -7,7 +7,7 @@ import { autocompletion, type CompletionContext, type Completion } from '@codemi
 import { vim } from '@replit/codemirror-vim'
 import { QUERY_OPERATORS, BSON_TYPES, STAGE_OPERATORS, EXPRESSION_OPERATORS, ACCUMULATORS } from '@mongodb-js/mongodb-constants'
 import { useTheme } from '../../hooks/useTheme'
-import type { SchemaInfo } from '../../bridge/wails'
+import type { SchemaInfo } from './types'
 
 interface QueryEditorProps {
     value: string

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { api } from '../../bridge/wails'
+import { rpcCall } from '../sdk'
 import { ETLPipeline, type TransformStage, getColumnsAtStage } from './ETLPipeline'
 
 // ── Types ──────────────────────────────────────────────────
@@ -331,7 +331,7 @@ export function ETLTransformStep({ sourceType, sourceConfig, transforms, onChang
 
         setLoading(true)
         setLoadError('')
-        api.previewETLSource(sourceType, cfgJSON)
+        rpcCall('PreviewETLSource', sourceType, cfgJSON)
             .then((result: any) => {
                 if (result?.records) {
                     setSampleRecords(result.records)

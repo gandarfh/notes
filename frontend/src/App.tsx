@@ -6,6 +6,7 @@ import { Canvas } from './components/Canvas/Canvas'
 import { UndoPanel } from './components/UndoPanel/UndoPanel'
 import { useAppStore } from './store'
 import { useUndoTree } from './store/useUndoTree'
+import { restoreSnapshot } from './store/helpers'
 import { useTerminal } from './hooks/useTerminal'
 import { bindGlobalKeydown, initLayer0, initLayer4 } from './input'
 import { setCloseEditor } from './input/drawingBridge'
@@ -44,22 +45,13 @@ export function App() {
     // ── Initialize InputManager layers ──
     useEffect(() => {
         const applySnapshot = (snapshot: { blocks: Block[]; drawingData: string; connections: Connection[] }) => {
-            const blocks = new Map<string, Block>()
-            snapshot.blocks.forEach(b => blocks.set(b.id, b))
-            useAppStore.setState({
-                blocks,
-                drawingData: snapshot.drawingData,
-                connections: snapshot.connections,
-                selectedBlockId: null,
-                editingBlockId: null,
-            })
+            restoreSnapshot(useAppStore.setState, snapshot)
 
             // Persist full block state to backend (atomic replace)
             const { activePageId } = useAppStore.getState()
             if (!activePageId) return
             api.restorePageBlocks(activePageId, snapshot.blocks)
             api.updateDrawingData(activePageId, snapshot.drawingData)
-            // Note: undo tree position is already persisted by undo()/redo() via GoToUndoNode
         }
 
         initLayer0({

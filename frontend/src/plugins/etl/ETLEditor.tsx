@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
-import type { LocalDatabase } from '../../bridge/wails'
-import { api } from '../../bridge/wails'
-import { Select } from '../chart/Select'
+import type { LocalDatabase } from './types'
+import { rpcCall } from '../sdk'
+import { Select } from '../shared/components/Select'
 import { ETLTransformStep } from './ETLTransformStep'
 import { CronBuilder } from './CronBuilder'
 import type { TransformStage } from './ETLPipeline'
@@ -67,7 +67,7 @@ export function ETLEditor({ existingJob, sources, databases, pageId, onSave, onC
 
     useEffect(() => {
         if (sourceType === 'database' && pageId) {
-            api.listPageDatabaseBlocks(pageId).then(blocks => {
+            rpcCall('ListPageDatabaseBlocks', pageId).then(blocks => {
                 const b = (blocks || []).map((bk: any) => ({
                     blockId: bk.blockId,
                     connectionId: bk.connectionId,
@@ -78,7 +78,7 @@ export function ETLEditor({ existingJob, sources, databases, pageId, onSave, onC
             }).catch(() => setDbBlocks([]))
         }
         if (sourceType === 'http' && pageId) {
-            api.listPageHTTPBlocks(pageId).then(blocks => {
+            rpcCall('ListPageHTTPBlocks', pageId).then(blocks => {
                 const b = (blocks || []).map((bk: any) => ({
                     blockId: bk.blockId,
                     method: bk.method,
@@ -96,7 +96,7 @@ export function ETLEditor({ existingJob, sources, databases, pageId, onSave, onC
 
     const handleBrowseFile = useCallback(async (fieldKey: string) => {
         try {
-            const path = await api.pickETLFile()
+            const path = await rpcCall('PickETLFile')
             if (path) {
                 setSourceConfig(prev => ({ ...prev, [fieldKey]: path }))
             }
@@ -128,10 +128,10 @@ export function ETLEditor({ existingJob, sources, databases, pageId, onSave, onC
 
             let savedJob: SyncJob
             if (existingJob) {
-                await api.updateETLJob(existingJob.id, input)
-                savedJob = await api.getETLJob(existingJob.id)
+                await rpcCall('UpdateETLJob', existingJob.id, input)
+                savedJob = await rpcCall<SyncJob>('GetETLJob', existingJob.id)
             } else {
-                savedJob = await api.createETLJob(input) as SyncJob
+                savedJob = await rpcCall<SyncJob>('CreateETLJob', input)
             }
             onSave(savedJob)
         } catch (err: any) {

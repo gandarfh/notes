@@ -189,25 +189,12 @@ function NotebookItem({
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'notebook' | 'page'; pageId?: string } | null>(null)
     const [renaming, setRenaming] = useState<{ type: 'notebook' | 'page'; pageId?: string } | null>(null)
 
-    // Load pages when expanded
+    // Single unified effect: load pages when expanded or activePageId changes
     useEffect(() => {
         if (isExpanded) {
             api.listPages(notebook.id).then(p => setPages(p || []))
         }
-    }, [isExpanded, notebook.id])
-
-    // Refresh pages when activePageId changes
-    const activePageIdRef = useRef(activePageId)
-    useEffect(() => {
-        if (isExpanded && activePageId !== activePageIdRef.current) {
-            activePageIdRef.current = activePageId
-            api.listPages(notebook.id).then(p => setPages(p || []))
-        }
     }, [isExpanded, activePageId, notebook.id])
-
-    const refreshPages = () => {
-        api.listPages(notebook.id).then(p => setPages(p || []))
-    }
 
     const handleNotebookContext = (e: React.MouseEvent) => {
         e.preventDefault()
@@ -274,10 +261,12 @@ function NotebookItem({
                     {showInlineInput ? (
                         <InlineInput
                             placeholder="Page name..."
-                            onSubmit={(name) => {
+                            onSubmit={async (name) => {
                                 onCreatePage(name)
                                 setShowInlineInput(false)
-                                setTimeout(refreshPages, 200)
+                                // Wait for backend, then refresh pages list
+                                await new Promise(r => setTimeout(r, 100))
+                                api.listPages(notebook.id).then(p => setPages(p || []))
                             }}
                             onCancel={() => setShowInlineInput(false)}
                         />

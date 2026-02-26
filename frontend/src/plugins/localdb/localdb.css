@@ -1,0 +1,1820 @@
+/* ============================================================
+   Local Database Block
+   ============================================================ */
+
+.ldb-block {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  font-size: 13px;
+  font-family: 'Latin Modern Roman', serif;
+  color: var(--color-text-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Title Bar ── */
+
+.ldb-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ldb-title-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  cursor: text;
+  padding: 1px 4px;
+  border-radius: 3px;
+  min-width: 40px;
+}
+
+.ldb-title-text:hover {
+  background: var(--overlay-6);
+}
+
+.ldb-title-input {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: var(--color-elevated);
+  border: 1px solid var(--color-accent);
+  border-radius: 3px;
+  padding: 1px 4px;
+  outline: none;
+  font-family: inherit;
+  min-width: 80px;
+}
+
+.ldb-title-count {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+.ldb-loading,
+.ldb-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  color: var(--color-text-muted);
+}
+
+.ldb-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border-default);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: ldb-spin 0.6s linear infinite;
+}
+
+@keyframes ldb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Table View ── */
+
+.ldb-table-wrapper {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.ldb-table {
+  min-width: 100%;
+}
+
+.ldb-table-header {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-elevated);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.ldb-table-th {
+  position: relative;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-right: 1px solid var(--color-border-subtle);
+  user-select: none;
+  display: flex;
+  align-items: center;
+}
+
+.ldb-th-label {
+  cursor: pointer;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ldb-th-label:hover {
+  color: var(--color-text-primary);
+}
+
+.ldb-col-resize {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 3;
+}
+
+.ldb-col-resize:hover {
+  background: var(--color-accent);
+  opacity: 0.3;
+}
+
+.ldb-add-col {
+  width: 40px !important;
+  min-width: 40px;
+  justify-content: center;
+  border-right: none;
+}
+
+.ldb-add-col-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ldb-add-col-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+
+/* ── Rows ── */
+
+.ldb-table-row {
+  display: flex;
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: background 80ms;
+}
+
+.ldb-table-row:hover {
+  background: var(--overlay-4);
+}
+
+.ldb-table-cell {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-right: 1px solid var(--color-border-subtle);
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  overflow: hidden;
+}
+
+.ldb-row-actions {
+  width: 32px !important;
+  min-width: 32px;
+  justify-content: center;
+  border-right: none;
+  opacity: 0;
+}
+
+.ldb-table-row:hover .ldb-row-actions {
+  opacity: 1;
+}
+
+.ldb-row-menu-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ldb-row-menu-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+
+/* ── Add Row ── */
+
+.ldb-table-add-row {
+  padding: 4px 8px;
+}
+
+.ldb-add-row-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  width: 100%;
+}
+
+.ldb-add-row-btn:hover {
+  background: var(--overlay-4);
+  color: var(--color-text-secondary);
+}
+
+/* ── Cell Renderers ── */
+
+.ldb-cell-text,
+.ldb-cell-number,
+.ldb-cell-date,
+.ldb-cell-url {
+  width: 100%;
+  cursor: text;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ldb-cell-placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.ldb-cell-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--color-accent);
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.ldb-cell-url a {
+  color: var(--color-text-accent);
+  text-decoration: none;
+}
+
+.ldb-cell-url a:hover {
+  text-decoration: underline;
+}
+
+.ldb-cell-formula,
+.ldb-cell-relation,
+.ldb-cell-rollup {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ── Select ── */
+
+.ldb-cell-select {
+  position: relative;
+  width: 100%;
+}
+
+.ldb-select-trigger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  padding: 1px 0;
+}
+
+.ldb-tag {
+  display: inline-flex;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-accent-muted);
+  color: var(--color-text-accent);
+  white-space: nowrap;
+}
+
+.ldb-tag[data-value="done"],
+.ldb-tag[data-value="completed"] {
+  background: rgba(109, 186, 94, 0.12);
+  color: var(--color-success);
+}
+
+.ldb-tag[data-value="in progress"],
+.ldb-tag[data-value="active"] {
+  background: rgba(218, 160, 48, 0.12);
+  color: var(--color-warning);
+}
+
+.ldb-tag[data-value="backlog"],
+.ldb-tag[data-value="todo"] {
+  background: var(--overlay-8);
+  color: var(--color-text-secondary);
+}
+
+.ldb-tag[data-value="review"],
+.ldb-tag[data-value="blocked"] {
+  background: rgba(212, 96, 78, 0.12);
+  color: var(--color-error);
+}
+
+.ldb-select-dropdown {
+  min-width: 160px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-size: 12px;
+}
+
+.ldb-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.ldb-select-option:hover {
+  background: var(--color-hover);
+}
+
+.ldb-select-option.active {
+  background: var(--color-accent-muted);
+}
+
+.ldb-select-option.clear {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  border-top: 1px solid var(--color-border-subtle);
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+.ldb-check {
+  font-size: 12px;
+  color: var(--color-accent);
+}
+
+/* ── Checkbox ── */
+
+.ldb-cell-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  width: 100%;
+}
+
+.ldb-cell-checkbox input {
+  display: none;
+}
+
+.ldb-checkbox-mark {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 80ms;
+}
+
+.ldb-cell-checkbox input:checked+.ldb-checkbox-mark {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.ldb-cell-checkbox input:checked+.ldb-checkbox-mark::after {
+  content: '✓';
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Timer ── */
+
+.ldb-timer-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.ldb-timer-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: var(--overlay-8);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 80ms;
+}
+
+.ldb-timer-btn:hover {
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+
+.ldb-timer-btn.running {
+  background: rgba(212, 96, 78, 0.15);
+  color: var(--color-error);
+}
+
+.ldb-timer-display {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.ldb-timer-reset {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  opacity: 0.5;
+}
+
+.ldb-timer-reset:hover {
+  opacity: 1;
+  background: var(--overlay-8);
+}
+
+/* ── Progress ── */
+
+.ldb-cell-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.ldb-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--overlay-8);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ldb-progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 3px;
+  transition: width 200ms ease;
+}
+
+.ldb-progress-input {
+  width: 36px;
+  text-align: right;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  outline: none;
+}
+
+.ldb-progress-input:focus {
+  color: var(--color-text-primary);
+}
+
+/* ── Rating ── */
+
+.ldb-cell-rating {
+  display: flex;
+  gap: 1px;
+}
+
+.ldb-star {
+  background: none;
+  border: none;
+  color: var(--overlay-15);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 1px;
+  transition: color 80ms;
+}
+
+.ldb-star.active {
+  color: var(--color-warning);
+}
+
+.ldb-star:hover {
+  color: var(--color-warning);
+}
+
+/* ── Column Editor ── */
+
+.ldb-col-editor {
+  width: 260px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  padding: 12px;
+}
+
+.ldb-col-editor-header {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  margin-bottom: 10px;
+}
+
+.ldb-col-editor-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 8px 0 4px;
+}
+
+.ldb-col-editor-input {
+  width: 100%;
+  background: var(--color-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: 5px;
+  padding: 6px 8px;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.ldb-col-editor-input:focus {
+  border-color: var(--color-accent);
+}
+
+.ldb-col-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.ldb-col-type-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.ldb-col-type-btn:hover {
+  background: var(--color-hover);
+}
+
+.ldb-col-type-btn.active {
+  background: var(--color-accent-muted);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.ldb-col-type-icon {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* Column options */
+
+.ldb-col-options {
+  margin-top: 4px;
+}
+
+.ldb-col-options-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.ldb-col-option-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ldb-col-option-remove {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  opacity: 0.5;
+}
+
+.ldb-col-option-remove:hover {
+  opacity: 1;
+  color: var(--color-error);
+}
+
+.ldb-col-option-add {
+  display: flex;
+  gap: 4px;
+}
+
+.ldb-col-option-add-btn {
+  background: var(--color-hover);
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.ldb-col-option-add-btn:hover {
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+
+/* Column editor actions */
+
+.ldb-col-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.ldb-col-editor-spacer {
+  flex: 1;
+}
+
+.ldb-col-editor-delete {
+  background: none;
+  border: none;
+  color: var(--color-error);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.ldb-col-editor-delete:hover {
+  background: rgba(212, 96, 78, 0.1);
+}
+
+.ldb-col-editor-cancel {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.ldb-col-editor-cancel:hover {
+  background: var(--color-hover);
+}
+
+.ldb-col-editor-save {
+  background: var(--color-accent);
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 5px;
+}
+
+.ldb-col-editor-save:hover {
+  background: var(--color-accent-hover);
+}
+
+/* ── Context Menu ── */
+
+.ldb-context-menu {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  min-width: 140px;
+}
+
+.ldb-context-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.ldb-context-menu button:hover {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+
+.ldb-context-menu button.danger {
+  color: var(--color-error);
+}
+
+.ldb-context-menu button.danger:hover {
+  background: rgba(212, 96, 78, 0.1);
+}
+
+/* ── Backdrop for popup close-on-outside ── */
+
+.ldb-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: transparent;
+}
+
+/* ── Portal Dropdown Layer ── */
+
+.ldb-portal-dropdown {
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-size: 12px;
+  color: var(--color-text-primary);
+}
+
+/* ── Date Trigger ── */
+
+.ldb-date-trigger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 1px 0;
+  text-align: left;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ldb-date-trigger:hover {
+  color: var(--color-accent);
+}
+
+/* ── Date Picker Popover ── */
+
+.ldb-datepicker {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  padding: 8px;
+  width: 240px;
+}
+
+/* ── react-day-picker custom theme ── */
+
+.ldb-rdp {
+  --rdp-cell-size: 26px;
+  margin: 0;
+}
+
+.ldb-rdp-months {
+  display: flex;
+  flex-direction: column;
+}
+
+.ldb-rdp-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--color-text-primary);
+  padding: 2px 0 6px;
+}
+
+.ldb-rdp-nav {
+  display: flex;
+  gap: 2px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+}
+
+.ldb-rdp-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.ldb-rdp-nav-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+
+.ldb-rdp-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.ldb-rdp-head {
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ldb-rdp-weekday {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  padding: 3px 0;
+  text-align: center;
+  width: var(--rdp-cell-size);
+}
+
+.ldb-rdp-day {
+  padding: 1px;
+  text-align: center;
+}
+
+.ldb-rdp-day-btn {
+  width: var(--rdp-cell-size);
+  height: var(--rdp-cell-size);
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  transition: all 60ms;
+}
+
+.ldb-rdp-day-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+
+.ldb-rdp-today .ldb-rdp-day-btn {
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.ldb-rdp-selected .ldb-rdp-day-btn {
+  background: var(--color-accent) !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.ldb-rdp-outside .ldb-rdp-day-btn {
+  color: var(--color-text-muted);
+  opacity: 0.4;
+}
+
+/* ── Time Input ── */
+
+.ldb-datepicker-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 2px;
+  margin-top: 6px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.ldb-datepicker-time label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.ldb-time-input {
+  background: var(--color-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  padding: 3px 6px;
+  color: var(--color-text-primary);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  outline: none;
+  width: 72px;
+}
+
+.ldb-time-input:focus {
+  border-color: var(--color-accent);
+}
+
+/* ── Date Picker Footer ── */
+
+.ldb-datepicker-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.ldb-datepicker-today {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.ldb-datepicker-today:hover {
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+
+.ldb-datepicker-clear {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  margin-left: auto;
+}
+
+.ldb-datepicker-clear:hover {
+  background: rgba(212, 96, 78, 0.1);
+  color: var(--color-error);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Phase 2: Views System
+   ══════════════════════════════════════════════════════════ */
+
+/* ── View Switcher ── */
+
+.ldb-view-switcher {
+  display: flex;
+  gap: 1px;
+  background: var(--overlay-6);
+  border-radius: 5px;
+  padding: 1px;
+  margin-left: 8px;
+}
+
+.ldb-view-tab {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: inherit;
+  transition: all 80ms;
+  white-space: nowrap;
+}
+
+.ldb-view-tab:hover {
+  color: var(--color-text-primary);
+  background: var(--overlay-6);
+}
+
+.ldb-view-tab.active {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.ldb-view-tab-icon {
+  font-size: 11px;
+}
+
+.ldb-view-tab-label {
+  font-weight: 500;
+}
+
+/* ── View Config Bar ── */
+
+.ldb-view-config-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 10px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--overlay-2);
+}
+
+.ldb-field-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ldb-field-picker-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.ldb-field-picker-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+  font-family: inherit;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.ldb-field-picker-btn:hover {
+  background: var(--overlay-6);
+  color: var(--color-text-primary);
+}
+
+.ldb-field-picker-dropdown {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  padding: 4px;
+  min-width: 130px;
+}
+
+.ldb-field-picker-option {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.ldb-field-picker-option:hover {
+  background: var(--overlay-6);
+  color: var(--color-text-primary);
+}
+
+.ldb-field-picker-option.active {
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+/* ── Kanban View ── */
+
+.ldb-kanban {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  align-items: flex-start;
+}
+
+.ldb-kanban-empty,
+.ldb-calendar-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  padding: 40px;
+}
+
+.ldb-kanban-col {
+  min-width: 200px;
+  max-width: 260px;
+  flex-shrink: 0;
+  background: var(--overlay-4);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  transition: background 150ms, outline-color 150ms;
+  outline: 2px dashed transparent;
+  outline-offset: -2px;
+}
+
+.ldb-kanban-col.drop-hover {
+  outline-color: var(--color-accent);
+  background: var(--color-accent-muted);
+}
+
+.ldb-kanban-col.drag-active {
+  outline-color: var(--overlay-6);
+}
+
+.ldb-kanban-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 8px;
+}
+
+.ldb-kanban-count {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  background: var(--overlay-6);
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+.ldb-kanban-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.ldb-kanban-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: grab;
+  transition: box-shadow 150ms, opacity 200ms, transform 200ms;
+}
+
+.ldb-kanban-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.ldb-kanban-card.drag-source {
+  opacity: 0.3;
+  transform: scale(0.97);
+}
+
+.ldb-kanban-ghost {
+  opacity: 0.9;
+  transform: rotate(2deg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.ldb-kanban-drag-ghost {
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  padding: 8px 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  opacity: 0.92;
+  transform: rotate(2deg) scale(1.02);
+}
+
+.ldb-kanban-insert-line {
+  height: 3px;
+  background: var(--color-accent);
+  border-radius: 2px;
+  margin: 2px 0;
+  animation: ldb-pulse 1s ease-in-out infinite;
+}
+
+@keyframes ldb-pulse {
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.ldb-kanban-card-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.ldb-kanban-card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  padding: 1px 0;
+}
+
+.ldb-kanban-meta-label {
+  opacity: 0.7;
+}
+
+.ldb-kanban-meta-value {
+  color: var(--color-text-secondary);
+}
+
+.ldb-kanban-add {
+  margin-top: 6px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.ldb-kanban-add:hover {
+  background: var(--overlay-6);
+  color: var(--color-text-primary);
+}
+
+/* ── List View ── */
+
+.ldb-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 10px;
+}
+
+.ldb-list-item {
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ldb-list-item.expanded {
+  background: var(--overlay-4);
+  border-radius: 6px;
+  border-bottom: none;
+  margin-bottom: 4px;
+}
+
+.ldb-list-item-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.ldb-list-item-main:hover {
+  background: var(--overlay-4);
+}
+
+.ldb-list-checkbox {
+  flex-shrink: 0;
+}
+
+.ldb-list-title {
+  flex: 1;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ldb-list-title.done {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.ldb-list-expand-icon {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.ldb-list-details {
+  padding: 4px 12px 10px 32px;
+}
+
+.ldb-list-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.ldb-list-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  width: 80px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.ldb-list-field-value {
+  flex: 1;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.ldb-list-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.ldb-list-action-btn {
+  background: none;
+  border: none;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 3px;
+  color: var(--color-text-muted);
+}
+
+.ldb-list-action-btn.danger {
+  color: var(--color-error);
+}
+
+.ldb-list-action-btn:hover {
+  background: var(--overlay-6);
+}
+
+.ldb-list-add {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 8px 4px;
+  border-radius: 4px;
+}
+
+.ldb-list-add:hover {
+  background: var(--overlay-4);
+  color: var(--color-text-primary);
+}
+
+/* ── Calendar View ── */
+
+.ldb-calendar {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+
+.ldb-calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+
+.ldb-calendar-nav-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.ldb-calendar-nav-btn:hover {
+  background: var(--overlay-6);
+  color: var(--color-text-primary);
+}
+
+.ldb-calendar-month {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  min-width: 140px;
+  text-align: center;
+}
+
+.ldb-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: auto;
+  grid-auto-rows: 1fr;
+  flex: 1;
+  min-height: 0;
+}
+
+.ldb-calendar-weekday {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  text-align: center;
+  padding: 4px 0;
+  border-bottom: 2px solid var(--color-border-default);
+  letter-spacing: 0.5px;
+}
+
+.ldb-calendar-day {
+  border: 1px solid var(--color-border-subtle);
+  border-top: none;
+  border-left: none;
+  padding: 2px 3px;
+  min-height: 60px;
+  overflow: hidden;
+}
+
+.ldb-calendar-day:nth-child(7n+8) {
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.ldb-calendar-day.outside {
+  opacity: 0.35;
+}
+
+.ldb-calendar-day.today {
+  background: var(--color-accent-muted);
+}
+
+.ldb-calendar-day-num {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.ldb-calendar-day.today .ldb-calendar-day-num {
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.ldb-calendar-day-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ldb-calendar-day.has-items {
+  cursor: pointer;
+}
+
+.ldb-calendar-day.has-items:hover {
+  background: var(--overlay-4);
+}
+
+.ldb-calendar-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--color-text-primary);
+  background: var(--overlay-6);
+  padding: 2px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background 100ms;
+}
+
+.ldb-calendar-item:hover {
+  background: var(--overlay-10);
+}
+
+.ldb-calendar-item-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.ldb-calendar-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ldb-calendar-more {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  padding-left: 3px;
+  cursor: pointer;
+}
+
+/* ── Calendar Modal (centered inside block) ── */
+
+.ldb-calendar {
+  position: relative;
+}
+
+.ldb-calendar-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 6px;
+}
+
+.ldb-calendar-modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  width: 340px;
+  max-height: 80%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ldb-calendar-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ldb-calendar-modal-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ldb-calendar-modal-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ldb-calendar-modal-close:hover {
+  background: var(--overlay-6);
+  color: var(--color-text-primary);
+}
+
+.ldb-calendar-modal-body {
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ldb-calendar-modal-card {
+  background: var(--overlay-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.ldb-calendar-modal-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ldb-calendar-modal-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ldb-calendar-modal-card-delete {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 9px;
+  font-family: inherit;
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 100ms;
+}
+
+.ldb-calendar-modal-card:hover .ldb-calendar-modal-card-delete {
+  opacity: 1;
+}
+
+.ldb-calendar-modal-card-delete:hover {
+  background: var(--color-danger-muted);
+  color: var(--color-danger);
+}
+
+.ldb-calendar-modal-card-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  font-size: 11px;
+}
+
+.ldb-calendar-modal-field {
+  display: contents;
+}
+
+.ldb-calendar-modal-field-label {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.ldb-calendar-modal-field-value {
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Gallery View ── */
+
+.ldb-gallery {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+
+.ldb-gallery-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  padding: 10px;
+  position: relative;
+  transition: box-shadow 100ms;
+}
+
+.ldb-gallery-card:hover {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.ldb-gallery-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+  padding-right: 16px;
+}
+
+.ldb-gallery-card-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ldb-gallery-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.ldb-gallery-field-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.ldb-gallery-field-value {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ldb-gallery-card-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+  transition: opacity 80ms;
+}
+
+.ldb-gallery-card:hover .ldb-gallery-card-actions {
+  opacity: 1;
+}
+
+.ldb-gallery-delete {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.ldb-gallery-delete:hover {
+  background: rgba(212, 96, 78, 0.1);
+  color: var(--color-error);
+}
+
+.ldb-gallery-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: 2px dashed var(--color-border-subtle);
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  min-height: 80px;
+  padding: 20px;
+}
+
+.ldb-gallery-add:hover {
+  border-color: var(--color-accent-muted);
+  color: var(--color-accent);
+  background: var(--overlay-4);
+}

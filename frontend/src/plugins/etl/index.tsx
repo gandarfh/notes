@@ -1,7 +1,7 @@
+import './etl.css'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
-import type { LocalDatabase } from '../../bridge/wails'
-import { api } from '../../bridge/wails'
+import type { LocalDatabase } from './types'
 import { ETLEditor } from './ETLEditor'
 
 // ── Block Config ───────────────────────────────────────────
@@ -85,7 +85,8 @@ export interface SyncRunLog {
 
 // ── Block Renderer ─────────────────────────────────────────
 
-function ETLBlockRenderer({ block, onContentChange }: BlockRendererProps) {
+function ETLBlockRenderer({ block, ctx }: BlockRendererProps) {
+    const rpc = ctx!.rpc
     const config = useMemo(() => parseConfig(block.content), [block.content])
 
     const [job, setJob] = useState<SyncJob | null>(null)
@@ -100,18 +101,18 @@ function ETLBlockRenderer({ block, onContentChange }: BlockRendererProps) {
     const [titleValue, setTitleValue] = useState('')
 
     const persist = useCallback((next: ETLBlockConfig) => {
-        onContentChange(JSON.stringify(next))
-    }, [onContentChange])
+        ctx!.storage.setContent(JSON.stringify(next))
+    }, [ctx])
 
     // Load data on mount.
     useEffect(() => {
-        api.listETLSources().then(setSources).catch(console.error)
-        api.listLocalDatabases().then(setDatabases).catch(console.error)
+        rpc.call<SourceSpec[]>('ListETLSources').then(setSources).catch(console.error)
+        rpc.call<LocalDatabase[]>('ListLocalDatabases').then(setDatabases).catch(console.error)
         if (config.jobId) {
-            api.getETLJob(config.jobId).then(setJob).catch(() => setJob(null))
-            api.listETLRunLogs(config.jobId).then(setLogs).catch(() => setLogs([]))
+            rpc.call<SyncJob>('GetETLJob', config.jobId).then(setJob).catch(() => setJob(null))
+            rpc.call<SyncRunLog[]>('ListETLRunLogs', config.jobId).then(setLogs).catch(() => setLogs([]))
         }
-    }, [config.jobId])
+    }, [config.jobId, rpc])
 
     const handleSave = useCallback((savedJob: SyncJob) => {
         setJob(savedJob)
@@ -124,18 +125,20 @@ function ETLBlockRenderer({ block, onContentChange }: BlockRendererProps) {
         setRunning(true)
         setLastResult(null)
         try {
-            const result = await api.runETLJob(job.id)
+            const result = await rpc.call<SyncResult>('RunETLJob', job.id)
             setLastResult(result)
-            const updated = await api.getETLJob(job.id)
+            const updated = await rpc.call<SyncJob>('GetETLJob', job.id)
             setJob(updated)
             // Refresh logs.
-            api.listETLRunLogs(job.id).then(setLogs).catch(() => { })
+            rpc.call<SyncRunLog[]>('ListETLRunLogs', job.id).then(setLogs).catch(() => { })
+            // Notify other plugins
+            ctx!.events.emit('etl:job-completed', { jobId: job.id, status: result.status })
         } catch (err: any) {
             setLastResult({ jobId: job.id, status: 'error', rowsRead: 0, rowsWritten: 0, duration: 0, error: err.message })
         } finally {
             setRunning(false)
         }
-    }, [job])
+    }, [job, rpc, ctx])
 
     const handleTitleSubmit = () => {
         setEditingTitle(false)
