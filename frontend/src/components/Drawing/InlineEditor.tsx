@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react'
 import type { EditorRequest } from '../../drawing/interfaces'
+import { remapForTheme } from '../../drawing/canvasRender'
 
 interface InlineEditorProps {
     request: EditorRequest
@@ -24,7 +25,8 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
         ? `${request.fontFamily}, system-ui, sans-serif`
         : 'Inter, system-ui, sans-serif'
     const fontWeight = request.fontWeight || 400
-    const textColor = request.textColor || getComputedStyle(document.documentElement).getPropertyValue('--color-text-primary').trim() || '#e8e8f0'
+    const rawTextColor = request.textColor || getComputedStyle(document.documentElement).getPropertyValue('--color-text-primary').trim() || '#e8e8f0'
+    const textColor = remapForTheme(rawTextColor)
     const isCenter = (request.textAlign || 'center') === 'center'
 
     // Set initial content once on mount — never let React touch the DOM after this
@@ -48,23 +50,9 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
     const commit = useCallback(() => {
         if (done.current) return
         done.current = true
-        // Extract text preserving empty lines
         const el = editorRef.current
-        let val = ''
-        if (el) {
-            const nodes = el.childNodes
-            for (let i = 0; i < nodes.length; i++) {
-                const node = nodes[i]
-                if (node.nodeType === Node.TEXT_NODE) {
-                    val += node.textContent || ''
-                } else if (node.nodeName === 'BR') {
-                    val += '\n'
-                } else if (node.nodeName === 'DIV') {
-                    if (i > 0) val += '\n'
-                    val += node.textContent || ''
-                }
-            }
-        }
+        // innerText naturally handles all nested elements, preserving line breaks
+        let val = el?.innerText || ''
         val = val.replace(/^\n+/, '').replace(/\n+$/, '')
         onCommit(val)
         onClose()
@@ -76,6 +64,13 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
         request.onCancel?.()
         onClose()
     }, [onClose, request])
+
+    // Strip formatting on paste — insert plain text only
+    const handlePaste = useCallback((e: React.ClipboardEvent) => {
+        e.preventDefault()
+        const text = e.clipboardData.getData('text/plain')
+        document.execCommand('insertText', false, text)
+    }, [])
 
     useEffect(() => {
         const onMouseDown = (e: MouseEvent) => {
@@ -144,6 +139,7 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
                     suppressContentEditableWarning
                     style={textStyle}
                     onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
                 />
             </div>
         )
@@ -169,6 +165,7 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
                 suppressContentEditableWarning
                 style={textStyle}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
             />
         </div>
     )
