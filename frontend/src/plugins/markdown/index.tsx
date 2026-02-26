@@ -6,9 +6,10 @@ import 'highlight.js/styles/github-dark.min.css'
 import 'katex/dist/katex.min.css'
 import mermaid from 'mermaid'
 import DOMPurify from 'dompurify'
-import { useState, useEffect, useMemo, useCallback, memo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react'
 import type { BlockPlugin, BlockRendererProps } from '../types'
 import { getBlockFontSize } from '../../components/Block/BlockContainer'
+import { useAppStore } from '../../store'
 import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
 
 // ── Footnote pre-processor ─────────────────────────────────
@@ -221,6 +222,7 @@ function renderMarkdownWithLines(src: string): string {
 const MERMAID_PLACEHOLDER_RE = /<div class="mermaid-block" data-mermaid="([^"]*)"[^>]*><\/div>/g
 
 const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: BlockRendererProps) {
+    const previewRef = useRef<HTMLDivElement>(null)
     const [fontSize, setFontSize] = useState(() => getBlockFontSize(block.id))
 
     // Listen for font size changes from the header popup
@@ -277,6 +279,39 @@ const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: Bl
         return () => { cancelled = true }
     }, [rawHtml, block.id])
 
+    // ── Scroll to line after exiting editor ──
+    // The host sets `scrollToLine` in the store when the editor closes.
+    // This plugin reads it, scrolls to the closest data-source-line, and clears it.
+    const scrollToLine = useAppStore(s => s.scrollToLine)
+    useEffect(() => {
+        if (isEditing || !scrollToLine || !previewRef.current) return
+        const timer = setTimeout(() => {
+            // Only scroll the block that was just edited (it gets selected on close)
+            const { selectedBlockId } = useAppStore.getState()
+            if (selectedBlockId !== block.id) return
+
+            const container = previewRef.current?.closest('.block-content') as HTMLElement
+            if (!container) return
+            const lineEls = Array.from(container.querySelectorAll<HTMLElement>('[data-source-line]'))
+            const target = lineEls.reduce<{ el: HTMLElement | null; dist: number }>((acc, el) => {
+                const line = parseInt(el.dataset.sourceLine || '0', 10)
+                const dist = Math.abs(line - scrollToLine)
+                return dist < acc.dist ? { el, dist } : acc
+            }, { el: null, dist: Infinity })
+
+            if (target.el) {
+                const containerRect = container.getBoundingClientRect()
+                const targetRect = target.el.getBoundingClientRect()
+                const offset = targetRect.top - containerRect.top + container.scrollTop
+                container.scrollTo({
+                    top: Math.max(0, offset - container.clientHeight * 0.3),
+                    behavior: 'smooth',
+                })
+            }
+            useAppStore.setState({ scrollToLine: null })
+        }, 300)
+        return () => clearTimeout(timer)
+    }, [isEditing, scrollToLine, block.id])
 
     const handleClick = useCallback((e: React.MouseEvent) => {
         const anchor = (e.target as HTMLElement).closest('a')
@@ -289,6 +324,7 @@ const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: Bl
 
     return (
         <div
+            ref={previewRef}
             className={`markdown-preview ${isEditing ? '' : 'cursor-text select-text'}`}
             style={{ fontSize: `${fontSize}px` }}
             onClick={handleClick}

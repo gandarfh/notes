@@ -128,11 +128,11 @@ export function useTerminal() {
     const close = useCallback((cursorLine?: number) => {
         dispose()
         const { editingBlockId } = useAppStore.getState()
-        useAppStore.getState().setEditing(null)
-        if (cursorLine) {
-            // Store the line so the markdown preview can scroll to it
-            useAppStore.setState({ scrollToLine: cursorLine })
-        }
+        // Batch state update so React processes in one render cycle
+        useAppStore.setState({
+            editingBlockId: null,
+            scrollToLine: cursorLine || null,
+        })
         // Keep the block selected and focused after exiting editor
         if (editingBlockId) {
             useAppStore.getState().selectBlock(editingBlockId)

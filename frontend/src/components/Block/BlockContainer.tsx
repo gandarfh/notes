@@ -341,40 +341,6 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
         onEditBlock(blockId, line || 1)
     }, [block?.type, isEditing, blockId, onEditBlock])
 
-    // ── Scroll to line after exiting editor ──
-    const scrollToLine = useAppStore(s => s.scrollToLine)
-    useEffect(() => {
-        if (isEditing || !scrollToLine || !elRef.current) return
-        // Small delay to let the markdown preview render
-        const timer = setTimeout(() => {
-            const blockEl = elRef.current
-            if (!blockEl) return
-            // Find the scrollable content container inside the block
-            const scrollContainer = blockEl.querySelector('.block-content') as HTMLElement
-            if (!scrollContainer) return
-            // Find the closest data-source-line element
-            const lineEls = Array.from(scrollContainer.querySelectorAll<HTMLElement>('[data-source-line]'))
-            const target = lineEls.reduce<{ el: HTMLElement | null; dist: number }>((acc, el) => {
-                const line = parseInt(el.dataset.sourceLine || '0', 10)
-                const dist = Math.abs(line - scrollToLine)
-                return dist < acc.dist ? { el, dist } : acc
-            }, { el: null, dist: Infinity })
-
-            if (target.el) {
-                // Scroll within the container, not the page
-                const containerRect = scrollContainer.getBoundingClientRect()
-                const targetRect = target.el.getBoundingClientRect()
-                const offset = targetRect.top - containerRect.top + scrollContainer.scrollTop
-                scrollContainer.scrollTo({
-                    top: Math.max(0, offset - scrollContainer.clientHeight * 0.3),
-                    behavior: 'smooth',
-                })
-            }
-            useAppStore.setState({ scrollToLine: null })
-        }, 100)
-        return () => clearTimeout(timer)
-    }, [isEditing, scrollToLine])
-
     if (!block || !plugin) return null
 
     const Renderer = plugin.Renderer
