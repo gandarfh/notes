@@ -114,9 +114,10 @@ export interface TypeCastStage {
 
 export interface PivotStage {
     type: 'pivot'
-    rowKey: string       // column that stays as rows (e.g. 'month')
-    pivotColumn: string  // column whose values become new columns (e.g. 'LANGUAGE')
-    valueColumn: string  // column whose values fill the cells (e.g. 'count')
+    rowKeys: string[]     // columns that stay as rows (e.g. ['year', 'month'])
+    pivotColumn: string   // column whose values become new columns (e.g. 'LANGUAGE')
+    valueColumns: string[] // columns whose values fill the cells (e.g. ['count', 'avg'])
+    showTotal?: boolean   // add a Grand Total row at the bottom
 }
 
 export type Stage =
@@ -557,41 +558,66 @@ function executeTypeCast(rows: Row[], stage: TypeCastStage): Row[] {
 }
 
 function executePivot(rows: Row[], stage: PivotStage): Row[] {
-    if (!stage.rowKey || !stage.pivotColumn || !stage.valueColumn) return rows
+    // Backwards compat: migrate old formats
+    const rowKeys = stage.rowKeys || ((stage as any).rowKey ? [(stage as any).rowKey] : [])
+    const valCols = stage.valueColumns || ((stage as any).valueColumn ? [(stage as any).valueColumn] : [])
+    if (rowKeys.length === 0 || !stage.pivotColumn || valCols.length === 0) return rows
+
+    const multi = valCols.length > 1
 
     // 1. Discover all unique pivot values
-    const pivotValues = new Set<string>()
+    const pivotValues: string[] = []
+    const seen = new Set<string>()
     for (const row of rows) {
-        pivotValues.add(String(row[stage.pivotColumn] ?? ''))
+        const pv = String(row[stage.pivotColumn] ?? '')
+        if (!seen.has(pv)) { seen.add(pv); pivotValues.push(pv) }
     }
 
-    // 2. Group rows by rowKey
+    // 2. Build output column names: multi values → "go_count", single → "go"
+    const outCols: string[] = []
+    for (const pv of pivotValues) {
+        for (const vc of valCols) {
+            outCols.push(multi ? `${pv}_${vc}` : pv)
+        }
+    }
+
+    // 3. Group rows by composite row key
     const groups = new Map<string, Row[]>()
     for (const row of rows) {
-        const key = String(row[stage.rowKey] ?? '')
+        const key = rowKeys.map(k => String(row[k] ?? '')).join('\x00')
         if (!groups.has(key)) groups.set(key, [])
         groups.get(key)!.push(row)
     }
 
-    // 3. Build pivoted rows
+    // 4. Build pivoted rows
     const result: Row[] = []
     groups.forEach((groupRows) => {
-        const out: Row = { [stage.rowKey]: groupRows[0][stage.rowKey] }
+        const out: Row = {}
+        for (const k of rowKeys) out[k] = groupRows[0][k]
+        for (const c of outCols) out[c] = 0
 
-        // Initialize all pivot columns to 0
-        for (const pv of pivotValues) {
-            out[pv] = 0
-        }
-
-        // Fill with actual values
         for (const row of groupRows) {
-            const col = String(row[stage.pivotColumn] ?? '')
-            const val = row[stage.valueColumn]
-            out[col] = typeof val === 'number' ? val : Number(val) || 0
+            const pv = String(row[stage.pivotColumn] ?? '')
+            for (const vc of valCols) {
+                const colName = multi ? `${pv}_${vc}` : pv
+                const val = row[vc]
+                out[colName] = typeof val === 'number' ? val : Number(val) || 0
+            }
         }
-
         result.push(out)
     })
+
+    // 5. Grand Total row
+    if (stage.showTotal && result.length > 0) {
+        const totalRow: Row = {}
+        for (const k of rowKeys) totalRow[k] = k === rowKeys[0] ? 'Total' : ''
+        for (const c of outCols) {
+            let sum = 0
+            for (const row of result) sum += Number(row[c]) || 0
+            totalRow[c] = sum
+        }
+        result.push(totalRow)
+    }
 
     return result
 }

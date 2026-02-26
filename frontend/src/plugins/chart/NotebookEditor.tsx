@@ -62,7 +62,7 @@ export function NotebookEditor({ config, databases, dbColumns, executedRows, onC
             case 'math': stage = { type: 'math', field: '', op: 'round' }; break
             case 'default_value': stage = { type: 'default_value', field: '', defaultValue: '' }; break
             case 'type_cast': stage = { type: 'type_cast', field: '', castType: 'number' }; break
-            case 'pivot': stage = { type: 'pivot', rowKey: '', pivotColumn: '', valueColumn: '' }; break
+            case 'pivot': stage = { type: 'pivot', rowKeys: [], pivotColumn: '', valueColumns: [] }; break
             default: return
         }
         onChange({ ...config, stages: [...config.stages, stage] })
@@ -537,7 +537,25 @@ function StageBody({ stage, dbOptions, dbColumns, availableColumns, colOptions, 
                 <div className="pl-join">
                     <div className="pl-field">
                         <label className="pl-label">Rows</label>
-                        <Select value={stage.rowKey} options={colOptions} placeholder="Row key…" onChange={v => onChange({ ...stage, rowKey: v })} />
+                        <div className="pl-chips">
+                            {availableColumns.map(c => {
+                                const active = (stage.rowKeys || []).includes(c)
+                                return (
+                                    <button
+                                        key={c}
+                                        className={`pl-chip ${active ? 'active' : ''}`}
+                                        onClick={() => {
+                                            const rowKeys = active
+                                                ? (stage.rowKeys || []).filter((k: string) => k !== c)
+                                                : [...(stage.rowKeys || []), c]
+                                            onChange({ ...stage, rowKeys })
+                                        }}
+                                    >
+                                        {colName(c)}
+                                    </button>
+                                )
+                            })}
+                        </div>
                     </div>
                     <div className="pl-field">
                         <label className="pl-label">Columns</label>
@@ -545,7 +563,35 @@ function StageBody({ stage, dbOptions, dbColumns, availableColumns, colOptions, 
                     </div>
                     <div className="pl-field">
                         <label className="pl-label">Values</label>
-                        <Select value={stage.valueColumn} options={colOptions} placeholder="Value column…" onChange={v => onChange({ ...stage, valueColumn: v })} />
+                        <div className="pl-chips">
+                            {availableColumns.map(c => {
+                                const active = (stage.valueColumns || []).includes(c)
+                                return (
+                                    <button
+                                        key={c}
+                                        className={`pl-chip ${active ? 'active' : ''}`}
+                                        onClick={() => {
+                                            const valueColumns = active
+                                                ? (stage.valueColumns || []).filter((k: string) => k !== c)
+                                                : [...(stage.valueColumns || []), c]
+                                            onChange({ ...stage, valueColumns })
+                                        }}
+                                    >
+                                        {colName(c)}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                    <div className="pl-field">
+                        <label className="pl-label" style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={stage.showTotal || false}
+                                onChange={e => onChange({ ...stage, showTotal: e.target.checked })}
+                            />
+                            Grand Total
+                        </label>
                     </div>
                 </div>
             )
