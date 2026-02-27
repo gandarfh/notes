@@ -3,7 +3,7 @@ import { GRID_SIZE, snapToGrid as snap } from '../../constants'
  * Layer 4: Block — Vim-like block navigation and actions.
  *
  * j/k/h/l navigation, Enter/i edit, d/x/Delete/Backspace delete,
- * o create, H/M/L align, Escape deselect.
+ * o create, H/M/L align, F fullscreen, Escape deselect.
  *
  * Only active when NOT editing and no drawing element is selected.
  */
@@ -117,6 +117,9 @@ export function initLayer4(cb: BlockLayerCallbacks) {
                 case 'L':
                     if (selectedBlockId) { alignBlockInViewport(selectedBlockId, 'right'); return true }
                     return false
+                case 'F':
+                    if (selectedBlockId) { fullscreenBlock(selectedBlockId); return true }
+                    return false
 
                 // ── Deselect ──
                 case 'Escape':
@@ -211,6 +214,36 @@ function alignBlockInViewport(blockId: string, align: 'left' | 'center' | 'right
     const y = -block.y + canvasH * 0.01
 
     setViewport(x, y, 1)
+}
+
+function fullscreenBlock(blockId: string) {
+    const { blocks, setViewport, resizeBlock, saveBlockPosition } = useAppStore.getState()
+    const block = blocks.get(blockId)
+    if (!block) return
+
+    const canvas = document.querySelector('[data-role="canvas-container"]') as HTMLElement
+    if (!canvas) return
+
+    const canvasW = canvas.clientWidth
+    const canvasH = canvas.clientHeight
+    const pad = 20
+
+    // Save original dimensions before snap (only first time)
+    if (!snapState.has(blockId)) {
+        snapState.set(blockId, { origW: block.width, origH: block.height })
+    }
+
+    // Resize to fill viewport
+    const newW = snap(canvasW - pad * 2)
+    const newH = snap(canvasH - pad * 2)
+    resizeBlock(blockId, newW, newH)
+
+    // Center viewport on block
+    const x = -block.x + pad
+    const y = -block.y + pad
+
+    setViewport(x, y, 1)
+    saveBlockPosition(blockId)
 }
 
 function navigateBlocksHorizontal(direction: 1 | -1) {
