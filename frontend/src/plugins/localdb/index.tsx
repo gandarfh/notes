@@ -28,9 +28,14 @@ function LocalDBRenderer({ block, isSelected, ctx }: PluginRendererProps) {
     const getConfig = useCallback((): LocalDatabaseConfig => {
         if (!db) return { columns: [], activeView: 'table' }
         try {
-            const parsed = JSON.parse(db.configJson || '{}') as LocalDatabaseConfig
-            configRef.current = parsed
-            return parsed
+            const parsed = JSON.parse(db.configJson || '{}') as Partial<LocalDatabaseConfig>
+            const normalized: LocalDatabaseConfig = {
+                columns: Array.isArray(parsed.columns) ? parsed.columns : [],
+                activeView: parsed.activeView || 'table',
+                viewConfig: parsed.viewConfig,
+            }
+            configRef.current = normalized
+            return normalized
         } catch {
             return { columns: [], activeView: 'table' }
         }
@@ -220,7 +225,7 @@ function LocalDBRenderer({ block, isSelected, ctx }: PluginRendererProps) {
     const viewConfig = config.viewConfig || {}
 
     const viewProps = {
-        columns: config.columns,
+        columns: config.columns ?? [],
         rows,
         viewConfig,
         onCellChange: handleCellChange,

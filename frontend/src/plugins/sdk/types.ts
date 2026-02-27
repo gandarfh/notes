@@ -14,6 +14,14 @@
 //   - window.go / window.runtime
 
 import type { ReactNode } from 'react'
+import type { PluginEventMap, WailsEventMap } from './events'
+import type {
+    ETLSourceSpec, ETLJobInput, ETLSyncJob, ETLSyncResult,
+    ETLPreviewResult, ETLRunLog, ETLSchemaInfo, PageBlockRef,
+    LocalDatabase, LocalDBRow, LocalDBStats,
+    DBConnView, CreateDBConnInput, SchemaInfo, QueryResultView,
+    Mutation, MutationResult, HTTPResponse,
+} from '../../bridge/wails'
 
 // ── Block Data (read-only, provided by host) ───────────────
 
@@ -32,6 +40,64 @@ export interface BlockData {
     updatedAt?: string
 }
 
+// ── Namespaced RPC sub-interfaces ──────────────────────────
+// These mirror bridge/api/ but are declared here so plugins
+// can use them via PluginContext without importing bridge/ directly.
+
+export interface ETLRPC {
+    listSources(): Promise<ETLSourceSpec[]>
+    createJob(input: ETLJobInput): Promise<ETLSyncJob>
+    getJob(id: string): Promise<ETLSyncJob>
+    listJobs(): Promise<ETLSyncJob[]>
+    updateJob(id: string, input: ETLJobInput): Promise<void>
+    deleteJob(id: string): Promise<void>
+    runJob(id: string): Promise<ETLSyncResult>
+    previewSource(sourceType: string, sourceConfigJSON: string): Promise<ETLPreviewResult>
+    listRunLogs(jobID: string): Promise<ETLRunLog[]>
+    pickFile(): Promise<string>
+    listPageDatabaseBlocks(pageID: string): Promise<PageBlockRef[]>
+    discoverSchema(sourceType: string, sourceConfigJSON: string): Promise<ETLSchemaInfo>
+    listPageHTTPBlocks(pageID: string): Promise<PageBlockRef[]>
+}
+
+export interface LocalDatabaseRPC {
+    createDatabase(blockID: string, name: string): Promise<LocalDatabase>
+    getDatabase(blockID: string): Promise<LocalDatabase>
+    updateConfig(dbID: string, configJSON: string): Promise<void>
+    renameDatabase(dbID: string, name: string): Promise<void>
+    deleteDatabase(dbID: string): Promise<void>
+    listDatabases(): Promise<LocalDatabase[]>
+    createRow(dbID: string, dataJSON: string): Promise<LocalDBRow>
+    listRows(dbID: string): Promise<LocalDBRow[]>
+    updateRow(rowID: string, dataJSON: string): Promise<void>
+    deleteRow(rowID: string): Promise<void>
+    duplicateRow(rowID: string): Promise<LocalDBRow>
+    reorderRows(dbID: string, rowIDs: string[]): Promise<void>
+    batchUpdateRows(dbID: string, mutationsJSON: string): Promise<void>
+    getStats(dbID: string): Promise<LocalDBStats>
+}
+
+export interface DatabaseRPC {
+    listConnections(): Promise<DBConnView[]>
+    createConnection(input: CreateDBConnInput): Promise<DBConnView>
+    updateConnection(id: string, input: CreateDBConnInput): Promise<void>
+    deleteConnection(id: string): Promise<void>
+    testConnection(id: string): Promise<void>
+    introspect(connectionID: string): Promise<SchemaInfo>
+    executeQuery(blockID: string, connectionID: string, query: string, fetchSize: number): Promise<QueryResultView>
+    fetchMoreRows(connectionID: string, fetchSize: number): Promise<QueryResultView>
+    getCachedResult(blockID: string): Promise<QueryResultView | null>
+    clearCachedResult(blockID: string): Promise<void>
+    saveBlockConfig(blockID: string, config: string): Promise<void>
+    pickFile(): Promise<string>
+    applyMutations(connectionID: string, table: string, mutations: Mutation[]): Promise<MutationResult>
+}
+
+export interface HTTPRPC {
+    executeRequest(blockID: string, configJSON: string): Promise<HTTPResponse>
+    saveBlockConfig(blockID: string, config: string): Promise<void>
+}
+
 // ── PluginContext — injected by host ───────────────────────
 
 export interface PluginContext {
@@ -47,17 +113,33 @@ export interface PluginContext {
 
     // ── RPC (call Go backend) ──────────────────────────
     rpc: {
-        /** Call any Go App method by name */
+        /** Call any Go App method by name (low-level escape hatch) */
         call<T = any>(method: string, ...args: any[]): Promise<T>
+        /** Typed ETL API */
+        etl: ETLRPC
+        /** Typed Local Database API */
+        localdb: LocalDatabaseRPC
+        /** Typed External Database API */
+        database: DatabaseRPC
+        /** Typed HTTP block API */
+        http: HTTPRPC
     }
 
     // ── Events (inter-plugin communication) ────────────
     events: {
-        /** Emit a plugin event */
+        /** Emit a typed plugin event */
+        emit<K extends keyof PluginEventMap>(event: K, payload: PluginEventMap[K]): void
+        /** @deprecated — use typed overload above */
         emit(event: string, payload?: Record<string, unknown>): void
-        /** Subscribe to a plugin event. Returns unsub fn. */
+
+        /** Subscribe to a typed plugin event. Returns unsub fn. */
+        on<K extends keyof PluginEventMap>(event: K, handler: (payload: PluginEventMap[K]) => void): () => void
+        /** @deprecated — use typed overload above */
         on(event: string, handler: (payload: any) => void): () => void
-        /** Subscribe to a Wails backend event. Returns unsub fn. */
+
+        /** Subscribe to a typed Wails backend event. Returns unsub fn. */
+        onBackend<K extends keyof WailsEventMap>(event: K, handler: (payload: WailsEventMap[K]) => void): () => void
+        /** @deprecated — use typed overload above */
         onBackend(event: string, handler: (...args: any[]) => void): () => void
     }
 

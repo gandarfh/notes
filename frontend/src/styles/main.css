@@ -959,9 +959,18 @@
     image-rendering: auto;
   }
 
-  /* Block content — layout containment prevents repaint propagation during drag/resize */
+  /* Block content — layout containment prevents repaint propagation during drag/resize.
+     Using `layout style paint` instead of `content` to avoid size containment,
+     which causes the browser to intermittently drop the layout during state transitions
+     (e.g. loading → rendered), resulting in a visible flicker. */
   .block-content {
-    contain: content;
+    contain: layout style paint;
+  }
+
+  /* Blocks — promote to compositor layer to prevent repaint flash during
+     React state transitions (loading → content). */
+  [data-role="block"] {
+    will-change: transform;
   }
 
   /* SVG connector styling — must use CSS for SVG attributes */
@@ -1858,4 +1867,106 @@
 
 :root[data-theme="light"] .cm-content {
   color: var(--color-text-primary);
+}
+
+/* ── Toast Notifications ─────────────────────────────────── */
+
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-default);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  font-size: 0.846rem;
+  color: var(--color-text-primary);
+  max-width: 360px;
+  min-width: 220px;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: toast-slide-in 200ms ease both;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.toast__icon {
+  font-size: 1em;
+  flex-shrink: 0;
+}
+
+.toast__message {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.toast__close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 1.1em;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 100ms;
+}
+
+.toast__close:hover {
+  opacity: 1;
+}
+
+.toast--info {
+  border-left: 3px solid var(--color-accent);
+}
+
+.toast--success {
+  border-left: 3px solid var(--color-success);
+}
+
+.toast--error {
+  border-left: 3px solid var(--color-error);
+}
+
+.toast--warning {
+  border-left: 3px solid var(--color-warning);
+}
+
+.toast--info .toast__icon {
+  color: var(--color-accent);
+}
+
+.toast--success .toast__icon {
+  color: var(--color-success);
+}
+
+.toast--error .toast__icon {
+  color: var(--color-error);
+}
+
+.toast--warning .toast__icon {
+  color: var(--color-warning);
 }

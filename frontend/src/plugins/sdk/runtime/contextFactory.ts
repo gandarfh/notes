@@ -9,6 +9,9 @@
 import type { PluginContext, BlockData } from '../types'
 import { pluginBus } from './eventBus'
 import { rpcCall } from './rpcProxy'
+import { etlAPI } from '../../../bridge/api/etl'
+import { localdbAPI } from '../../../bridge/api/localdb'
+import { databaseAPI, httpAPI } from '../../../bridge/api/database'
 
 // Lazy imports to avoid circular deps — resolved at call time
 function getAppStore() {
@@ -99,6 +102,11 @@ export function createPluginContext(block: BlockData): PluginContext {
         // ── RPC ────────────────────────────────────────
         rpc: {
             call: rpcCall,
+            // Namespaced typed APIs — no more magic string method names
+            etl: etlAPI,
+            localdb: localdbAPI,
+            database: databaseAPI,
+            http: httpAPI,
         },
 
         // ── Events ─────────────────────────────────────
@@ -171,8 +179,8 @@ export function createPluginContext(block: BlockData): PluginContext {
                 return (document.documentElement.dataset.theme as 'light' | 'dark') || 'dark'
             },
 
-            toast(_message: string, _type?: 'info' | 'success' | 'error' | 'warning') {
-                // TODO: integrate with a proper toast system
+            toast(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') {
+                pluginBus.emit('ui:toast', { message, type })
             },
 
             async pickFile(_options?: {
@@ -187,12 +195,10 @@ export function createPluginContext(block: BlockData): PluginContext {
             },
 
             openUrl(url: string) {
-                // Use the Wails runtime BrowserOpenURL via the RPC proxy globals
                 const w = window as any
                 if (w.runtime?.BrowserOpenURL) {
                     w.runtime.BrowserOpenURL(url)
                 } else {
-                    // Fallback for dev/test environments
                     window.open(url, '_blank', 'noopener,noreferrer')
                 }
             },
@@ -209,7 +215,6 @@ export function createPluginContext(block: BlockData): PluginContext {
         // ── Editor ─────────────────────────────────────
         editor: {
             onClose(cb: (cursorLine: number) => void) {
-                // Subscribe to the plugin bus event emitted by useTerminal on close
                 return pluginBus.on('editor:closed', (payload: any) => {
                     if (payload?.blockId === blockId) {
                         cb(payload.cursorLine ?? 0)

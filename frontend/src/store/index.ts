@@ -8,6 +8,7 @@ import { createNotebookSlice } from './notebookSlice'
 import { createCanvasSlice, createBlockSlice } from './canvasSlice'
 import { createDrawingSlice } from './drawingSlice'
 import { createConnectionSlice } from './connectionSlice'
+import { pluginBus } from '../plugins/sdk/runtime/eventBus'
 
 export const useAppStore = create<AppState>((...a) => ({
     ...createNotebookSlice(...a),
@@ -53,8 +54,14 @@ export const useAppStore = create<AppState>((...a) => ({
         const [, get] = [a[0], a[1]]
         const unsubs: (() => void)[] = []
 
+        // Neovim updated block content
         unsubs.push(onEvent('block:content-updated', (data: { blockId: string; content: string }) => {
             get().updateBlock(data.blockId, { content: data.content })
+        }))
+
+        // ETL sync completed — relay to plugins so LocalDB/Chart blocks refresh
+        unsubs.push(onEvent('db:updated', (data: { databaseId: string; jobId: string }) => {
+            pluginBus.emit('localdb:data-changed', { databaseId: data.databaseId })
         }))
 
         return () => unsubs.forEach(fn => fn())

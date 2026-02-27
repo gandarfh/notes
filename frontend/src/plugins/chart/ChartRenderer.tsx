@@ -122,18 +122,17 @@ export function ChartRenderer({ config }: ChartRendererProps) {
                     const color = s.color || COLORS[i % COLORS.length]
                     const stacked = forceStacked || options.stacked
                     const props: Record<string, unknown> = {
-                        key: s.key,
                         dataKey: s.key,
                         name: s.name,
                         isAnimationActive: animate,
                         stackId: stacked ? 'stack' : undefined,
                     }
                     if (type === 'bar') {
-                        return <Bar {...props} fill={color} radius={stacked ? undefined : [3, 3, 0, 0]} />
+                        return <Bar key={s.key} {...props} fill={color} radius={stacked ? undefined : [3, 3, 0, 0]} />
                     } else if (type === 'area') {
-                        return <Area {...props} dataKey={s.key} stroke={color} fill={color} fillOpacity={stacked ? 0.6 : 0.15} strokeWidth={2} type={lineType || 'monotone'} />
+                        return <Area key={s.key} {...props} dataKey={s.key} stroke={color} fill={color} fillOpacity={stacked ? 0.6 : 0.15} strokeWidth={2} type={lineType || 'monotone'} />
                     } else {
-                        return <Line {...props} stroke={color} strokeWidth={2} dot={{ r: 3 }} type={lineType || 'monotone'} />
+                        return <Line key={s.key} {...props} stroke={color} strokeWidth={2} dot={{ r: 3 }} type={lineType || 'monotone'} />
                     }
                 })}
             </ChartComp>

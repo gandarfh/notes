@@ -2,15 +2,20 @@
 // Plugin Event Bus — typed inter-plugin communication
 // ═══════════════════════════════════════════════════════════
 
-type Handler = (payload: any) => void
+import type { PluginEventMap, WailsEventMap } from '../events'
+
+type AnyHandler = (payload: any) => void
 
 export class PluginEventBus {
-    private listeners = new Map<string, Set<Handler>>()
+    private listeners = new Map<string, Set<AnyHandler>>()
 
     /**
-     * Emit an event to all subscribers.
+     * Emit a typed plugin event.
      */
-    emit(event: string, payload?: Record<string, unknown>): void {
+    emit<K extends keyof PluginEventMap>(event: K, payload: PluginEventMap[K]): void
+    /** @internal escape hatch for legacy call-sites */
+    emit(event: string, payload?: Record<string, unknown>): void
+    emit(event: string, payload?: any): void {
         const handlers = this.listeners.get(event)
         if (!handlers) return
         for (const fn of handlers) {
@@ -23,9 +28,12 @@ export class PluginEventBus {
     }
 
     /**
-     * Subscribe to an event. Returns an unsubscribe function.
+     * Subscribe to a typed plugin event. Returns an unsubscribe function.
      */
-    on(event: string, handler: Handler): () => void {
+    on<K extends keyof PluginEventMap>(event: K, handler: (payload: PluginEventMap[K]) => void): () => void
+    /** @internal escape hatch for legacy call-sites */
+    on(event: string, handler: AnyHandler): () => void
+    on(event: string, handler: AnyHandler): () => void {
         if (!this.listeners.has(event)) {
             this.listeners.set(event, new Set())
         }
@@ -37,7 +45,7 @@ export class PluginEventBus {
     }
 
     /**
-     * Subscribe to a Wails backend event.
+     * Subscribe to a typed Wails backend event.
      * Wraps window.runtime.EventsOn and returns unsub.
      *
      * IMPORTANT: Wails `EventsOff(event)` removes ALL handlers for that event globally.
@@ -47,6 +55,12 @@ export class PluginEventBus {
     private backendHandlers = new Map<string, Set<(...args: any[]) => void>>()
     private backendDispatchers = new Map<string, (...args: any[]) => void>()
 
+    onBackend<K extends keyof WailsEventMap>(
+        event: K,
+        handler: (payload: WailsEventMap[K]) => void,
+    ): () => void
+    /** @internal escape hatch */
+    onBackend(event: string, handler: (...args: any[]) => void): () => void
     onBackend(event: string, handler: (...args: any[]) => void): () => void {
         const runtime = (window as any).runtime
         if (!runtime?.EventsOn) {

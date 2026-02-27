@@ -11,6 +11,8 @@
   color: var(--color-text-primary);
   display: flex;
   flex-direction: column;
+  /* Prevent repaint flash during loading→rendered transitions */
+  contain: layout style paint;
 }
 
 /* ── Title Bar ── */

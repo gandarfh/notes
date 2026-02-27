@@ -5,51 +5,45 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
+	"time"
 
-	"github.com/fsnotify/fsnotify"
-	"github.com/robfig/cron/v3"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"notes/internal/dbclient"
-	"notes/internal/etl/sources"
 	"notes/internal/neovim"
+	"notes/internal/plugins"
 	"notes/internal/secret"
+	"notes/internal/service"
 	"notes/internal/storage"
 	"notes/internal/terminal"
 )
 
 // App is the main Wails application struct.
+// It is a thin Wails adapter; all business logic lives in the service layer.
 // All exported methods are available as Wails bindings.
 type App struct {
 	ctx context.Context
 
-	db        *storage.DB
-	notebooks *storage.NotebookStore
-	blocks    *storage.BlockStore
-	conns     *storage.ConnectionStore
-	undos     *storage.UndoStore
-	nvim      *neovim.Bridge
-	term      *terminal.Manager
+	// Core storage
+	db    *storage.DB
+	undos *storage.UndoStore
+	// Canvas connections (arrows between blocks) — kept here for app_connection.go
+	conns *storage.ConnectionStore
 
-	// Track which block is being edited
+	// Services (business logic layer)
+	notebooks *service.NotebookService
+	blocks    *service.BlockService
+	etl       *service.ETLService
+	localdb   *service.LocalDBService
+	database  *service.DatabaseService
+	window    *service.WindowSettingsService
+
+	// Plugin registry
+	pluginRegistry *service.GoPluginRegistry
+
+	// Terminal / editor
+	term           *terminal.Manager
+	nvim           *neovim.Bridge
 	editingBlockID string
-
-	// Local Database plugin
-	localDBStore *storage.LocalDatabaseStore
-
-	// Database plugin
-	secrets          secret.SecretStore
-	dbConnStore      *storage.DBConnectionStore
-	dbResultStore    *storage.QueryResultStore
-	activeConnectors map[string]dbclient.Connector // connID → open connector
-	connectorsMu     sync.Mutex
-
-	// ETL plugin
-	etlStore       *storage.ETLStore
-	etlWatcher     *fsnotify.Watcher
-	etlWatchCancel context.CancelFunc
-	etlCron        *cron.Cron
 }
 
 // New creates a new App.
@@ -57,7 +51,16 @@ func New() *App {
 	return &App{}
 }
 
-// Startup is called when the app starts.
+// ── EventEmitter implementation ─────────────────────────────
+// Allows services to emit Wails events without importing wailsRuntime directly.
+
+func (a *App) Emit(_ context.Context, event string, data any) {
+	wailsRuntime.EventsEmit(a.ctx, event, data)
+}
+
+// ── Startup ────────────────────────────────────────────────
+
+// Startup is called when the app starts. Sets up storage, services, and plugins.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 
@@ -74,40 +77,54 @@ func (a *App) Startup(ctx context.Context) {
 		wailsRuntime.LogFatalf(ctx, "Failed to open database: %v", err)
 		return
 	}
-
 	a.db = db
-	a.notebooks = storage.NewNotebookStore(db)
-	a.blocks = storage.NewBlockStore(db)
-	a.conns = storage.NewConnectionStore(db)
-	a.undos = storage.NewUndoStore(db)
 
-	// Local Database plugin store
-	a.localDBStore = storage.NewLocalDatabaseStore(db)
+	// ── Storage stores ──────────────────────────────────────
+	notebooksStore := storage.NewNotebookStore(db)
+	blocksStore := storage.NewBlockStore(db)
+	connsStore := storage.NewConnectionStore(db)
+	undoStore := storage.NewUndoStore(db)
+	localDBStore := storage.NewLocalDatabaseStore(db)
+	etlStore := storage.NewETLStore(db)
+	dbConnStore := storage.NewDBConnectionStore(db)
 
-	// Database plugin stores
-	a.secrets = secret.NewKeychainStore()
-	a.dbConnStore = storage.NewDBConnectionStore(db)
-	a.dbResultStore = storage.NewQueryResultStore(db)
-	a.activeConnectors = make(map[string]dbclient.Connector)
+	a.undos = undoStore
+	a.conns = connsStore
 
-	// ETL plugin store
-	a.etlStore = storage.NewETLStore(db)
-	sources.SetBlockResolver(&appBlockResolver{app: a})
-	sources.SetDBProvider(&appDBProvider{app: a})
-	sources.SetHTTPBlockResolver(&appHTTPBlockResolver{app: a})
-	a.startETLWatchers()
+	// Secret store (macOS Keychain)
+	secretStore := secret.NewKeychainStore()
 
-	// Embedded terminal: PTY output → base64 → frontend event
+	// ── Services ────────────────────────────────────────────
+	// App itself implements EventEmitter — emits Wails events to the frontend.
+	a.blocks = service.NewBlockService(blocksStore, dataDir, a)
+	a.localdb = service.NewLocalDBService(localDBStore)
+	a.database = service.NewDatabaseService(dbConnStore, secretStore, blocksStore)
+	a.etl = service.NewETLService(etlStore, localDBStore, a)
+	a.notebooks = service.NewNotebookService(notebooksStore, a.blocks, connsStore, dataDir, a)
+	a.window = service.NewWindowSettingsService(db)
+
+	// Restore saved window size
+	win := a.window.LoadWindowSize()
+	wailsRuntime.WindowSetSize(ctx, win.Width, win.Height)
+
+	// ── Plugin Registry ─────────────────────────────────────
+	a.pluginRegistry = service.NewGoPluginRegistry()
+	a.pluginRegistry.Register(plugins.NewLocalDBPlugin(a.localdb))
+	a.pluginRegistry.Register(plugins.NewHTTPPlugin(blocksStore))
+
+	// ETL block resolver adapters (remain in app layer since they need ctx)
+	setupETLAdapters(a)
+
+	// Start ETL watchers (cron + file watch)
+	a.etl.RestartWatchers(ctx)
+
+	// ── Terminal / Neovim ───────────────────────────────────
 	a.term = terminal.New(terminalDataCallback(a), terminalExitCallback(a))
 
-	// Neovim bridge for file watching (still used for live preview updates)
 	nvim, err := neovim.New(func(blockID, content string) {
-		block, err := a.blocks.GetBlock(blockID)
-		if err != nil {
+		if err := a.blocks.UpdateBlockContent(blockID, content); err != nil {
 			return
 		}
-		block.Content = content
-		a.blocks.UpdateBlock(block)
 		wailsRuntime.EventsEmit(ctx, "block:content-updated", map[string]string{
 			"blockId": blockID,
 			"content": content,
@@ -119,23 +136,39 @@ func (a *App) Startup(ctx context.Context) {
 	a.nvim = nvim
 }
 
+// ── Shutdown ────────────────────────────────────────────────
+
 // Shutdown is called when the app is closing.
+// Waits up to 3 seconds for in-progress ETL jobs to finish (graceful shutdown).
 func (a *App) Shutdown(ctx context.Context) {
+	// 1. Persist window size before anything closes
+	if a.window != nil {
+		w, h := wailsRuntime.WindowGetSize(ctx)
+		_ = a.window.SaveWindowSize(w, h)
+	}
+
+	// 2. Stop accepting new terminal/editor input
 	if a.term != nil {
 		a.term.Close()
 	}
 	if a.nvim != nil {
 		a.nvim.Close()
 	}
-	a.stopETLWatchers()
-	// Close all active database connectors
-	a.connectorsMu.Lock()
-	for _, c := range a.activeConnectors {
-		c.Close()
-	}
-	a.activeConnectors = nil
-	a.connectorsMu.Unlock()
 
+	// 3. Graceful ETL shutdown — wait up to 3s for running jobs
+	if a.etl != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		a.etl.WaitRunning(shutdownCtx)
+		a.etl.Stop()
+	}
+
+	// 4. Close all active database connectors
+	if a.database != nil {
+		a.database.Close()
+	}
+
+	// 5. Close the SQLite database
 	if a.db != nil {
 		a.db.Close()
 	}
