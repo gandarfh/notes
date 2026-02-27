@@ -9,6 +9,7 @@ import { GRID_SIZE, snapToGrid as snap } from '../../constants'
  */
 import { registerLayer } from '../InputManager'
 import { useAppStore } from '../../store'
+import { BlockRegistry } from '../../plugins'
 
 
 // Track original dimensions before snap resize (Shift+H/M/L)
@@ -70,7 +71,7 @@ export function initLayer4(cb: BlockLayerCallbacks) {
                 case 'i': {
                     if (selectedBlockId) {
                         const block = blocks.get(selectedBlockId)
-                        if (block?.type === 'markdown') {
+                        if (block && BlockRegistry.get(block.type)?.capabilities?.editable) {
                             callbacks.onEditBlock(selectedBlockId, 1)
                             return true
                         }

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -29,8 +30,26 @@ func (a *App) OpenBlockInEditor(blockID string, lineNumber int) error {
 	if err != nil {
 		return err
 	}
+
+	// Auto-create file on first edit if none exists (legacy blocks)
 	if b.FilePath == "" {
-		return fmt.Errorf("block %s has no file path", blockID)
+		ext := ".md"
+		if b.Type == "code" {
+			ext = ".txt"
+		}
+		homeDir, _ := os.UserHomeDir()
+		dir := filepath.Join(homeDir, ".local", "share", "notes", b.PageID)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create block dir: %w", err)
+		}
+		fp := filepath.Join(dir, b.ID+ext)
+		if err := os.WriteFile(fp, []byte(b.Content), 0644); err != nil {
+			return fmt.Errorf("create block file: %w", err)
+		}
+		b.FilePath = fp
+		if err := a.blocks.UpdateBlock(b); err != nil {
+			return fmt.Errorf("save file path: %w", err)
+		}
 	}
 
 	a.editingBlockID = blockID

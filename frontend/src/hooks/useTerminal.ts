@@ -131,15 +131,19 @@ export function useTerminal() {
         const { editingBlockId } = useAppStore.getState()
         // Clear editing state
         useAppStore.setState({ editingBlockId: null })
-        // Notify plugins via bus — markdown plugin handles scroll internally
+        // Notify plugins via bus — delayed to let React re-render and mount
+        // the preview component (whose useEffect registers the listener)
         if (editingBlockId) {
-            pluginBus.emit('editor:closed', { blockId: editingBlockId, cursorLine: cursorLine ?? 0 })
             // Keep the block selected and focused after exiting editor
             useAppStore.getState().selectBlock(editingBlockId)
             requestAnimationFrame(() => {
                 const el = document.querySelector(`[data-block-id="${editingBlockId}"]`) as HTMLElement
                 if (el) el.focus({ preventScroll: true })
             })
+            // Emit after preview mounts so scroll-to-line listener is registered
+            setTimeout(() => {
+                pluginBus.emit('editor:closed', { blockId: editingBlockId, cursorLine: cursorLine ?? 0 })
+            }, 100)
         }
     }, [dispose])
 

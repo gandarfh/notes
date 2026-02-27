@@ -125,13 +125,15 @@ function CodeHeaderExtension({ blockId, ctx }: { blockId: string; ctx: PluginCon
 
     const handleChange = async (newExt: string) => {
         if (!ctx.block.filePath) return
-        const parts = ctx.block.filePath.split('.')
-        parts[parts.length - 1] = newExt
-        const newPath = parts.join('.')
         try {
-            await ctx.rpc.call('UpdateBlockFilePath', blockId, newPath)
+            const newPath = await ctx.rpc.call<string>('ChangeBlockFileExt', blockId, '.' + newExt)
+            if (newPath) {
+                // Update frontend store so the UI reflects the new extension
+                const store = (window as any).__pluginSDK_appStore
+                if (store) store.getState().updateBlock(blockId, { filePath: newPath })
+            }
         } catch (err) {
-            console.error('[CodePlugin] Failed to update file extension:', err)
+            console.error('[CodePlugin] Failed to change file extension:', err)
         }
     }
 

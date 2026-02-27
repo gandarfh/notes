@@ -26,6 +26,7 @@ type Manager struct {
 	pendingCols uint16
 	pendingRows uint16
 	cursorFile  string // temp file where Neovim writes cursor position
+	shellPath   string // user's full login shell PATH (resolved once)
 }
 
 // resolveEditor finds the absolute path for the editor binary.
@@ -62,6 +63,22 @@ func resolveEditor(name string) string {
 	return name
 }
 
+// resolveShellPath gets the user's full login shell PATH.
+// macOS GUI apps (Wails) inherit a minimal PATH; this runs the user's
+// login shell to capture the complete PATH so Neovim child processes
+// (LSPs, formatters, etc.) can find installed tools.
+func resolveShellPath() string {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/zsh"
+	}
+	out, err := exec.Command(shell, "-lc", "echo $PATH").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 // New creates a new terminal manager.
 func New(onData func(data []byte), onExit func(exitLine int)) *Manager {
 	editor := os.Getenv("EDITOR")
@@ -77,6 +94,7 @@ func New(onData func(data []byte), onExit func(exitLine int)) *Manager {
 		pendingCols: 80,
 		pendingRows: 24,
 		cursorFile:  cursorFile,
+		shellPath:   resolveShellPath(),
 	}
 }
 
@@ -106,10 +124,29 @@ func (m *Manager) OpenFile(filePath string, lineNumber int) error {
 	)
 
 	cmd := exec.Command(m.editor, args...)
-	cmd.Env = append(os.Environ(),
+
+	// Build environment: start from current env, override PATH with the
+	// user's full login shell PATH so child processes find installed tools.
+	env := os.Environ()
+	if m.shellPath != "" {
+		// Replace existing PATH entry
+		replaced := false
+		for i, e := range env {
+			if strings.HasPrefix(e, "PATH=") {
+				env[i] = "PATH=" + m.shellPath
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			env = append(env, "PATH="+m.shellPath)
+		}
+	}
+	env = append(env,
 		"TERM=xterm-256color",
 		"COLORTERM=truecolor",
 	)
+	cmd.Env = env
 
 	// Start PTY with the correct initial size so Neovim renders properly
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{

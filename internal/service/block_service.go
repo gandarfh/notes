@@ -10,6 +10,8 @@ import (
 
 	"notes/internal/domain"
 	"notes/internal/storage"
+
+	"github.com/google/uuid"
 )
 
 // ─────────────────────────────────────────────────────────────
@@ -30,15 +32,44 @@ func NewBlockService(store *storage.BlockStore, dataDir string, emitter EventEmi
 
 // CreateBlock creates a new block on a page.
 func (s *BlockService) CreateBlock(pageID, blockType string, x, y, width, height float64) (*domain.Block, error) {
+	id := uuid.New().String()
+
+	// Type-specific defaults
+	content := "{}"
+	ext := ""
+	switch domain.BlockType(blockType) {
+	case domain.BlockTypeMarkdown:
+		content = "# New Note\n"
+		ext = ".md"
+	case domain.BlockTypeCode:
+		content = ""
+		ext = ".txt"
+	}
+
 	b := &domain.Block{
+		ID:      id,
 		PageID:  pageID,
 		Type:    domain.BlockType(blockType),
 		X:       x,
 		Y:       y,
 		Width:   width,
 		Height:  height,
-		Content: "{}",
+		Content: content,
 	}
+
+	// Auto-create backing file for editable block types
+	if ext != "" {
+		dir := filepath.Join(s.dataDir, pageID)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return nil, fmt.Errorf("create block dir: %w", err)
+		}
+		fp := filepath.Join(dir, id+ext)
+		if err := os.WriteFile(fp, []byte(content), 0644); err != nil {
+			return nil, fmt.Errorf("create block file: %w", err)
+		}
+		b.FilePath = fp
+	}
+
 	if err := s.store.CreateBlock(b); err != nil {
 		return nil, fmt.Errorf("create block: %w", err)
 	}

@@ -426,7 +426,11 @@ export function useDrawing(
             }
 
             // Global drawing shortcuts (skip if shift or meta/ctrl is held)
+            // Keys 'd' and 'l' conflict with block layer (delete / nav-right),
+            // so yield them when a block is selected. Other tool-switch keys
+            // (m, t, c, 1-6) don't conflict and always work.
             const mod = e.ctrlKey || e.metaKey
+            const blockSelected = !!useAppStore.getState().selectedBlockId
             if (!e.shiftKey && !mod) switch (e.key.toLowerCase()) {
                 case '1': ctx.setSubTool('draw-select'); return true
                 case '2': ctx.setSubTool('rectangle'); return true
@@ -436,9 +440,10 @@ export function useDrawing(
                 case '6': ctx.setSubTool('freedraw'); return true
                 case 't': ctx.setSubTool('text'); return true
                 case 'm': ctx.setSubTool('block'); return true
-                case 'd': ctx.setSubTool('db-block'); return true
                 case 'c': ctx.setSubTool('code-block'); return true
-                case 'l': ctx.setSubTool('localdb-block'); return true
+                // 'd' and 'l' conflict with block layer — skip when a block is selected
+                case 'd': if (!blockSelected) { ctx.setSubTool('db-block'); return true } break
+                case 'l': if (!blockSelected) { ctx.setSubTool('localdb-block'); return true } break
             }
             switch (e.key.toLowerCase()) {
                 case 'delete': case 'backspace':
@@ -452,7 +457,11 @@ export function useDrawing(
                         selectedElementRef.current = null
                         selectedElementsRef.current.clear()
                         render()
+                        ctx.setSubTool('draw-select')
+                        return true
                     }
+                    // No drawing selection — let block layer handle Escape (deselect block)
+                    if (blockSelected) return false
                     ctx.setSubTool('draw-select')
                     return true
             }
