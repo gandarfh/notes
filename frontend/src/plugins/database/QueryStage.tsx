@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
-import type { DBConnView, QueryResultView, SchemaInfo, Mutation } from '../../bridge/wails'
+import type { DBConnView, QueryResultView, SchemaInfo, Mutation } from './types'
 import { EJSON } from 'bson'
 import { QueryEditor } from './QueryEditor'
 import { ResultsTable } from './ResultsTable'

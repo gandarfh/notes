@@ -68,21 +68,21 @@ declare global {
           BatchUpdateLocalDBRows(dbID: string, mutationsJSON: string): Promise<void>
           GetLocalDatabaseStats(dbID: string): Promise<LocalDBStats>
           // ETL plugin
-          ListETLSources(): Promise<any[]>
-          CreateETLJob(input: any): Promise<any>
-          GetETLJob(id: string): Promise<any>
-          ListETLJobs(): Promise<any[]>
-          UpdateETLJob(id: string, input: any): Promise<void>
+          ListETLSources(): Promise<ETLSourceSpec[]>
+          CreateETLJob(input: ETLJobInput): Promise<ETLSyncJob>
+          GetETLJob(id: string): Promise<ETLSyncJob>
+          ListETLJobs(): Promise<ETLSyncJob[]>
+          UpdateETLJob(id: string, input: ETLJobInput): Promise<void>
           DeleteETLJob(id: string): Promise<void>
-          RunETLJob(id: string): Promise<any>
-          PreviewETLSource(sourceType: string, sourceConfigJSON: string): Promise<any>
-          ListETLRunLogs(jobID: string): Promise<any[]>
+          RunETLJob(id: string): Promise<ETLSyncResult>
+          PreviewETLSource(sourceType: string, sourceConfigJSON: string): Promise<ETLPreviewResult>
+          ListETLRunLogs(jobID: string): Promise<ETLRunLog[]>
           PickETLFile(): Promise<string>
-          ListPageDatabaseBlocks(pageID: string): Promise<any[]>
-          DiscoverETLSchema(sourceType: string, sourceConfigJSON: string): Promise<any>
-          ExecuteHTTPRequest(blockID: string, configJSON: string): Promise<any>
+          ListPageDatabaseBlocks(pageID: string): Promise<PageBlockRef[]>
+          DiscoverETLSchema(sourceType: string, sourceConfigJSON: string): Promise<ETLSchemaInfo>
+          ExecuteHTTPRequest(blockID: string, configJSON: string): Promise<HTTPResponse>
           SaveBlockHTTPConfig(blockID: string, config: string): Promise<void>
-          ListPageHTTPBlocks(pageID: string): Promise<any[]>
+          ListPageHTTPBlocks(pageID: string): Promise<PageBlockRef[]>
         }
       }
     }
@@ -277,97 +277,127 @@ export interface LocalDBStats {
   lastUpdated: string
 }
 
-function getAPI() {
-  return window.go.app.App
+// ── ETL Plugin Types ──────────────────────────────────────
+
+export interface ETLSourceSpec {
+  type: string
+  label: string
+  icon: string
+  configFields: ETLConfigField[]
 }
 
-export const api = {
-  listNotebooks: () => getAPI().ListNotebooks(),
-  createNotebook: (name: string) => getAPI().CreateNotebook(name),
-  renameNotebook: (id: string, name: string) => getAPI().RenameNotebook(id, name),
-  deleteNotebook: (id: string) => getAPI().DeleteNotebook(id),
-
-  listPages: (notebookID: string) => getAPI().ListPages(notebookID),
-  createPage: (notebookID: string, name: string) => getAPI().CreatePage(notebookID, name),
-  getPageState: (pageID: string) => getAPI().GetPageState(pageID),
-  renamePage: (id: string, name: string) => getAPI().RenamePage(id, name),
-  updateViewport: (pageID: string, x: number, y: number, zoom: number) => getAPI().UpdateViewport(pageID, x, y, zoom),
-  updateDrawingData: (pageID: string, data: string) => getAPI().UpdateDrawingData(pageID, data),
-  deletePage: (id: string) => getAPI().DeletePage(id),
-
-  createBlock: (pageID: string, type: string, x: number, y: number, w: number, h: number) => getAPI().CreateBlock(pageID, type, x, y, w, h),
-  updateBlockPosition: (id: string, x: number, y: number, w: number, h: number) => getAPI().UpdateBlockPosition(id, x, y, w, h),
-  updateBlockContent: (id: string, content: string) => getAPI().UpdateBlockContent(id, content),
-  deleteBlock: (id: string) => getAPI().DeleteBlock(id),
-  saveImageFile: (blockID: string, dataURL: string): Promise<string> => getAPI().SaveImageFile(blockID, dataURL),
-  getImageData: (blockID: string): Promise<string> => getAPI().GetImageData(blockID),
-  openBlockInEditor: (id: string, lineNumber: number) => getAPI().OpenBlockInEditor(id, lineNumber),
-  pickTextFile: (): Promise<string> => getAPI().PickTextFile(),
-  updateBlockFilePath: (blockID: string, filePath: string): Promise<string> => getAPI().UpdateBlockFilePath(blockID, filePath),
-  changeBlockFileExt: (blockID: string, newExt: string): Promise<string> => getAPI().ChangeBlockFileExt(blockID, newExt),
-
-  createConnection: (pageID: string, from: string, to: string) => getAPI().CreateConnection(pageID, from, to),
-  updateConnection: (id: string, label: string, color: string, style: string) => getAPI().UpdateConnection(id, label, color, style),
-  deleteConnection: (id: string) => getAPI().DeleteConnection(id),
-
-  terminalWrite: (data: string) => getAPI().TerminalWrite(data),
-  terminalResize: (cols: number, rows: number) => getAPI().TerminalResize(cols, rows),
-  closeEditor: () => getAPI().CloseEditor(),
-  loadUndoTree: (pageID: string): Promise<UndoTree | null> => getAPI().LoadUndoTree(pageID),
-  pushUndoNode: (pageID: string, nodeID: string, parentID: string, label: string, snapshotJSON: string): Promise<UndoNode> => getAPI().PushUndoNode(pageID, nodeID, parentID, label, snapshotJSON),
-  goToUndoNode: (pageID: string, nodeID: string) => getAPI().GoToUndoNode(pageID, nodeID),
-  restorePageBlocks: (pageID: string, blocks: Block[]) => getAPI().RestorePageBlocks(pageID, blocks),
-
-  // Database plugin
-  listDatabaseConnections: () => getAPI().ListDatabaseConnections(),
-  createDatabaseConnection: (input: CreateDBConnInput) => getAPI().CreateDatabaseConnection(input),
-  updateDatabaseConnection: (id: string, input: CreateDBConnInput) => getAPI().UpdateDatabaseConnection(id, input),
-  deleteDatabaseConnection: (id: string) => getAPI().DeleteDatabaseConnection(id),
-  testDatabaseConnection: (id: string) => getAPI().TestDatabaseConnection(id),
-  introspectDatabase: (connectionID: string) => getAPI().IntrospectDatabase(connectionID),
-  executeQuery: (blockID: string, connectionID: string, query: string, fetchSize: number) => getAPI().ExecuteQuery(blockID, connectionID, query, fetchSize),
-  fetchMoreRows: (connectionID: string, fetchSize: number) => getAPI().FetchMoreRows(connectionID, fetchSize),
-  getCachedResult: (blockID: string) => getAPI().GetCachedResult(blockID),
-  clearCachedResult: (blockID: string) => getAPI().ClearCachedResult(blockID),
-  saveBlockDatabaseConfig: (blockID: string, config: string) => getAPI().SaveBlockDatabaseConfig(blockID, config),
-  pickDatabaseFile: () => getAPI().PickDatabaseFile(),
-  applyMutations: (connectionID: string, table: string, mutations: Mutation[]) => getAPI().ApplyMutations(connectionID, table, mutations),
-
-  // Local Database plugin
-  createLocalDatabase: (blockID: string, name: string) => getAPI().CreateLocalDatabase(blockID, name),
-  getLocalDatabase: (blockID: string) => getAPI().GetLocalDatabase(blockID),
-  updateLocalDatabaseConfig: (dbID: string, configJSON: string) => getAPI().UpdateLocalDatabaseConfig(dbID, configJSON),
-  renameLocalDatabase: (dbID: string, name: string) => getAPI().RenameLocalDatabase(dbID, name),
-  deleteLocalDatabase: (dbID: string) => getAPI().DeleteLocalDatabase(dbID),
-  listLocalDatabases: () => getAPI().ListLocalDatabases(),
-  createLocalDBRow: (dbID: string, dataJSON: string) => getAPI().CreateLocalDBRow(dbID, dataJSON),
-  listLocalDBRows: (dbID: string) => getAPI().ListLocalDBRows(dbID),
-  updateLocalDBRow: (rowID: string, dataJSON: string) => getAPI().UpdateLocalDBRow(rowID, dataJSON),
-  deleteLocalDBRow: (rowID: string) => getAPI().DeleteLocalDBRow(rowID),
-  duplicateLocalDBRow: (rowID: string) => getAPI().DuplicateLocalDBRow(rowID),
-  reorderLocalDBRows: (dbID: string, rowIDs: string[]) => getAPI().ReorderLocalDBRows(dbID, rowIDs),
-  batchUpdateLocalDBRows: (dbID: string, mutationsJSON: string) => getAPI().BatchUpdateLocalDBRows(dbID, mutationsJSON),
-  getLocalDatabaseStats: (dbID: string) => getAPI().GetLocalDatabaseStats(dbID),
-
-  // ETL plugin
-  listETLSources: () => getAPI().ListETLSources(),
-  createETLJob: (input: any) => getAPI().CreateETLJob(input),
-  getETLJob: (id: string) => getAPI().GetETLJob(id),
-  listETLJobs: () => getAPI().ListETLJobs(),
-  updateETLJob: (id: string, input: any) => getAPI().UpdateETLJob(id, input),
-  deleteETLJob: (id: string) => getAPI().DeleteETLJob(id),
-  runETLJob: (id: string) => getAPI().RunETLJob(id),
-  previewETLSource: (sourceType: string, sourceConfigJSON: string) => getAPI().PreviewETLSource(sourceType, sourceConfigJSON),
-  listETLRunLogs: (jobID: string) => getAPI().ListETLRunLogs(jobID),
-  pickETLFile: () => getAPI().PickETLFile(),
-  listPageDatabaseBlocks: (pageID: string) => getAPI().ListPageDatabaseBlocks(pageID),
-  discoverETLSchema: (sourceType: string, sourceConfigJSON: string) => getAPI().DiscoverETLSchema(sourceType, sourceConfigJSON),
-
-  // HTTP Block
-  executeHTTPRequest: (blockID: string, configJSON: string) => getAPI().ExecuteHTTPRequest(blockID, configJSON),
-  saveBlockHTTPConfig: (blockID: string, config: string) => getAPI().SaveBlockHTTPConfig(blockID, config),
-  listPageHTTPBlocks: (pageID: string) => getAPI().ListPageHTTPBlocks(pageID),
+export interface ETLConfigField {
+  key: string
+  label: string
+  type: string
+  required: boolean
+  options?: string[]
+  default?: string
+  help?: string
+  placeholder?: string
 }
+
+export interface ETLJobInput {
+  name: string
+  sourceType: string
+  sourceConfig: Record<string, string>
+  transforms: ETLTransformConfig[]
+  targetDbId: string
+  syncMode: string
+  dedupeKey: string
+  triggerType: string
+  triggerConfig: string
+  enabled: boolean
+}
+
+export interface ETLTransformConfig {
+  type: string
+  config: Record<string, string>
+}
+
+export interface ETLSyncJob {
+  id: string
+  name: string
+  sourceType: string
+  sourceConfig: Record<string, string>
+  transforms: ETLTransformConfig[]
+  targetDbId: string
+  syncMode: string
+  dedupeKey: string
+  triggerType: string
+  triggerConfig: string
+  enabled: boolean
+  lastRunAt: string
+  lastStatus: string
+  lastError: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ETLSyncResult {
+  jobId: string
+  status: string
+  rowsRead: number
+  rowsWritten: number
+  duration: number
+  error?: string
+}
+
+export interface ETLPreviewResult {
+  columns: string[]
+  rows: Record<string, string>[]
+  totalRows: number
+}
+
+export interface ETLRunLog {
+  id: string
+  jobId: string
+  startedAt: string
+  finishedAt: string
+  status: string
+  rowsRead: number
+  rowsWritten: number
+  error?: string
+}
+
+export interface ETLSchemaInfo {
+  fields: Array<{ name: string; type: string }>
+}
+
+export interface PageBlockRef {
+  id: string
+  name: string
+  type: string
+}
+
+// ── HTTP Plugin Types ─────────────────────────────────────
+
+export interface HTTPResponse {
+  statusCode: number
+  statusText: string
+  headers: Record<string, string>
+  body: string
+  durationMs: number
+  size: number
+}
+
+// ── API exports ───────────────────────────────────────────
+// The flat `api` object is re-exported from the namespaced barrel
+// for full backward-compatibility. New code should import from
+// `bridge/api` directly (e.g. `import { etlAPI } from '../bridge/api'`).
+export { api } from './api'
+
+// Namespaced API exports for new code
+export {
+  notebookAPI,
+  blockAPI,
+  etlAPI,
+  localdbAPI,
+  databaseAPI,
+  httpAPI,
+  terminalAPI,
+  connectionAPI,
+} from './api'
 
 export function onEvent(name: string, callback: (...args: any[]) => void): () => void {
   return window.runtime.EventsOn(name, callback)

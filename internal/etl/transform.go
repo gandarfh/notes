@@ -408,11 +408,11 @@ func tryParseTime(v any) (time.Time, bool) {
 // parseUnixTimestamp converts a numeric value to time, auto-detecting seconds vs milliseconds.
 func parseUnixTimestamp(v float64) (time.Time, bool) {
 	// Unix timestamp in seconds (10 digits: 2001–2286)
-	if v > 1e9 && v < 1e13 {
+	if v > 1e9 && v < 1e10 {
 		return time.Unix(int64(v), 0), true
 	}
-	// Unix timestamp in milliseconds (13 digits)
-	if v >= 1e13 {
+	// Unix timestamp in milliseconds (13 digits: values >= 1e10)
+	if v >= 1e10 {
 		return time.UnixMilli(int64(v)), true
 	}
 	return time.Time{}, false

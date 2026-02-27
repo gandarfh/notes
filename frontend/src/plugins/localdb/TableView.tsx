@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import type { ColumnDef, LocalDBRow } from '../../bridge/wails'
+import type { ColumnDef, LocalDBRow } from './types'
 import { CellRenderer } from './CellRenderer'
 import { ColumnEditor, type AnchorRect } from './ColumnEditor'
 

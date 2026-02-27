@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint:plugins": "bash scripts/lint-plugin-imports.sh"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
@@ -29,6 +31,7 @@
     "buffer": "^6.0.3",
     "codemirror": "^6.0.2",
     "date-fns": "^4.1.0",
+    "dompurify": "^3.3.1",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.33",
     "marked": "^17.0.3",

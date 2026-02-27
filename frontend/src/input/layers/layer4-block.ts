@@ -1,3 +1,4 @@
+import { GRID_SIZE, snapToGrid as snap } from '../../constants'
 /**
  * Layer 4: Block — Vim-like block navigation and actions.
  *
@@ -9,8 +10,6 @@
 import { registerLayer } from '../InputManager'
 import { useAppStore } from '../../store'
 
-const GRID_SIZE = 30
-const snap = (v: number) => Math.round(v / GRID_SIZE) * GRID_SIZE
 
 // Track original dimensions before snap resize (Shift+H/M/L)
 const snapState = new Map<string, { origW: number; origH: number }>()

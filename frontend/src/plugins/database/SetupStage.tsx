@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { DBConnView, CreateDBConnInput } from '../../bridge/wails'
-import { api } from '../../bridge/wails'
+import type { DBConnView, CreateDBConnInput } from './types'
+import { rpcCall } from '../sdk'
 
 interface SetupStageProps {
     connections: DBConnView[]
@@ -57,7 +57,7 @@ export function SetupStage({ connections, onConnect, onRefreshConnections }: Set
 
     const handlePickFile = async () => {
         try {
-            const path = await api.pickDatabaseFile()
+            const path = await rpcCall('PickDatabaseFile')
             if (path) {
                 setForm(f => ({
                     ...f,
@@ -79,8 +79,8 @@ export function SetupStage({ connections, onConnect, onRefreshConnections }: Set
         setError('')
         setTesting(true)
         try {
-            const conn = await api.createDatabaseConnection(form)
-            await api.testDatabaseConnection(conn.id)
+            const conn = await rpcCall('CreateDatabaseConnection', form)
+            await rpcCall('TestDatabaseConnection', conn.id)
             onRefreshConnections()
             onConnect(conn.id)
         } catch (e: any) {
@@ -94,7 +94,7 @@ export function SetupStage({ connections, onConnect, onRefreshConnections }: Set
         setError('')
         setTesting(true)
         try {
-            await api.testDatabaseConnection(connId)
+            await rpcCall('TestDatabaseConnection', connId)
             onConnect(connId)
         } catch (e: any) {
             setError(`Connection failed: ${e.message || e}`)

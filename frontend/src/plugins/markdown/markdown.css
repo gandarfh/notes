@@ -1,0 +1,425 @@
+/* ── Markdown rendered content ────────────────────────────── */
+
+.markdown-preview {
+    font-family: 'Latin Modern Roman', monospace;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--color-text-primary);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Headings — em-based so they scale with the Aa size control */
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4,
+.markdown-preview h5,
+.markdown-preview h6 {
+    font-family: 'CMU Serif Upright Italic', serif;
+    font-weight: 500 !important;
+}
+
+.markdown-preview h1 {
+    font-size: 2.1em;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 1.2em 0 0.6em;
+    padding-bottom: 0.4em;
+    line-height: 1.2;
+}
+
+.markdown-preview h1:first-child {
+    margin-top: 0;
+}
+
+.markdown-preview h2 {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 1.2em 0 0.5em;
+    padding-bottom: 0.3em;
+    line-height: 1.25;
+}
+
+.markdown-preview h3 {
+    font-size: 1.3em;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 1em 0 0.4em;
+    line-height: 1.3;
+}
+
+.markdown-preview h4 {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0.8em 0 0.3em;
+    line-height: 1.4;
+}
+
+.markdown-preview h5 {
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    margin: 0.8em 0 0.2em;
+    line-height: 1.4;
+}
+
+.markdown-preview h6 {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    margin: 0.6em 0 0.2em;
+    line-height: 1.4;
+}
+
+/* Text */
+.markdown-preview p {
+    margin-bottom: 0.8em;
+}
+
+.markdown-preview strong {
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.markdown-preview em {
+    font-style: italic;
+    color: var(--color-text-secondary);
+}
+
+.markdown-preview del {
+    text-decoration: line-through;
+    color: var(--color-text-muted);
+}
+
+/* Inline code */
+.markdown-preview code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    background: var(--color-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 0.25em;
+    padding: 0.1em 0.4em;
+    color: var(--color-text-accent);
+}
+
+/* Footnotes */
+.markdown-preview .fn-ref a {
+    color: var(--color-accent);
+    text-decoration: none;
+    font-size: 0.75em;
+    font-weight: 600;
+}
+
+.markdown-preview .fn-ref a:hover {
+    text-decoration: underline;
+}
+
+.markdown-preview .footnotes {
+    font-size: 0.85em;
+    color: var(--color-text-secondary);
+    margin-top: 0.5em;
+}
+
+.markdown-preview .footnotes ol {
+    padding-left: 1.5em;
+}
+
+.markdown-preview .footnotes li {
+    margin-bottom: 0.3em;
+}
+
+.markdown-preview .fn-back {
+    color: var(--color-accent);
+    text-decoration: none;
+    font-size: 0.85em;
+    margin-left: 4px;
+}
+
+/* Mermaid diagrams */
+.markdown-preview .mermaid-block {
+    display: flex;
+    justify-content: center;
+    margin: 1em 0;
+    padding: 1em;
+    background: var(--color-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+}
+
+.markdown-preview .mermaid-block svg {
+    height: auto;
+}
+
+/* Override mermaid's sans-serif with the project font after size calculation */
+.markdown-preview .mermaid-block svg text,
+.markdown-preview .mermaid-block svg foreignObject {
+    font-family: 'Latin Modern Roman', serif !important;
+}
+
+/* Prevent text clipping when using a different font than mermaid calculated for */
+.markdown-preview .mermaid-block svg foreignObject {
+    overflow: visible !important;
+}
+
+.markdown-preview .mermaid-block svg foreignObject div,
+.markdown-preview .mermaid-block svg foreignObject span {
+    overflow: visible !important;
+    white-space: nowrap !important;
+}
+
+.markdown-preview .mermaid-error {
+    white-space: pre-wrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    color: var(--color-error, #ef4444);
+    display: block;
+}
+
+/* Code blocks */
+.markdown-preview .code-block-wrapper {
+    position: relative;
+    margin: 1em 0;
+}
+
+.markdown-preview .code-lang-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    padding: 0.15em 0.5em;
+    color: var(--color-text-muted);
+    background: var(--color-hover);
+    border-radius: 0 var(--radius-sm) 0 var(--radius-sm);
+}
+
+.markdown-preview pre {
+    background: var(--color-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 0.4em;
+    padding: 0.9em 1em;
+    margin: 0;
+    overflow-x: auto;
+}
+
+.markdown-preview pre code {
+    background: transparent;
+    padding: 0;
+    border: none;
+    color: inherit;
+    font-size: 0.87em;
+    line-height: 1.6;
+}
+
+/* Lists */
+.markdown-preview ul {
+    list-style: disc;
+    padding-left: 1.6em;
+    margin-bottom: 0.8em;
+}
+
+.markdown-preview ol {
+    list-style: decimal;
+    padding-left: 1.6em;
+    margin-bottom: 0.8em;
+}
+
+.markdown-preview li {
+    margin-bottom: 0.25em;
+}
+
+/* Nested unordered lists */
+.markdown-preview ul ul,
+.markdown-preview ol ul {
+    list-style: circle;
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+}
+
+.markdown-preview ul ul ul,
+.markdown-preview ol ul ul,
+.markdown-preview ol ol ul {
+    list-style: square;
+}
+
+/* Nested ordered lists */
+.markdown-preview ol ol,
+.markdown-preview ul ol {
+    list-style: lower-alpha;
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+}
+
+.markdown-preview ol ol ol,
+.markdown-preview ul ol ol {
+    list-style: lower-roman;
+}
+
+.markdown-preview li>p {
+    margin-bottom: 0.25em;
+}
+
+/* Task lists */
+.markdown-preview .task-list-item {
+    list-style: none;
+    margin-left: -1.6em;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5em;
+}
+
+.markdown-preview .task-list-item>ul,
+.markdown-preview .task-list-item>ol {
+    width: 100%;
+    padding-left: 2em;
+    margin-top: 0.25em;
+    margin-bottom: 0.15em;
+    border-left: 1px solid var(--color-border-subtle);
+    margin-left: 0.4em;
+}
+
+.markdown-preview .task-list-item input[type="checkbox"] {
+    appearance: none;
+    width: 1em;
+    height: 1em;
+    min-width: 1em;
+    border: 1.5px solid var(--color-border-strong);
+    border-radius: 3px;
+    background: transparent;
+    margin-top: 0.25em;
+    cursor: default;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.markdown-preview .task-list-item input[type="checkbox"]:checked {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.markdown-preview .task-list-item input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 25%;
+    top: 5%;
+    width: 30%;
+    height: 55%;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.markdown-preview .task-list-item input[type="checkbox"]:checked~p,
+.markdown-preview .task-list-item input[type="checkbox"]:checked+span {
+    color: var(--color-text-muted);
+    text-decoration: line-through;
+}
+
+/* Blockquote */
+.markdown-preview blockquote {
+    border-left: 3px solid var(--color-accent);
+    padding: 0.5em 1em;
+    margin: 1em 0;
+    background: var(--color-accent-muted);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: var(--color-text-secondary);
+}
+
+.markdown-preview blockquote p {
+    margin-bottom: 0.25em;
+}
+
+.markdown-preview blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+/* Horizontal rule */
+.markdown-preview .md-hr,
+.markdown-preview hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-border-default) 20%, var(--color-border-default) 80%, transparent);
+    margin: 1.6em 0;
+}
+
+/* Tables */
+.markdown-preview table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 1em 0;
+    font-size: 0.87em;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.markdown-preview thead {
+    background: var(--color-elevated);
+}
+
+.markdown-preview th {
+    font-weight: 600;
+    text-align: left;
+    color: var(--color-text-primary);
+    padding: 0.5em 0.8em;
+    border-bottom: 1px solid var(--color-border-default);
+}
+
+.markdown-preview th:not(:last-child) {
+    border-right: 1px solid var(--color-border-subtle);
+}
+
+.markdown-preview td {
+    padding: 0.45em 0.8em;
+    border-bottom: 1px solid var(--color-border-subtle);
+    color: var(--color-text-secondary);
+}
+
+.markdown-preview td:not(:last-child) {
+    border-right: 1px solid var(--color-border-subtle);
+}
+
+.markdown-preview tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.markdown-preview tbody tr:hover {
+    background: var(--color-hover);
+}
+
+.markdown-preview tbody tr:nth-child(even) {
+    background: var(--overlay-2);
+}
+
+.markdown-preview tbody tr:nth-child(even):hover {
+    background: var(--color-hover);
+}
+
+/* Links */
+.markdown-preview a {
+    color: var(--color-text-accent);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(124, 139, 255, 0.3);
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.markdown-preview a:hover {
+    border-bottom-color: var(--color-text-accent);
+    color: var(--color-accent-hover);
+}
+
+/* Images */
+.markdown-preview img {
+    max-width: 100%;
+    border-radius: 6px;
+    margin: 8px 0;
+    max-height: 400px;
+    object-fit: contain;
+    border: 1px solid var(--color-border-subtle);
+}

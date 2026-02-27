@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import type { ColumnDef, ColumnType } from '../../bridge/wails'
+import type { ColumnDef, ColumnType } from './types'
 
 // ── Column Editor ──────────────────────────────────────────
 // Popover to add or edit a column definition.

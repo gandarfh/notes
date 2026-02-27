@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import type { ColumnDef, LocalDBRow, ViewConfig } from '../../bridge/wails'
+import type { ColumnDef, LocalDBRow, ViewConfig } from './types'
 
 // ── Kanban View ────────────────────────────────────────────
 // Mouse-event based drag-and-drop (no HTML5 DnD API).

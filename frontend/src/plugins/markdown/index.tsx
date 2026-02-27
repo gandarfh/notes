@@ -1,3 +1,4 @@
+import './markdown.css'
 import { marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 import markedKatex from 'marked-katex-extension'
@@ -5,10 +6,10 @@ import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.min.css'
 import 'katex/dist/katex.min.css'
 import mermaid from 'mermaid'
-import { useState, useEffect, useMemo, useCallback, memo } from 'react'
-import type { BlockPlugin, BlockRendererProps } from '../types'
-import { getBlockFontSize } from '../../components/Block/BlockContainer'
-import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
+import DOMPurify from 'dompurify'
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react'
+import type { BlockPlugin, PluginRendererProps, PluginContext } from '../sdk'
+import { MIN_FONT_SIZE, MAX_FONT_SIZE } from '../sdk/runtime/contextFactory'
 
 // ── Footnote pre-processor ─────────────────────────────────
 // Extracts [^id]: definitions and converts [^id] refs into
@@ -219,20 +220,16 @@ function renderMarkdownWithLines(src: string): string {
 // Regex to find mermaid placeholder divs in the generated HTML
 const MERMAID_PLACEHOLDER_RE = /<div class="mermaid-block" data-mermaid="([^"]*)"[^>]*><\/div>/g
 
-const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: BlockRendererProps) {
-    const [fontSize, setFontSize] = useState(() => getBlockFontSize(block.id))
+const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing, ctx }: PluginRendererProps) {
+    const previewRef = useRef<HTMLDivElement>(null)
+    const [fontSize, setFontSize] = useState(() => ctx.ui.getFontSize())
 
-    // Listen for font size changes from the header popup
+    // Listen for font size changes from the header via plugin bus
     useEffect(() => {
-        const handler = (e: Event) => {
-            const detail = (e as CustomEvent).detail
-            if (detail.blockId === block.id) {
-                setFontSize(detail.size)
-            }
-        }
-        window.addEventListener('md-fontsize-change', handler)
-        return () => window.removeEventListener('md-fontsize-change', handler)
-    }, [block.id])
+        return ctx.events.on('block:fontsize-changed', (payload: any) => {
+            if (payload?.blockId === block.id) setFontSize(payload.size)
+        })
+    }, [block.id, ctx])
 
     const rawHtml = useMemo(() =>
         block.content ? renderMarkdownWithLines(block.content) : '<p style="color: var(--color-text-muted); font-style: italic;">Empty — ⌘+click to edit</p>'
@@ -249,7 +246,6 @@ const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: Bl
             return
         }
 
-        // Sync mermaid theme with current app theme before rendering
         syncMermaidTheme()
 
         let cancelled = false
@@ -268,33 +264,142 @@ const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing }: Bl
                         result = result.replace(match[0], `<div class="mermaid-block mermaid-error"><pre>${escaped}</pre></div>`)
                     }
                 }
-                if (!cancelled) {
-                    setFinalHtml(result)
-                }
+                if (!cancelled) setFinalHtml(result)
             })()
 
         return () => { cancelled = true }
     }, [rawHtml, block.id])
 
+    // ── Scroll to line after exiting editor (via SDK event bus) ──
+    useEffect(() => {
+        return ctx.editor.onClose((cursorLine) => {
+            if (!previewRef.current) return
+            setTimeout(() => {
+                const container = previewRef.current?.closest('.block-content') as HTMLElement
+                if (!container) return
+                const lineEls = Array.from(container.querySelectorAll<HTMLElement>('[data-source-line]'))
+                const target = lineEls.reduce<{ el: HTMLElement | null; dist: number }>((acc, el) => {
+                    const line = parseInt(el.dataset.sourceLine || '0', 10)
+                    const dist = Math.abs(line - cursorLine)
+                    return dist < acc.dist ? { el, dist } : acc
+                }, { el: null, dist: Infinity })
 
+                if (target.el) {
+                    const containerRect = container.getBoundingClientRect()
+                    const targetRect = target.el.getBoundingClientRect()
+                    const offset = targetRect.top - containerRect.top + container.scrollTop
+                    container.scrollTo({
+                        top: Math.max(0, offset - container.clientHeight * 0.3),
+                        behavior: 'smooth',
+                    })
+                }
+            }, 300)
+        })
+    }, [ctx, block.id])
+
+    // Open URLs in system browser (ctx.ui.openUrl instead of BrowserOpenURL)
     const handleClick = useCallback((e: React.MouseEvent) => {
         const anchor = (e.target as HTMLElement).closest('a')
         if (anchor && anchor.href) {
             e.preventDefault()
             e.stopPropagation()
-            BrowserOpenURL(anchor.href)
+            ctx.ui.openUrl(anchor.href)
         }
-    }, [])
+    }, [ctx])
 
     return (
         <div
+            ref={previewRef}
             className={`markdown-preview ${isEditing ? '' : 'cursor-text select-text'}`}
             style={{ fontSize: `${fontSize}px` }}
             onClick={handleClick}
-            dangerouslySetInnerHTML={{ __html: finalHtml }}
+            dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(finalHtml, {
+                    USE_PROFILES: { html: true, svg: true, svgFilters: true },
+                    ADD_TAGS: ['section', 'input', 'foreignObject'],
+                    ADD_ATTR: ['checked', 'disabled', 'data-source-line', 'data-mermaid', 'data-zoom', 'transform', 'dominant-baseline', 'text-anchor', 'clip-path', 'marker-end', 'marker-start'],
+                })
+            }}
         />
     )
 })
+
+// ── Font-Size Header Extension ─────────────────────────────
+// Shown in BlockHeader as an optional plugin-owned control.
+
+function MarkdownHeaderExtension({ blockId, ctx }: { blockId: string; ctx: PluginContext }) {
+    const [showPopup, setShowPopup] = useState(false)
+    const [fontSize, setFontSize] = useState(() => ctx.ui.getFontSize())
+    const popupRef = useRef<HTMLDivElement>(null)
+
+    // Sync local state with bus events (other components may change it)
+    useEffect(() => {
+        return ctx.events.on('block:fontsize-changed', (payload: any) => {
+            if (payload?.blockId === blockId) setFontSize(payload.size)
+        })
+    }, [blockId, ctx])
+
+    const changeFontSize = useCallback((delta: number) => {
+        const next = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, fontSize + delta))
+        ctx.ui.setFontSize(next)
+        setFontSize(next)
+    }, [fontSize, ctx])
+
+    // Close popup on outside click
+    useEffect(() => {
+        if (!showPopup) return
+        const handler = (e: MouseEvent) => {
+            if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
+                setShowPopup(false)
+            }
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [showPopup])
+
+    return (
+        <div className="relative" ref={popupRef}>
+            <button
+                onClick={(e) => { e.stopPropagation(); setShowPopup(!showPopup) }}
+                className="w-[22px] h-[22px] flex items-center justify-center border-none bg-transparent text-text-muted rounded cursor-pointer text-[0.769rem] hover:bg-hover hover:text-text-primary"
+                title="Font size"
+                style={{ fontWeight: 600, letterSpacing: '-0.02em' }}
+            >Aa</button>
+            {showPopup && (
+                <div
+                    className="absolute z-50 flex items-center gap-1"
+                    style={{
+                        top: '100%', right: 0, marginTop: '4px',
+                        background: 'var(--color-surface)',
+                        border: '1px solid var(--color-border-default)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '3px 4px',
+                        boxShadow: 'var(--block-shadow)',
+                        whiteSpace: 'nowrap',
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                >
+                    <button
+                        onClick={(e) => { e.stopPropagation(); changeFontSize(-1) }}
+                        disabled={fontSize <= MIN_FONT_SIZE}
+                        className="w-[22px] h-[22px] flex items-center justify-center border-none rounded cursor-pointer text-[0.846rem] hover:bg-hover disabled:opacity-30 disabled:cursor-default"
+                        style={{ background: 'transparent', color: 'var(--color-text-secondary)' }}
+                    >A−</button>
+                    <span
+                        className="text-[0.846rem] font-semibold tabular-nums"
+                        style={{ minWidth: '24px', textAlign: 'center', color: 'var(--color-text-primary)' }}
+                    >{fontSize}</span>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); changeFontSize(1) }}
+                        disabled={fontSize >= MAX_FONT_SIZE}
+                        className="w-[22px] h-[22px] flex items-center justify-center border-none rounded cursor-pointer text-[0.846rem] hover:bg-hover disabled:opacity-30 disabled:cursor-default"
+                        style={{ background: 'transparent', color: 'var(--color-text-secondary)' }}
+                    >A+</button>
+                </div>
+            )}
+        </div>
+    )
+}
 
 // ── Icon Component ─────────────────────────────────────────
 
@@ -316,4 +421,8 @@ export const markdownPlugin: BlockPlugin = {
     defaultSize: { width: 320, height: 220 },
     Renderer: MarkdownRenderer,
     headerLabel: 'MD',
+    capabilities: {
+        editable: true,
+    },
+    HeaderExtension: MarkdownHeaderExtension,
 }

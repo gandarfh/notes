@@ -1,4 +1,4 @@
-import type { ColumnDef, LocalDBRow, ViewConfig } from '../../bridge/wails'
+import type { ColumnDef, LocalDBRow, ViewConfig } from './types'
 
 // ── Gallery View ───────────────────────────────────────────
 // Responsive card grid showing all fields per row.

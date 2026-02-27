@@ -1,8 +1,10 @@
+import './codeblock.css'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.min.css'
+import DOMPurify from 'dompurify'
 import { useState, useEffect, useMemo, memo } from 'react'
-import type { BlockPlugin, BlockRendererProps } from '../types'
-import { getBlockFontSize } from '../../components/Block/BlockContainer'
+import type { BlockPlugin, PluginRendererProps, PluginContext } from '../sdk'
+import { sdkGetFontSize, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../sdk/runtime/contextFactory'
 
 // ── Language mapping ───────────────────────────────────────
 
@@ -21,23 +23,52 @@ const LANG_MAP: Record<string, string> = {
     md: 'markdown',
 }
 
+export const LANGUAGES = [
+    { ext: 'txt', label: 'Plain Text' },
+    { ext: 'go', label: 'Go' },
+    { ext: 'rs', label: 'Rust' },
+    { ext: 'py', label: 'Python' },
+    { ext: 'js', label: 'JavaScript' },
+    { ext: 'ts', label: 'TypeScript' },
+    { ext: 'tsx', label: 'TSX' },
+    { ext: 'jsx', label: 'JSX' },
+    { ext: 'json', label: 'JSON' },
+    { ext: 'yaml', label: 'YAML' },
+    { ext: 'toml', label: 'TOML' },
+    { ext: 'sql', label: 'SQL' },
+    { ext: 'sh', label: 'Shell' },
+    { ext: 'html', label: 'HTML' },
+    { ext: 'css', label: 'CSS' },
+    { ext: 'java', label: 'Java' },
+    { ext: 'kt', label: 'Kotlin' },
+    { ext: 'swift', label: 'Swift' },
+    { ext: 'c', label: 'C' },
+    { ext: 'cpp', label: 'C++' },
+    { ext: 'lua', label: 'Lua' },
+    { ext: 'zig', label: 'Zig' },
+    { ext: 'rb', label: 'Ruby' },
+    { ext: 'proto', label: 'Protobuf' },
+    { ext: 'graphql', label: 'GraphQL' },
+    { ext: 'dockerfile', label: 'Dockerfile' },
+    { ext: 'hcl', label: 'HCL/Terraform' },
+    { ext: 'md', label: 'Markdown' },
+]
+
 function getExt(filePath?: string): string {
     return filePath?.split('.').pop()?.toLowerCase() || 'txt'
 }
 
 // ── Renderer Component ─────────────────────────────────────
 
-const CodeRenderer = memo(function CodeRenderer({ block }: BlockRendererProps) {
-    const [fontSize, setFontSize] = useState(() => getBlockFontSize(block.id))
+const CodeRenderer = memo(function CodeRenderer({ block, ctx }: PluginRendererProps) {
+    const [fontSize, setFontSize] = useState(() => ctx.ui.getFontSize())
 
+    // Listen for font size changes via plugin bus
     useEffect(() => {
-        const handler = (e: Event) => {
-            const detail = (e as CustomEvent).detail
-            if (detail.blockId === block.id) setFontSize(detail.size)
-        }
-        window.addEventListener('md-fontsize-change', handler)
-        return () => window.removeEventListener('md-fontsize-change', handler)
-    }, [block.id])
+        return ctx.events.on('block:fontsize-changed', (payload: any) => {
+            if (payload?.blockId === block.id) setFontSize(payload.size)
+        })
+    }, [block.id, ctx])
 
     const ext = getExt(block.filePath)
     const lang = LANG_MAP[ext] || ''
@@ -74,7 +105,7 @@ const CodeRenderer = memo(function CodeRenderer({ block }: BlockRendererProps) {
                                 <td
                                     className="code-line"
                                     dangerouslySetInnerHTML={{
-                                        __html: codeHtml!.split('\n')[i] || ''
+                                        __html: DOMPurify.sanitize(codeHtml!.split('\n')[i] || '')
                                     }}
                                 />
                             </tr>
@@ -85,6 +116,39 @@ const CodeRenderer = memo(function CodeRenderer({ block }: BlockRendererProps) {
         </div>
     )
 })
+
+// ── Language Picker Header Extension ───────────────────────
+
+function CodeHeaderExtension({ blockId, ctx }: { blockId: string; ctx: PluginContext }) {
+    // Get file path from ctx.block (reads live from store)
+    const ext = ctx.block.filePath?.split('.').pop()?.toLowerCase() || 'txt'
+
+    const handleChange = async (newExt: string) => {
+        if (!ctx.block.filePath) return
+        const parts = ctx.block.filePath.split('.')
+        parts[parts.length - 1] = newExt
+        const newPath = parts.join('.')
+        try {
+            await ctx.rpc.call('UpdateBlockFilePath', blockId, newPath)
+        } catch (err) {
+            console.error('[CodePlugin] Failed to update file extension:', err)
+        }
+    }
+
+    return (
+        <select
+            className="code-lang-select"
+            value={ext}
+            onChange={e => { e.stopPropagation(); handleChange(e.target.value) }}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+        >
+            {LANGUAGES.map(l => (
+                <option key={l.ext} value={l.ext}>{l.label}</option>
+            ))}
+        </select>
+    )
+}
 
 // ── Icon Component ─────────────────────────────────────────
 
@@ -105,4 +169,8 @@ export const codePlugin: BlockPlugin = {
     defaultSize: { width: 500, height: 350 },
     Renderer: CodeRenderer,
     headerLabel: 'CODE',
+    capabilities: {
+        editable: true,
+    },
+    HeaderExtension: CodeHeaderExtension,
 }

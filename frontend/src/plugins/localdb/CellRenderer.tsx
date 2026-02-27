@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { DayPicker } from 'react-day-picker'
 import { format, parse, parseISO, isValid } from 'date-fns'
-import type { ColumnDef } from '../../bridge/wails'
+import type { ColumnDef } from './types'
 import { TimerCell, parseTimerValue } from './TimerCell'
 
 // ── Cell Renderer ──────────────────────────────────────────

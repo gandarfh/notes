@@ -1,7 +1,8 @@
+import './localdb.css'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { BlockPlugin, BlockRendererProps } from '../types'
-import type { ColumnDef, LocalDatabase, LocalDBRow, LocalDatabaseConfig, ViewConfig } from '../../bridge/wails'
-import { api, onEvent } from '../../bridge/wails'
+import type { BlockPlugin, PluginRendererProps } from '../sdk'
+import type { ColumnDef, LocalDatabase, LocalDBRow, LocalDatabaseConfig, ViewConfig } from './types'
+import { useWheelCapture } from '../shared'
 import { ViewSwitcher, type ViewType } from './ViewSwitcher'
 import { TableView } from './TableView'
 import { KanbanView } from './KanbanView'
@@ -10,7 +11,9 @@ import { ViewConfigBar } from './ViewConfigBar'
 
 // ── Main Renderer ──────────────────────────────────────────
 
-function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
+function LocalDBRenderer({ block, isSelected, ctx }: PluginRendererProps) {
+    const rpc = ctx!.rpc
+
     const [db, setDb] = useState<LocalDatabase | null>(null)
     const [rows, setRows] = useState<LocalDBRow[]>([])
     const [loading, setLoading] = useState(true)
@@ -25,9 +28,14 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
     const getConfig = useCallback((): LocalDatabaseConfig => {
         if (!db) return { columns: [], activeView: 'table' }
         try {
-            const parsed = JSON.parse(db.configJson || '{}') as LocalDatabaseConfig
-            configRef.current = parsed
-            return parsed
+            const parsed = JSON.parse(db.configJson || '{}') as Partial<LocalDatabaseConfig>
+            const normalized: LocalDatabaseConfig = {
+                columns: Array.isArray(parsed.columns) ? parsed.columns : [],
+                activeView: parsed.activeView || 'table',
+                viewConfig: parsed.viewConfig,
+            }
+            configRef.current = normalized
+            return normalized
         } catch {
             return { columns: [], activeView: 'table' }
         }
@@ -37,45 +45,52 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
     const loadData = useCallback(async () => {
         try {
             setLoading(true)
-            const database = await api.getLocalDatabase(block.id)
+            const database = await rpc.call<LocalDatabase>('GetLocalDatabase', block.id)
             setDb(database)
             setNameValue(database.name || 'Untitled')
-            const dbRows = await api.listLocalDBRows(database.id)
+            const dbRows = await rpc.call<LocalDBRow[]>('ListLocalDBRows', database.id)
             setRows(dbRows || [])
         } catch (err) {
             setError(String(err))
         } finally {
             setLoading(false)
         }
-    }, [block.id])
+    }, [block.id, rpc])
 
     // Load database and rows on mount
     useEffect(() => {
         loadData()
     }, [loadData])
 
-    // Listen for db:updated events (e.g. from ETL sync) and auto-refresh
+    // Listen for localdb:changed events (e.g. from ETL sync) and auto-refresh
     useEffect(() => {
         if (!db) return
-        return onEvent('db:updated', (payload: any) => {
+        return ctx!.events.on('localdb:changed', (payload: any) => {
             if (payload?.databaseId === db.id) {
                 loadData()
             }
         })
-    }, [db, loadData])
+    }, [db, loadData, ctx])
 
-    // Native wheel listener — stops propagation to prevent Canvas from
-    // calling preventDefault() which blocks horizontal scroll inside the table.
-    // Only active when block is selected so canvas zoom/scroll works otherwise.
+    // Also listen for backend db:updated events for backward compat
     useEffect(() => {
-        const el = blockRef.current
-        if (!el || !isSelected) return
-        const handler = (e: WheelEvent) => {
-            e.stopPropagation()
-        }
-        el.addEventListener('wheel', handler, { passive: true })
-        return () => el.removeEventListener('wheel', handler)
-    }, [loading, isSelected])
+        if (!db) return
+        return ctx!.events.onBackend('db:updated', (payload: any) => {
+            if (payload?.databaseId === db.id) {
+                loadData()
+            }
+        })
+    }, [db, loadData, ctx])
+
+    // Scroll handling via shared hook
+    useWheelCapture(blockRef, isSelected)
+
+    // Notify dependent blocks (charts) when this DB changes
+    const notifyDbChanged = useCallback(() => {
+        if (!db) return
+        ctx!.events.emit('localdb:changed', { databaseId: db.id })
+        ctx!.events.emit('localdb:rows-updated', { databaseId: db.id, rowCount: rows.length })
+    }, [db, ctx, rows])
 
     // ── Name rename ──
     const handleNameBlur = useCallback(async () => {
@@ -85,9 +100,9 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
         setNameValue(trimmed)
         if (trimmed !== db.name) {
             setDb(prev => prev ? { ...prev, name: trimmed } : prev)
-            await api.renameLocalDatabase(db.id, trimmed).catch(console.error)
+            await rpc.call('RenameLocalDatabase', db.id, trimmed).catch(console.error)
         }
-    }, [db, nameValue])
+    }, [db, nameValue, rpc])
 
     const handleNameKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() }
@@ -98,12 +113,6 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
         setEditingName(true)
         setTimeout(() => nameInputRef.current?.select(), 0)
     }, [])
-
-    // Notify dependent blocks (charts) when this DB changes
-    const notifyDbChanged = useCallback(() => {
-        if (!db) return
-        window.runtime?.EventsEmit?.('db:updated', { databaseId: db.id })
-    }, [db])
 
     // Cell change handler
     const handleCellChange = useCallback(async (rowId: string, colId: string, value: unknown) => {
@@ -119,28 +128,28 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
         if (!row) return
         const data = JSON.parse(row.dataJson || '{}')
         data[colId] = value
-        await api.updateLocalDBRow(rowId, JSON.stringify(data)).catch(console.error)
+        await rpc.call('UpdateLocalDBRow', rowId, JSON.stringify(data)).catch(console.error)
         notifyDbChanged()
-    }, [rows, notifyDbChanged])
+    }, [rows, notifyDbChanged, rpc])
 
     // Add row
     const handleAddRow = useCallback(async () => {
         if (!db) return
-        const newRow = await api.createLocalDBRow(db.id, '{}')
+        const newRow = await rpc.call<LocalDBRow>('CreateLocalDBRow', db.id, '{}')
         if (newRow) setRows(prev => [...prev, newRow])
         notifyDbChanged()
-    }, [db, notifyDbChanged])
+    }, [db, notifyDbChanged, rpc])
 
     // Delete row
     const handleDeleteRow = useCallback(async (rowId: string) => {
         setRows(prev => prev.filter(r => r.id !== rowId))
-        await api.deleteLocalDBRow(rowId).catch(console.error)
+        await rpc.call('DeleteLocalDBRow', rowId).catch(console.error)
         notifyDbChanged()
-    }, [notifyDbChanged])
+    }, [notifyDbChanged, rpc])
 
     // Duplicate row
     const handleDuplicateRow = useCallback(async (rowId: string) => {
-        const dup = await api.duplicateLocalDBRow(rowId)
+        const dup = await rpc.call<LocalDBRow>('DuplicateLocalDBRow', rowId)
         if (dup) {
             setRows(prev => {
                 const idx = prev.findIndex(r => r.id === rowId)
@@ -149,7 +158,7 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
                 return next
             })
         }
-    }, [])
+    }, [rpc])
 
     // Column changes
     const handleColumnsChange = useCallback(async (newColumns: ColumnDef[]) => {
@@ -158,9 +167,9 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
         const updated = { ...config, columns: newColumns }
         const json = JSON.stringify(updated)
         setDb(prev => prev ? { ...prev, configJson: json } : prev)
-        await api.updateLocalDatabaseConfig(db.id, json).catch(console.error)
+        await rpc.call('UpdateLocalDatabaseConfig', db.id, json).catch(console.error)
         notifyDbChanged()
-    }, [db, notifyDbChanged])
+    }, [db, notifyDbChanged, rpc])
 
     // View change
     const handleViewChange = useCallback(async (view: ViewType) => {
@@ -169,8 +178,8 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
         const updated = { ...config, activeView: view }
         const json = JSON.stringify(updated)
         setDb(prev => prev ? { ...prev, configJson: json } : prev)
-        await api.updateLocalDatabaseConfig(db.id, json).catch(console.error)
-    }, [db])
+        await rpc.call('UpdateLocalDatabaseConfig', db.id, json).catch(console.error)
+    }, [db, rpc])
 
     // View config change
     const handleViewConfigChange = useCallback(async (newViewConfig: ViewConfig) => {
@@ -179,8 +188,8 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
         const updated = { ...config, viewConfig: newViewConfig }
         const json = JSON.stringify(updated)
         setDb(prev => prev ? { ...prev, configJson: json } : prev)
-        await api.updateLocalDatabaseConfig(db.id, json).catch(console.error)
-    }, [db])
+        await rpc.call('UpdateLocalDatabaseConfig', db.id, json).catch(console.error)
+    }, [db, rpc])
 
     // Reorder rows
     const handleReorderRows = useCallback(async (rowIds: string[]) => {
@@ -190,8 +199,8 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
             const map = new Map(prev.map(r => [r.id, r]))
             return rowIds.map(id => map.get(id)).filter(Boolean) as LocalDBRow[]
         })
-        await api.reorderLocalDBRows(db.id, rowIds).catch(console.error)
-    }, [db])
+        await rpc.call('ReorderLocalDBRows', db.id, rowIds).catch(console.error)
+    }, [db, rpc])
 
     if (loading) {
         return (
@@ -216,7 +225,7 @@ function LocalDBRenderer({ block, isSelected }: BlockRendererProps) {
     const viewConfig = config.viewConfig || {}
 
     const viewProps = {
-        columns: config.columns,
+        columns: config.columns ?? [],
         rows,
         viewConfig,
         onCellChange: handleCellChange,
@@ -294,4 +303,11 @@ export const localdbPlugin: BlockPlugin = {
     defaultSize: { width: 700, height: 450 },
     Renderer: LocalDBRenderer,
     headerLabel: 'DB',
+    publicAPI: (ctx) => ({
+        listDatabases: () => ctx.rpc.call('ListLocalDatabases'),
+        getRows: (dbId: string) => ctx.rpc.call('ListLocalDBRows', dbId),
+        getConfig: (dbId: string) => ctx.rpc.call('GetLocalDatabase', dbId)
+            .then((db: any) => JSON.parse(db?.configJson || '{}')),
+        getStats: (dbId: string) => ctx.rpc.call('GetLocalDBStats', dbId),
+    }),
 }

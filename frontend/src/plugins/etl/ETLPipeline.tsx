@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { IconPlus, IconX, IconChevronUp, IconChevronDown } from '@tabler/icons-react'
-import { api } from '../../bridge/wails'
-import { Select } from '../chart/Select'
+import { rpcCall } from '../sdk'
+import { Select } from '../shared/components/Select'
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -159,7 +159,7 @@ export function ETLPipeline({ stages, sourceType, sourceConfig, onChange }: ETLP
         if (cfgJSON === '{}') { setSourceColumns([]); return }
 
         setLoadingSchema(true)
-        api.discoverETLSchema(sourceType, cfgJSON)
+        rpcCall('DiscoverETLSchema', sourceType, cfgJSON)
             .then(schema => {
                 if (schema?.fields) {
                     setSourceColumns(schema.fields.map((f: any) => f.name))

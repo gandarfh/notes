@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { IconPlus, IconX, IconChevronUp, IconChevronDown } from '@tabler/icons-react'
-import type { ColumnDef } from '../../bridge/wails'
+import type { ColumnDef } from './types'
 import type { Row } from './pipeline'
-import { Select } from './Select'
+import { Select } from '../shared/components/Select'
 import {
     type PipelineConfig, type Stage, type FilterCondition, type MetricDef,
     type Aggregation, type FilterOp, type VizConfig,

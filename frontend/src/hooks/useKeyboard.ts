@@ -1,8 +1,7 @@
+import { GRID_SIZE, snapToGrid as snap } from '../constants'
 import { useEffect } from 'react'
 import { useAppStore } from '../store'
 
-const GRID_SIZE = 30
-const snap = (v: number) => Math.round(v / GRID_SIZE) * GRID_SIZE
 
 /**
  * Global keyboard shortcuts — vim-like block navigation + actions.

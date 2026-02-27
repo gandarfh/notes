@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { BlockPlugin, BlockRendererProps } from '../types'
-import type { DBConnView, QueryResultView, SchemaInfo, Mutation } from '../../bridge/wails'
-import { api } from '../../bridge/wails'
-import { useAppStore } from '../../store'
+import './database.css'
+import type { BlockPlugin, PluginRendererProps } from '../sdk'
+import type { DBConnView, QueryResultView, SchemaInfo, Mutation } from './types'
 import { SetupStage } from './SetupStage'
 import { QueryStage } from './QueryStage'
 
@@ -24,12 +23,12 @@ function parseConfig(content: string): BlockDBConfig {
 
 // ── Main Renderer ──────────────────────────────────────────
 
-function DatabaseRenderer({ block, isEditing, isSelected }: BlockRendererProps) {
+function DatabaseRenderer({ block, isEditing, isSelected, ctx }: PluginRendererProps) {
     const config = parseConfig(block.content)
     const configRef = useRef(config)
     configRef.current = config
 
-    const updateBlock = useAppStore(s => s.updateBlock)
+    const rpc = ctx!.rpc
 
     const [connectionId, setConnectionId] = useState(config.connectionId || '')
     const [connections, setConnections] = useState<DBConnView[]>([])
@@ -41,44 +40,43 @@ function DatabaseRenderer({ block, isEditing, isSelected }: BlockRendererProps) 
 
     // Load connections list
     useEffect(() => {
-        api.listDatabaseConnections().then(setConnections).catch(console.error)
-    }, [])
+        rpc.call<DBConnView[]>('ListDatabaseConnections').then(setConnections).catch(console.error)
+    }, [rpc])
 
     // Load cached result on mount
     useEffect(() => {
-        api.getCachedResult(block.id).then(r => {
+        rpc.call<QueryResultView>('GetCachedResult', block.id).then(r => {
             // hasMore=false: cursor doesn't persist between navigations
             if (r) {
                 setCachedResult({ ...r, hasMore: false })
                 setIsCached(true)
             }
         }).catch(console.error)
-    }, [block.id])
+    }, [block.id, rpc])
 
     // Load schema when connection changes
     useEffect(() => {
         if (!connectionId) return
         setSchemaLoading(true)
-        api.introspectDatabase(connectionId)
+        rpc.call<SchemaInfo>('IntrospectDatabase', connectionId)
             .then(setSchema)
             .catch(console.error)
             .finally(() => setSchemaLoading(false))
-    }, [connectionId])
+    }, [connectionId, rpc])
 
-    // Helper to persist config and sync Zustand store
+    // Helper to persist config
     const persistConfig = useCallback(async (newConfig: BlockDBConfig) => {
         const json = JSON.stringify(newConfig)
-        await api.saveBlockDatabaseConfig(block.id, json)
-        // Keep the Zustand store in sync so block.content is up-to-date
-        updateBlock(block.id, { content: json })
-    }, [block.id, updateBlock])
+        await rpc.call('SaveBlockDatabaseConfig', block.id, json)
+        ctx!.storage.setContent(json)
+    }, [block.id, rpc, ctx])
 
     const handleConnect = useCallback(async (connId: string) => {
         setConnectionId(connId)
         await persistConfig({ ...configRef.current, connectionId: connId })
         // Refresh connections list
-        api.listDatabaseConnections().then(setConnections).catch(console.error)
-    }, [persistConfig])
+        rpc.call<DBConnView[]>('ListDatabaseConnections').then(setConnections).catch(console.error)
+    }, [persistConfig, rpc])
 
     const handleExecute = useCallback(async (query: string, page?: number) => {
         if (!connectionId) return
@@ -88,27 +86,30 @@ function DatabaseRenderer({ block, isEditing, isSelected }: BlockRendererProps) 
             let result: QueryResultView
 
             if (page !== undefined && page > 0) {
-                result = await api.fetchMoreRows(connectionId, fetchSize)
+                result = await rpc.call<QueryResultView>('FetchMoreRows', connectionId, fetchSize)
             } else {
-                result = await api.executeQuery(block.id, connectionId, query, fetchSize)
+                result = await rpc.call<QueryResultView>('ExecuteQuery', block.id, connectionId, query, fetchSize)
             }
             setCachedResult(result)
             setIsCached(false)
 
             // Persist query in config
             await persistConfig({ ...configRef.current, connectionId, query })
+
+            // Emit event for ETL
+            ctx!.events.emit('database:query-executed', { blockId: block.id })
         } catch (e: any) {
             setCachedResult({ columns: [], rows: [], totalRows: 0, hasMore: false, durationMs: 0, error: e.message || String(e), isWrite: false, affectedRows: 0, query })
         } finally {
             setLoading(false)
         }
-    }, [connectionId, block.id, persistConfig])
+    }, [connectionId, block.id, persistConfig, rpc, ctx])
 
     const handleFetchMore = useCallback(async () => {
         if (!connectionId) return
         setLoading(true)
         try {
-            const result = await api.fetchMoreRows(connectionId, config.fetchSize || 50)
+            const result = await rpc.call<QueryResultView>('FetchMoreRows', connectionId, config.fetchSize || 50)
             if (result.error) {
                 console.error('[DB] FetchMore error:', result.error)
                 return
@@ -127,7 +128,7 @@ function DatabaseRenderer({ block, isEditing, isSelected }: BlockRendererProps) 
         } finally {
             setLoading(false)
         }
-    }, [connectionId, cachedResult, config.fetchSize])
+    }, [connectionId, cachedResult, config.fetchSize, rpc])
 
     const handleApplyMutations = useCallback(async (mutations: Mutation[]) => {
         if (!connectionId) return
@@ -144,7 +145,7 @@ function DatabaseRenderer({ block, isEditing, isSelected }: BlockRendererProps) 
         }
         if (!table) throw new Error('Could not determine table name')
 
-        const result = await api.applyMutations(connectionId, table, mutations)
+        const result = await rpc.call<{ errors?: string[] }>('ApplyMutations', connectionId, table, mutations)
         if (result.errors?.length) {
             console.error('[DB] Mutation errors:', result.errors)
         }
@@ -152,9 +153,13 @@ function DatabaseRenderer({ block, isEditing, isSelected }: BlockRendererProps) 
         if (configRef.current.query) {
             await handleExecute(configRef.current.query)
         }
-    }, [connectionId, handleExecute])
+    }, [connectionId, handleExecute, rpc])
 
     const currentConn = connections.find(c => c.id === connectionId)
+
+    const refreshConnections = useCallback(() => {
+        rpc.call<DBConnView[]>('ListDatabaseConnections').then(setConnections)
+    }, [rpc])
 
     // Stage 1: Setup (no connection configured)
     if (!connectionId) {
@@ -163,7 +168,7 @@ function DatabaseRenderer({ block, isEditing, isSelected }: BlockRendererProps) 
                 <SetupStage
                     connections={connections}
                     onConnect={handleConnect}
-                    onRefreshConnections={() => api.listDatabaseConnections().then(setConnections)}
+                    onRefreshConnections={refreshConnections}
                 />
             </div>
         )
@@ -212,4 +217,9 @@ export const databasePlugin: BlockPlugin = {
     defaultSize: { width: 600, height: 450 },
     Renderer: DatabaseRenderer,
     headerLabel: 'DB',
+    capabilities: { zeroPadding: true },
+    publicAPI: (ctx) => ({
+        listConnections: () => ctx.rpc.call('ListDatabaseConnections'),
+        listBlocksOnPage: (pageId: string) => ctx.rpc.call('ListPageDatabaseBlocks', pageId),
+    }),
 }

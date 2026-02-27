@@ -1,8 +1,8 @@
-import type { BlockPlugin, BlockRendererProps } from '../types'
+import type { BlockPlugin, PluginRendererProps } from '../sdk'
 
 // ── Renderer Component ─────────────────────────────────────
 
-function DrawingRenderer({ block }: BlockRendererProps) {
+function DrawingRenderer({ block }: PluginRendererProps) {
     // Render a static SVG preview of drawing elements
     if (!block.content) {
         return (

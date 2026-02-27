@@ -26,114 +26,6 @@ export namespace app {
 	        this.sslMode = source["sslMode"];
 	    }
 	}
-	export class CreateETLJobInput {
-	    name: string;
-	    sourceType: string;
-	    sourceConfig: Record<string, any>;
-	    transforms: etl.TransformConfig[];
-	    targetDbId: string;
-	    syncMode: string;
-	    dedupeKey: string;
-	    triggerType: string;
-	    triggerConfig: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new CreateETLJobInput(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.sourceType = source["sourceType"];
-	        this.sourceConfig = source["sourceConfig"];
-	        this.transforms = this.convertValues(source["transforms"], etl.TransformConfig);
-	        this.targetDbId = source["targetDbId"];
-	        this.syncMode = source["syncMode"];
-	        this.dedupeKey = source["dedupeKey"];
-	        this.triggerType = source["triggerType"];
-	        this.triggerConfig = source["triggerConfig"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class DBConnView {
-	    id: string;
-	    name: string;
-	    driver: string;
-	    host: string;
-	    port: number;
-	    database: string;
-	    username: string;
-	    sslMode: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new DBConnView(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.driver = source["driver"];
-	        this.host = source["host"];
-	        this.port = source["port"];
-	        this.database = source["database"];
-	        this.username = source["username"];
-	        this.sslMode = source["sslMode"];
-	    }
-	}
-	export class DatabaseBlockInfo {
-	    blockId: string;
-	    connectionId: string;
-	    query: string;
-	    label: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new DatabaseBlockInfo(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.blockId = source["blockId"];
-	        this.connectionId = source["connectionId"];
-	        this.query = source["query"];
-	        this.label = source["label"];
-	    }
-	}
-	export class HTTPBlockInfo {
-	    blockId: string;
-	    method: string;
-	    url: string;
-	    label: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new HTTPBlockInfo(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.blockId = source["blockId"];
-	        this.method = source["method"];
-	        this.url = source["url"];
-	        this.label = source["label"];
-	    }
-	}
 	export class HTTPResponse {
 	    statusCode: number;
 	    statusText: string;
@@ -158,70 +50,19 @@ export namespace app {
 	        this.sizeBytes = source["sizeBytes"];
 	    }
 	}
-	export class LocalDBStats {
-	    rowCount: number;
-	    // Go type: time
-	    lastUpdated: any;
+	export class PageBlockRef {
+	    id: string;
+	    content: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new LocalDBStats(source);
+	        return new PageBlockRef(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.rowCount = source["rowCount"];
-	        this.lastUpdated = this.convertValues(source["lastUpdated"], null);
+	        this.id = source["id"];
+	        this.content = source["content"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class PreviewResult {
-	    schema?: etl.Schema;
-	    records: etl.Record[];
-	
-	    static createFrom(source: any = {}) {
-	        return new PreviewResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.schema = this.convertValues(source["schema"], etl.Schema);
-	        this.records = this.convertValues(source["records"], etl.Record);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class QueryResultView {
 	    columns: string[];
@@ -449,6 +290,58 @@ export namespace domain {
 	        this.label = source["label"];
 	        this.color = source["color"];
 	        this.style = source["style"];
+	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class DatabaseConnection {
+	    id: string;
+	    name: string;
+	    driver: string;
+	    host: string;
+	    port: number;
+	    database: string;
+	    username: string;
+	    sslMode: string;
+	    extraJson: string;
+	    // Go type: time
+	    createdAt: any;
+	    // Go type: time
+	    updatedAt: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new DatabaseConnection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.driver = source["driver"];
+	        this.host = source["host"];
+	        this.port = source["port"];
+	        this.database = source["database"];
+	        this.username = source["username"];
+	        this.sslMode = source["sslMode"];
+	        this.extraJson = source["extraJson"];
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	        this.updatedAt = this.convertValues(source["updatedAt"], null);
 	    }
@@ -925,6 +818,124 @@ export namespace etl {
 	        this.rowsRead = source["rowsRead"];
 	        this.rowsWritten = source["rowsWritten"];
 	        this.error = source["error"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
+export namespace service {
+	
+	export class CreateETLJobInput {
+	    name: string;
+	    sourceType: string;
+	    sourceConfig: Record<string, any>;
+	    transforms: etl.TransformConfig[];
+	    targetDbId: string;
+	    syncMode: string;
+	    dedupeKey: string;
+	    triggerType: string;
+	    triggerConfig: string;
+	    enabled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateETLJobInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.sourceType = source["sourceType"];
+	        this.sourceConfig = source["sourceConfig"];
+	        this.transforms = this.convertValues(source["transforms"], etl.TransformConfig);
+	        this.targetDbId = source["targetDbId"];
+	        this.syncMode = source["syncMode"];
+	        this.dedupeKey = source["dedupeKey"];
+	        this.triggerType = source["triggerType"];
+	        this.triggerConfig = source["triggerConfig"];
+	        this.enabled = source["enabled"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class LocalDBStats {
+	    rowCount: number;
+	    // Go type: time
+	    lastUpdated: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new LocalDBStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rowCount = source["rowCount"];
+	        this.lastUpdated = this.convertValues(source["lastUpdated"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class PreviewResult {
+	    schema?: etl.Schema;
+	    records: etl.Record[];
+	
+	    static createFrom(source: any = {}) {
+	        return new PreviewResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.schema = this.convertValues(source["schema"], etl.Schema);
+	        this.records = this.convertValues(source["records"], etl.Record);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

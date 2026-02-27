@@ -94,6 +94,10 @@ export function DuplicateLocalDBRow(arg1) {
   return window['go']['app']['App']['DuplicateLocalDBRow'](arg1);
 }
 
+export function Emit(arg1, arg2, arg3) {
+  return window['go']['app']['App']['Emit'](arg1, arg2, arg3);
+}
+
 export function ExecuteHTTPRequest(arg1, arg2) {
   return window['go']['app']['App']['ExecuteHTTPRequest'](arg1, arg2);
 }

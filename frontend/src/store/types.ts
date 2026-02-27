@@ -52,7 +52,6 @@ export interface BlockSlice {
     blocks: Map<string, Block>
     selectedBlockId: string | null
     editingBlockId: string | null
-    scrollToLine: number | null
 
     setBlocks: (blocks: Block[]) => void
     addBlock: (block: Block) => void
