@@ -1,6 +1,6 @@
 import './etl.css'
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import type { BlockPlugin, BlockRendererProps } from '../types'
+import type { BlockPlugin, PluginRendererProps } from '../sdk'
 import type { LocalDatabase } from './types'
 import { ETLEditor } from './ETLEditor'
 
@@ -85,7 +85,7 @@ export interface SyncRunLog {
 
 // ── Block Renderer ─────────────────────────────────────────
 
-function ETLBlockRenderer({ block, ctx }: BlockRendererProps) {
+function ETLBlockRenderer({ block, ctx }: PluginRendererProps) {
     const rpc = ctx!.rpc
     const config = useMemo(() => parseConfig(block.content), [block.content])
 
@@ -128,7 +128,12 @@ function ETLBlockRenderer({ block, ctx }: BlockRendererProps) {
             const result = await rpc.call<SyncResult>('RunETLJob', job.id)
             setLastResult(result)
             const updated = await rpc.call<SyncJob>('GetETLJob', job.id)
-            setJob(updated)
+            // Defensively preserve transforms if the backend response is missing them
+            const mergedJob: SyncJob = {
+                ...updated,
+                transforms: (updated.transforms?.length ? updated.transforms : job.transforms) ?? [],
+            }
+            setJob(mergedJob)
             // Refresh logs.
             rpc.call<SyncRunLog[]>('ListETLRunLogs', job.id).then(setLogs).catch(() => { })
             // Notify other plugins

@@ -1,9 +1,9 @@
 import { useEffect, useState, memo } from 'react'
-import type { BlockPlugin, BlockRendererProps } from '../types'
+import type { BlockPlugin, PluginRendererProps } from '../sdk'
 
-// ── Renderer Component ─────────────────────────────────────
+// ── Renderer Component ─────────────────────────────────────────
 
-const ImageRenderer = memo(function ImageRenderer({ block, ctx }: BlockRendererProps) {
+const ImageRenderer = memo(function ImageRenderer({ block, ctx }: PluginRendererProps) {
     const [src, setSrc] = useState(block.content || '')
 
     // Lazily load image data from disk if content is empty but filePath exists
@@ -59,4 +59,8 @@ export const imagePlugin: BlockPlugin = {
     defaultSize: { width: 300, height: 200 },
     Renderer: ImageRenderer,
     headerLabel: 'IMG',
+    capabilities: {
+        aspectRatioResize: true,
+        headerless: true,
+    },
 }

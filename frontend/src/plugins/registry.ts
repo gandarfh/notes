@@ -1,4 +1,4 @@
-import type { BlockPlugin } from './types'
+import type { BlockPlugin } from './sdk'
 import { createPluginContext } from './sdk/runtime/contextFactory'
 
 class BlockRegistryImpl {

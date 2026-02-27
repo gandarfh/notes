@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import './database.css'
-import type { BlockPlugin, BlockRendererProps } from '../types'
+import type { BlockPlugin, PluginRendererProps } from '../sdk'
 import type { DBConnView, QueryResultView, SchemaInfo, Mutation } from './types'
 import { SetupStage } from './SetupStage'
 import { QueryStage } from './QueryStage'
@@ -23,7 +23,7 @@ function parseConfig(content: string): BlockDBConfig {
 
 // ── Main Renderer ──────────────────────────────────────────
 
-function DatabaseRenderer({ block, isEditing, isSelected, ctx }: BlockRendererProps) {
+function DatabaseRenderer({ block, isEditing, isSelected, ctx }: PluginRendererProps) {
     const config = parseConfig(block.content)
     const configRef = useRef(config)
     configRef.current = config
@@ -217,6 +217,7 @@ export const databasePlugin: BlockPlugin = {
     defaultSize: { width: 600, height: 450 },
     Renderer: DatabaseRenderer,
     headerLabel: 'DB',
+    capabilities: { zeroPadding: true },
     publicAPI: (ctx) => ({
         listConnections: () => ctx.rpc.call('ListDatabaseConnections'),
         listBlocksOnPage: (pageId: string) => ctx.rpc.call('ListPageDatabaseBlocks', pageId),

@@ -1,6 +1,6 @@
 import './chart.css'
-import { useState, useCallback, useEffect, useMemo } from 'react'
-import type { BlockPlugin, BlockRendererProps } from '../types'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import type { BlockPlugin, PluginRendererProps } from '../sdk'
 import type { LocalDatabase, ColumnDef } from './types'
 import { ChartRenderer, defaultConfig, type ChartConfig, type ChartType, type DataPoint, type SeriesDef } from './ChartRenderer'
 import { ChartTypePicker } from './ChartTypePicker'
@@ -80,7 +80,7 @@ function rowsToChart(
 
 // ── Chart Block Renderer ───────────────────────────────────
 
-function ChartBlockRenderer({ block, ctx }: BlockRendererProps) {
+function ChartBlockRenderer({ block, ctx }: PluginRendererProps) {
     const rpc = ctx!.rpc
 
     // Parse config from block.content (re-parses when content changes)
@@ -88,11 +88,13 @@ function ChartBlockRenderer({ block, ctx }: BlockRendererProps) {
 
     const [databases, setDatabases] = useState<LocalDatabase[]>([])
     const [dbColumns, setDbColumns] = useState<Record<string, ColumnDef[]>>({})
+    const dbColumnsRef = useRef<Record<string, ColumnDef[]>>({})
     const [showEditor, setShowEditor] = useState(false)
     const [showTypePicker, setShowTypePicker] = useState(false)
     const [editingTitle, setEditingTitle] = useState(false)
     const [titleValue, setTitleValue] = useState('')
     const [refreshKey, setRefreshKey] = useState(0)
+    const [dbSchemaKey, setDbSchemaKey] = useState(0) // bumped when any localdb schema changes
     const [pipelineError, setPipelineError] = useState<string | null>(null)
     const [executedRows, setExecutedRows] = useState<Row[]>([])
 
@@ -123,29 +125,110 @@ function ChartBlockRenderer({ block, ctx }: BlockRendererProps) {
         return () => { unsub1(); unsub2() }
     }, [config.pipeline.stages, ctx])
 
+    // Subscribe to ALL localdb changes (SDK bus + backend events) to keep columns fresh
+    // This also triggers the column ID migration when ETL replaces the schema.
+    useEffect(() => {
+        const unsub1 = ctx!.events.on('localdb:changed', () => {
+            setDbSchemaKey(k => k + 1)
+        })
+        // db:updated fires from backend when ETL syncs data (localdb:changed does not)
+        const unsub2 = ctx!.events.onBackend('db:updated', () => {
+            setDbSchemaKey(k => k + 1)
+        })
+        return () => { unsub1(); unsub2() }
+    }, [ctx])
+
     const persist = useCallback((next: ChartBlockConfig) => {
         ctx!.storage.setContent(JSON.stringify(next))
     }, [ctx])
 
-    // Load databases & columns
+    // Load databases & columns — re-runs when editor opens, data refreshes, or any localdb schema changes
     useEffect(() => {
         rpc.call<LocalDatabase[]>('ListLocalDatabases').then(dbs => {
             setDatabases(dbs)
-            const cols: Record<string, ColumnDef[]> = {}
+            const newCols: Record<string, ColumnDef[]> = {}
             dbs.forEach(db => {
                 try {
                     const parsed = JSON.parse(db.configJson || '{}')
-                    cols[db.id] = parsed.columns || []
-                } catch { cols[db.id] = [] }
+                    newCols[db.id] = parsed.columns || []
+                } catch { newCols[db.id] = [] }
             })
-            setDbColumns(cols)
-        }).catch(() => { })
-    }, [showEditor, refreshKey, rpc])
 
-    // Execute pipeline whenever pipeline config or columns change
+            // ─ Column ID migration ───────────────────────────────────────
+            // When ETL 'replace' runs, localdb schema is recreated with new column UUIDs.
+            // We remap old IDs → new IDs by matching column NAMES so the pipeline stays valid.
+            const oldCols = dbColumnsRef.current
+            const idMap = new Map<string, string>() // oldId -> newId
+
+            for (const [dbId, newDbCols] of Object.entries(newCols)) {
+                const oldDbCols = oldCols[dbId] || []
+                if (!oldDbCols.length || !newDbCols.length) continue
+
+                // Build name -> oldId lookup
+                const nameToOldId = new Map<string, string>()
+                for (const col of oldDbCols) nameToOldId.set(col.name, col.id)
+
+                // For each new column, find the old ID for the same name
+                for (const col of newDbCols) {
+                    const oldId = nameToOldId.get(col.name)
+                    if (oldId && oldId !== col.id) {
+                        idMap.set(oldId, col.id)
+                    }
+                }
+            }
+
+            if (idMap.size > 0) {
+                // Remap a single column reference string
+                const remap = (v: string) => idMap.get(v) ?? v
+                // Remap an array of column references
+                const remapArr = (arr: string[]) => arr.map(remap)
+
+                const migrateStages = (stages: any[]): any[] =>
+                    stages.map(s => {
+                        switch (s.type) {
+                            case 'group':
+                                return { ...s, groupBy: remapArr(s.groupBy || []) }
+                            case 'pivot':
+                                return {
+                                    ...s,
+                                    rowKeys: remapArr(s.rowKeys || []),
+                                    pivotColumn: remap(s.pivotColumn || ''),
+                                    valueColumns: remapArr(s.valueColumns || []),
+                                }
+                            case 'filter':
+                                return {
+                                    ...s,
+                                    conditions: (s.conditions || []).map((c: any) => ({ ...c, column: remap(c.column) }))
+                                }
+                            case 'sort':
+                                return { ...s, column: remap(s.column || '') }
+                            case 'date_part':
+                                return { ...s, field: remap(s.field || '') }
+                            case 'percent':
+                                return { ...s, column: remap(s.column || '') }
+                            default: return s
+                        }
+                    })
+
+                const currentConfig = JSON.parse(ctx!.storage.getContent() || '{}') as ChartBlockConfig
+                const migratedPipeline = { ...currentConfig.pipeline, stages: migrateStages(currentConfig.pipeline?.stages || []) }
+                ctx!.storage.setContent(JSON.stringify({ ...currentConfig, pipeline: migratedPipeline }))
+            }
+
+            dbColumnsRef.current = newCols
+            setDbColumns(newCols)
+        }).catch(() => { })
+    }, [showEditor, refreshKey, dbSchemaKey, rpc, ctx])
+
+    // Stable keys for pipeline execution dependency tracking
     const pipelineJSON = JSON.stringify(config.pipeline)
     const colKeys = Object.keys(dbColumns).sort().join(',')
 
+    // Execute pipeline when pipeline config or columns change.
+    // IMPORTANT: refreshKey is NOT a dep here — it only triggers a column reload.
+    // The column reload sets new dbColumns → colKeys changes → this effect re-fires
+    // with the already-migrated config. Adding refreshKey here would cause a race
+    // where pipeline runs with the old config before migration completes.
     useEffect(() => {
         const pipeline = config.pipeline
         if (!pipeline.stages.length) return
@@ -180,7 +263,7 @@ function ChartBlockRenderer({ block, ctx }: BlockRendererProps) {
         }).catch(err => {
             setPipelineError(String(err))
         })
-    }, [pipelineJSON, colKeys, refreshKey])
+    }, [pipelineJSON, colKeys])
 
     const handlePipelineChange = (pipeline: PipelineConfig) => {
         persist({ ...config, pipeline })

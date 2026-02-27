@@ -1,7 +1,6 @@
 import './http.css'
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import type { BlockPlugin, BlockRendererProps } from '../types'
-import type { PluginContext } from '../sdk'
+import type { BlockPlugin, PluginRendererProps, PluginContext } from '../sdk'
 import { useWheelCapture } from '../shared'
 import { RequestEditor } from './RequestEditor'
 import { ResponseViewer } from './ResponseViewer'
@@ -94,7 +93,7 @@ function serializeContent(config: HTTPBlockConfig, response: HTTPResponseData | 
 
 // ── Main Renderer ──────────────────────────────────────────
 
-function HTTPRenderer({ block, isSelected, ctx }: BlockRendererProps) {
+function HTTPRenderer({ block, isSelected, ctx }: PluginRendererProps) {
     const initial = useMemo(() => parseContent(block.content), [])
     const [localConfig, setLocalConfig] = useState<HTTPBlockConfig>(initial.config)
     const [response, setResponse] = useState<HTTPResponseData | null>(initial.lastResponse)
@@ -225,6 +224,7 @@ export const httpPlugin: BlockPlugin = {
     defaultSize: { width: 580, height: 500 },
     Renderer: HTTPRenderer,
     headerLabel: 'HTTP',
+    capabilities: { zeroPadding: true },
     publicAPI: (ctx) => ({
         listBlocksOnPage: (pageId: string) => ctx.rpc.call('ListPageHTTPBlocks', pageId),
     }),

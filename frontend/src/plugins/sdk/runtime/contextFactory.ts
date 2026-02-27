@@ -12,7 +12,6 @@ import { rpcCall } from './rpcProxy'
 
 // Lazy imports to avoid circular deps — resolved at call time
 function getAppStore() {
-    // Dynamic import pattern to defer resolution
     return (window as any).__pluginSDK_appStore as {
         getState: () => any
         setState: (partial: any) => void
@@ -25,6 +24,32 @@ function getRegistry() {
         has: (type: string) => boolean
     }
 }
+
+// ── Font-size persistence ──────────────────────────────────
+
+const FONT_SIZE_KEY = 'md-font-size:'
+const DEFAULT_FONT_SIZE = 15
+const MIN_FONT_SIZE = 10
+const MAX_FONT_SIZE = 48
+
+export function sdkGetFontSize(blockId: string): number {
+    try {
+        const v = localStorage.getItem(FONT_SIZE_KEY + blockId)
+        if (v) return Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, parseInt(v, 10)))
+    } catch { }
+    return DEFAULT_FONT_SIZE
+}
+
+export function sdkSetFontSize(blockId: string, size: number): void {
+    const clamped = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, size))
+    try {
+        localStorage.setItem(FONT_SIZE_KEY + blockId, String(clamped))
+    } catch { }
+    // Notify all renderers for this block via plugin bus
+    pluginBus.emit('block:fontsize-changed', { blockId, size: clamped })
+}
+
+export { MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE }
 
 // ── Debounce helper ────────────────────────────────────────
 
@@ -83,16 +108,18 @@ export function createPluginContext(block: BlockData): PluginContext {
             onBackend: pluginBus.onBackend.bind(pluginBus),
         },
 
-        // ── Block info ─────────────────────────────────
+        // ── Block info ─────────────────────────────────────────
+        // Reads live from store so ctx.block.* is always up-to-date
+        // even when ctx is memoized on block.id
         block: {
-            get id() { return block.id },
-            get pageId() { return block.pageId },
-            get type() { return block.type },
-            get x() { return block.x },
-            get y() { return block.y },
-            get width() { return block.width },
-            get height() { return block.height },
-            get filePath() { return block.filePath },
+            get id() { return blockId },
+            get pageId() { return getAppStore().getState().blocks.get(blockId)?.pageId || block.pageId },
+            get type() { return getAppStore().getState().blocks.get(blockId)?.type || block.type },
+            get x() { return getAppStore().getState().blocks.get(blockId)?.x ?? block.x },
+            get y() { return getAppStore().getState().blocks.get(blockId)?.y ?? block.y },
+            get width() { return getAppStore().getState().blocks.get(blockId)?.width ?? block.width },
+            get height() { return getAppStore().getState().blocks.get(blockId)?.height ?? block.height },
+            get filePath() { return getAppStore().getState().blocks.get(blockId)?.filePath || block.filePath },
         },
 
         // ── Inter-plugin ───────────────────────────────
@@ -101,7 +128,6 @@ export function createPluginContext(block: BlockData): PluginContext {
                 const registry = getRegistry()
                 const plugin = registry.get(pluginType)
                 if (!plugin?.publicAPI) return null
-                // publicAPI is a factory fn that receives a context
                 return plugin._resolvedAPI ?? null
             },
 
@@ -145,7 +171,6 @@ export function createPluginContext(block: BlockData): PluginContext {
 
             toast(_message: string, _type?: 'info' | 'success' | 'error' | 'warning') {
                 // TODO: integrate with a proper toast system
-                // No-op until toast UI is implemented
             },
 
             async pickFile(_options?: {
@@ -157,6 +182,37 @@ export function createPluginContext(block: BlockData): PluginContext {
                 } catch {
                     return null
                 }
+            },
+
+            openUrl(url: string) {
+                // Use the Wails runtime BrowserOpenURL via the RPC proxy globals
+                const w = window as any
+                if (w.runtime?.BrowserOpenURL) {
+                    w.runtime.BrowserOpenURL(url)
+                } else {
+                    // Fallback for dev/test environments
+                    window.open(url, '_blank', 'noopener,noreferrer')
+                }
+            },
+
+            getFontSize() {
+                return sdkGetFontSize(blockId)
+            },
+
+            setFontSize(size: number) {
+                sdkSetFontSize(blockId, size)
+            },
+        },
+
+        // ── Editor ─────────────────────────────────────
+        editor: {
+            onClose(cb: (cursorLine: number) => void) {
+                // Subscribe to the plugin bus event emitted by useTerminal on close
+                return pluginBus.on('editor:closed', (payload: any) => {
+                    if (payload?.blockId === blockId) {
+                        cb(payload.cursorLine ?? 0)
+                    }
+                })
             },
         },
     }

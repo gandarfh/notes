@@ -9,6 +9,7 @@ export type {
     BlockPlugin,
     PluginContext,
     PluginRendererProps,
+    PluginCapabilities,
     BlockData,
     ContextMenuItem,
     ShortcutDef,

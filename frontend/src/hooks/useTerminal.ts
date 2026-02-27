@@ -5,6 +5,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import '@xterm/xterm/css/xterm.css'
 import { api, onEvent } from '../bridge/wails'
 import { useAppStore } from '../store'
+import { pluginBus } from '../plugins/sdk/runtime/eventBus'
 
 export interface TerminalHandle {
     write: (data: Uint8Array | string) => void
@@ -128,13 +129,12 @@ export function useTerminal() {
     const close = useCallback((cursorLine?: number) => {
         dispose()
         const { editingBlockId } = useAppStore.getState()
-        // Batch state update so React processes in one render cycle
-        useAppStore.setState({
-            editingBlockId: null,
-            scrollToLine: cursorLine || null,
-        })
-        // Keep the block selected and focused after exiting editor
+        // Clear editing state
+        useAppStore.setState({ editingBlockId: null })
+        // Notify plugins via bus — markdown plugin handles scroll internally
         if (editingBlockId) {
+            pluginBus.emit('editor:closed', { blockId: editingBlockId, cursorLine: cursorLine ?? 0 })
+            // Keep the block selected and focused after exiting editor
             useAppStore.getState().selectBlock(editingBlockId)
             requestAnimationFrame(() => {
                 const el = document.querySelector(`[data-block-id="${editingBlockId}"]`) as HTMLElement

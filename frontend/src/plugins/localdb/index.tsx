@@ -1,6 +1,6 @@
 import './localdb.css'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { BlockPlugin, BlockRendererProps } from '../types'
+import type { BlockPlugin, PluginRendererProps } from '../sdk'
 import type { ColumnDef, LocalDatabase, LocalDBRow, LocalDatabaseConfig, ViewConfig } from './types'
 import { useWheelCapture } from '../shared'
 import { ViewSwitcher, type ViewType } from './ViewSwitcher'
@@ -11,7 +11,7 @@ import { ViewConfigBar } from './ViewConfigBar'
 
 // ── Main Renderer ──────────────────────────────────────────
 
-function LocalDBRenderer({ block, isSelected, ctx }: BlockRendererProps) {
+function LocalDBRenderer({ block, isSelected, ctx }: PluginRendererProps) {
     const rpc = ctx!.rpc
 
     const [db, setDb] = useState<LocalDatabase | null>(null)

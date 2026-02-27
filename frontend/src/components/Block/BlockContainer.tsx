@@ -7,89 +7,25 @@ import { IconEdit, IconX, IconLink } from '@tabler/icons-react'
 import { api } from '../../bridge/wails'
 import { createPluginContext } from '../../plugins/sdk/runtime/contextFactory'
 
-// ── Font-size helpers ──────────────────────────────────────
-
-const FONT_SIZE_KEY = 'md-font-size:'
-const DEFAULT_FONT_SIZE = 15
-const MIN_FONT_SIZE = 10
-const MAX_FONT_SIZE = 48
-
-export function getBlockFontSize(blockId: string): number {
-    try {
-        const v = localStorage.getItem(FONT_SIZE_KEY + blockId)
-        if (v) return Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, parseInt(v, 10)))
-    } catch { }
-    return DEFAULT_FONT_SIZE
-}
-
-function setBlockFontSize(blockId: string, size: number) {
-    localStorage.setItem(FONT_SIZE_KEY + blockId, String(size))
-}
-
 // ── Block Header ───────────────────────────────────────────
 
-const LANGUAGES = [
-    { ext: 'txt', label: 'Plain Text' },
-    { ext: 'go', label: 'Go' },
-    { ext: 'rs', label: 'Rust' },
-    { ext: 'py', label: 'Python' },
-    { ext: 'js', label: 'JavaScript' },
-    { ext: 'ts', label: 'TypeScript' },
-    { ext: 'tsx', label: 'TSX' },
-    { ext: 'jsx', label: 'JSX' },
-    { ext: 'json', label: 'JSON' },
-    { ext: 'yaml', label: 'YAML' },
-    { ext: 'toml', label: 'TOML' },
-    { ext: 'sql', label: 'SQL' },
-    { ext: 'sh', label: 'Shell' },
-    { ext: 'html', label: 'HTML' },
-    { ext: 'css', label: 'CSS' },
-    { ext: 'java', label: 'Java' },
-    { ext: 'kt', label: 'Kotlin' },
-    { ext: 'swift', label: 'Swift' },
-    { ext: 'c', label: 'C' },
-    { ext: 'cpp', label: 'C++' },
-    { ext: 'lua', label: 'Lua' },
-    { ext: 'zig', label: 'Zig' },
-    { ext: 'rb', label: 'Ruby' },
-    { ext: 'proto', label: 'Protobuf' },
-    { ext: 'graphql', label: 'GraphQL' },
-    { ext: 'dockerfile', label: 'Dockerfile' },
-    { ext: 'hcl', label: 'HCL/Terraform' },
-    { ext: 'md', label: 'Markdown' },
-]
-
-const BlockHeader = memo(function BlockHeader({ type, blockId, filePath, onDelete, onEdit, onLinkFile, onChangeLang }: { type: string; blockId: string; filePath?: string; onDelete: () => void; onEdit?: () => void; onLinkFile?: () => void; onChangeLang?: (ext: string) => void }) {
+const BlockHeader = memo(function BlockHeader({
+    type, blockId, filePath, onDelete, onEdit, onLinkFile,
+}: {
+    type: string
+    blockId: string
+    filePath?: string
+    onDelete: () => void
+    onEdit?: () => void
+    onLinkFile?: () => void
+}) {
     const plugin = BlockRegistry.get(type)
     const label = plugin?.headerLabel || type.toUpperCase()
-    const isMarkdown = type === 'markdown'
-    const isCode = type === 'code'
-    const currentExt = filePath?.split('.').pop()?.toLowerCase() || 'txt'
-
-    const [showFontPopup, setShowFontPopup] = useState(false)
-    const [fontSize, setFontSize] = useState(() => getBlockFontSize(blockId))
-    const popupRef = useRef<HTMLDivElement>(null)
-
-    const changeFontSize = useCallback((delta: number) => {
-        setFontSize(prev => {
-            const next = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, prev + delta))
-            setBlockFontSize(blockId, next)
-            window.dispatchEvent(new CustomEvent('md-fontsize-change', { detail: { blockId, size: next } }))
-            return next
-        })
+    const ctx = useMemo(() => {
+        // Build a minimal ctx for HeaderExtension — block info needed
+        const block = useAppStore.getState().blocks.get(blockId)
+        return block ? createPluginContext(block) : null
     }, [blockId])
-
-    // Close popup on outside click
-    useEffect(() => {
-        if (!showFontPopup) return
-        const handler = (e: MouseEvent) => {
-            if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
-                setShowFontPopup(false)
-            }
-        }
-        document.addEventListener('mousedown', handler)
-        return () => document.removeEventListener('mousedown', handler)
-    }, [showFontPopup])
 
     return (
         <div
@@ -98,19 +34,6 @@ const BlockHeader = memo(function BlockHeader({ type, blockId, filePath, onDelet
         >
             <span className="flex items-center gap-1.5" title={filePath || undefined}>
                 {label}
-                {isCode && onChangeLang && (
-                    <select
-                        className="code-lang-select"
-                        value={currentExt}
-                        onChange={e => { e.stopPropagation(); onChangeLang(e.target.value) }}
-                        onClick={e => e.stopPropagation()}
-                        onMouseDown={e => e.stopPropagation()}
-                    >
-                        {LANGUAGES.map(l => (
-                            <option key={l.ext} value={l.ext}>{l.label}</option>
-                        ))}
-                    </select>
-                )}
                 {filePath && (
                     <span style={{ opacity: 0.5, fontWeight: 400, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
                         {filePath.split('/').pop()}
@@ -118,49 +41,9 @@ const BlockHeader = memo(function BlockHeader({ type, blockId, filePath, onDelet
                 )}
             </span>
             <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-100">
-                {isMarkdown && (
-                    <div className="relative" ref={popupRef}>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setShowFontPopup(!showFontPopup) }}
-                            className="w-[22px] h-[22px] flex items-center justify-center border-none bg-transparent text-text-muted rounded cursor-pointer text-[0.769rem] hover:bg-hover hover:text-text-primary"
-                            title="Font size"
-                            style={{ fontWeight: 600, letterSpacing: '-0.02em' }}
-                        >Aa</button>
-                        {showFontPopup && (
-                            <div
-                                className="absolute z-50 flex items-center gap-1"
-                                style={{
-                                    top: '100%',
-                                    right: 0,
-                                    marginTop: '4px',
-                                    background: 'var(--color-surface)',
-                                    border: '1px solid var(--color-border-default)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    padding: '3px 4px',
-                                    boxShadow: 'var(--block-shadow)',
-                                    whiteSpace: 'nowrap',
-                                }}
-                                onMouseDown={(e) => e.stopPropagation()}
-                            >
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); changeFontSize(-1) }}
-                                    disabled={fontSize <= MIN_FONT_SIZE}
-                                    className="w-[22px] h-[22px] flex items-center justify-center border-none rounded cursor-pointer text-[0.846rem] hover:bg-hover disabled:opacity-30 disabled:cursor-default"
-                                    style={{ background: 'transparent', color: 'var(--color-text-secondary)' }}
-                                >A−</button>
-                                <span
-                                    className="text-[0.846rem] font-semibold tabular-nums"
-                                    style={{ minWidth: '24px', textAlign: 'center', color: 'var(--color-text-primary)' }}
-                                >{fontSize}</span>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); changeFontSize(1) }}
-                                    disabled={fontSize >= MAX_FONT_SIZE}
-                                    className="w-[22px] h-[22px] flex items-center justify-center border-none rounded cursor-pointer text-[0.846rem] hover:bg-hover disabled:opacity-30 disabled:cursor-default"
-                                    style={{ background: 'transparent', color: 'var(--color-text-secondary)' }}
-                                >A+</button>
-                            </div>
-                        )}
-                    </div>
+                {/* Plugin-owned header controls */}
+                {plugin?.HeaderExtension && ctx && (
+                    <plugin.HeaderExtension blockId={blockId} ctx={ctx} />
                 )}
                 {onLinkFile && (
                     <button
@@ -293,11 +176,12 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
             const zoom = useAppStore.getState().viewport.zoom
             const dw = (ev.clientX - r.startX) / zoom
             const dh = (ev.clientY - r.startY) / zoom
-            const bType = useAppStore.getState().blocks.get(blockId)?.type
+            const blockType = useAppStore.getState().blocks.get(blockId)?.type
+            const p = blockType ? BlockRegistry.get(blockType) : undefined
 
             // Direct DOM update — bypass React/Zustand during resize
             if (elRef.current) {
-                if (bType === 'image' && !ev.ctrlKey && !ev.metaKey) {
+                if (p?.capabilities?.aspectRatioResize && !ev.ctrlKey && !ev.metaKey) {
                     const newW = Math.max(60, r.origW + dw)
                     const newH = newW / aspectRatio
                     elRef.current.style.width = `${newW}px`
@@ -327,23 +211,23 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
         window.addEventListener('mouseup', onUp)
     }, [blockId, block, selectBlock, resizeBlock, saveBlockPosition])
 
-    // ── Ctrl/Cmd+Click to edit (like IDE "go to definition") ──
+    // ── Ctrl/Cmd+Click to edit (capability: editable) ──
     const onContentMouseDown = useCallback((e: React.MouseEvent) => {
-        if (block?.type !== 'markdown' && block?.type !== 'code' || isEditing) return
+        if (!plugin?.capabilities?.editable || isEditing) return
         if (!(e.ctrlKey || e.metaKey)) return
-
-        // Cmd/Ctrl+click detected — open editor at clicked line
         e.preventDefault()
         e.stopPropagation()
         const target = e.target as HTMLElement
         const annotated = target.closest('[data-source-line]') as HTMLElement | null
         const line = annotated ? parseInt(annotated.dataset.sourceLine || '1', 10) : 1
         onEditBlock(blockId, line || 1)
-    }, [block?.type, isEditing, blockId, onEditBlock])
+    }, [plugin, isEditing, blockId, onEditBlock])
 
     if (!block || !plugin) return null
 
     const Renderer = plugin.Renderer
+    const caps = plugin.capabilities ?? {}
+    const isNoBg = caps.headerless   // no block background/header/shadow (e.g. image)
 
     const borderColor = isEditing
         ? 'var(--color-accent)'
@@ -357,7 +241,13 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
             ? 'var(--block-shadow-selected)'
             : 'var(--block-shadow)'
 
-    const isImage = block.type === 'image'
+    // Stable ctx reference — memoized on block.id only.
+    // contextFactory reads live data from the store at call-time, so we don't
+    // need to recreate ctx every time block.content / block.x / etc. change.
+    // Recreating ctx on every block update was causing all plugin useEffects
+    // that depend on [rpc], [ctx], [events] etc. to re-fire on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const ctx = useMemo(() => createPluginContext(block), [block.id])
 
     return (
         <div
@@ -366,15 +256,15 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
             data-block-id={blockId}
             data-block-type={block.type}
             tabIndex={-1}
-            className={`group absolute flex flex-col overflow-hidden pointer-events-auto ${isImage ? 'rounded-sm' : 'rounded-md'}`}
+            className={`group absolute flex flex-col overflow-hidden pointer-events-auto ${caps.smallBorderRadius ? 'rounded-sm' : 'rounded-md'}`}
             style={{
                 left: block.x,
                 top: block.y,
                 width: block.width,
                 height: block.height,
-                background: isImage ? 'transparent' : 'var(--color-block-bg)',
+                background: isNoBg ? 'transparent' : 'var(--color-block-bg)',
                 border: `1px solid ${borderColor}`,
-                boxShadow: isImage ? 'none' : boxShadow,
+                boxShadow: isNoBg ? 'none' : boxShadow,
                 zIndex: isEditing ? 100 : isSelected ? 50 : undefined,
             }}
             onClick={() => {
@@ -384,33 +274,25 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                 clearDrawingSelectionGlobal()
             }}
         >
-            {!isImage && (
+            {!isNoBg && (
                 <div onMouseDown={onHeaderMouseDown} onDoubleClick={onHeaderDoubleClick}>
                     <BlockHeader
                         type={block.type}
                         blockId={blockId}
                         filePath={block.filePath}
                         onDelete={() => deleteBlock(blockId)}
-                        onEdit={block.type === 'markdown' || block.type === 'code' ? () => onEditBlock(blockId, 1) : undefined}
-                        onLinkFile={block.type === 'markdown' || block.type === 'code' ? async () => {
+                        onEdit={caps.editable ? () => onEditBlock(blockId, 1) : undefined}
+                        onLinkFile={caps.editable ? async () => {
                             const path = await api.pickTextFile()
                             if (!path) return
                             const content = await api.updateBlockFilePath(blockId, path)
                             updateBlock(blockId, { content, filePath: path })
                         } : undefined}
-                        onChangeLang={block.type === 'code' ? async (ext: string) => {
-                            try {
-                                const newPath = await api.changeBlockFileExt(blockId, ext)
-                                updateBlock(blockId, { filePath: newPath })
-                            } catch (e) {
-                                console.error('[Code] changeFileExt:', e)
-                            }
-                        } : undefined}
                     />
                 </div>
             )}
 
-            {isEditing && (block.type === 'markdown' || block.type === 'code') ? (
+            {isEditing && caps.editable ? (
                 <div
                     className="block-content w-full flex-1 min-h-0 overflow-hidden p-0"
                     data-terminal-container
@@ -418,14 +300,14 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                 />
             ) : (
                 <div
-                    className={`block-content w-full flex-1 min-h-0 overflow-auto ${isImage || block.type === 'database' || block.type === 'http' ? 'p-0' : 'p-3'}`}
-                    onMouseDown={isImage ? onHeaderMouseDown : onContentMouseDown}
+                    className={`block-content w-full flex-1 min-h-0 overflow-auto ${caps.zeroPadding ? 'p-0' : 'p-3'}`}
+                    onMouseDown={isNoBg ? onHeaderMouseDown : onContentMouseDown}
                 >
                     <Renderer
                         block={block}
                         isEditing={isEditing}
                         isSelected={isSelected}
-                        ctx={createPluginContext(block)}
+                        ctx={ctx}
                         onContentChange={(content) => {
                             updateBlock(blockId, { content })
                             useAppStore.getState().saveBlockContent(blockId, content)
@@ -445,8 +327,8 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                 }}
             />
 
-            {/* Floating delete button for image blocks */}
-            {isImage && (
+            {/* Floating delete button for no-bg blocks (e.g. image) */}
+            {isNoBg && (
                 <button
                     onClick={(e) => { e.stopPropagation(); deleteBlock(blockId) }}
                     className="absolute z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-100 flex items-center justify-center border-none rounded-full cursor-pointer"
@@ -455,7 +337,7 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                         width: 22, height: 22,
                         background: 'var(--backdrop-bg)',
                     }}
-                    title="Delete image"
+                    title="Delete"
                 >×</button>
             )}
         </div>

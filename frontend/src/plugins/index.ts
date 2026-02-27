@@ -28,4 +28,4 @@ export function registerBuiltinPlugins() {
 }
 
 export { BlockRegistry } from './registry'
-export type { BlockPlugin, BlockRendererProps, BlockData } from './types'
+export type { BlockPlugin, PluginRendererProps, BlockData, PluginCapabilities } from './sdk'

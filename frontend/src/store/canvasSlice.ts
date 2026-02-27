@@ -38,7 +38,6 @@ export const createBlockSlice: StateCreator<AppState, [], [], BlockSlice> = (set
     blocks: new Map<string, Block>(),
     selectedBlockId: null,
     editingBlockId: null,
-    scrollToLine: null,
 
     setBlocks: (blocks) => {
         const map = new Map<string, Block>()

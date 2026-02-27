@@ -100,6 +100,22 @@ export interface PluginContext {
             title?: string
             filters?: Array<{ name: string; extensions: string[] }>
         }): Promise<string | null>
+        /** Open a URL in the system default browser */
+        openUrl(url: string): void
+        /** Get persisted font size for this block */
+        getFontSize(): number
+        /** Set and persist font size for this block */
+        setFontSize(size: number): void
+    }
+
+    // ── Editor (terminal/neovim) ────────────────────────
+    editor: {
+        /**
+         * Subscribe to editor-close events for this block.
+         * Called with the cursor line when the editor closes.
+         * Returns an unsubscribe function.
+         */
+        onClose(cb: (cursorLine: number) => void): () => void
     }
 }
 
@@ -135,6 +151,25 @@ export interface ShortcutDef {
     label?: string
 }
 
+// ── Plugin Capabilities ────────────────────────────────────
+// Declarative flags that replace type-specific conditionals in the host.
+
+export interface PluginCapabilities {
+    /** Mount a terminal (Neovim) on edit; show Edit + Link-file header buttons */
+    editable?: boolean
+    /** Lock aspect ratio during resize (e.g. image) */
+    aspectRatioResize?: boolean
+    /** Use border-radius sm instead of md */
+    smallBorderRadius?: boolean
+    /** Remove default content padding */
+    zeroPadding?: boolean
+    /**
+     * No block background, no header, no shadow.
+     * Use for blocks where the content IS the block (e.g. image).
+     */
+    headerless?: boolean
+}
+
 // ── BlockPlugin — the main contract ────────────────────────
 
 export interface BlockPlugin {
@@ -145,8 +180,17 @@ export interface BlockPlugin {
     defaultSize: { width: number; height: number }
     headerLabel?: string
 
+    // ── Capabilities (replaces host type-checks) ────────
+    capabilities?: PluginCapabilities
+
     // ── Rendering ──────────────────────────────────────
     Renderer: React.ComponentType<PluginRendererProps>
+
+    /**
+     * Optional extra controls rendered inside the block header.
+     * Receives the blockId so the component can read/write its own state.
+     */
+    HeaderExtension?: React.ComponentType<{ blockId: string; ctx: PluginContext }>
 
     // ── Lifecycle ──────────────────────────────────────
     /** Called once on registration. Returns cleanup fn. */
