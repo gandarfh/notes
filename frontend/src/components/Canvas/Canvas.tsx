@@ -452,7 +452,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
         <div
             ref={containerRef}
             data-role="canvas-container"
-            className="flex-1 relative overflow-hidden bg-canvas-bg"
+            className="flex-1 relative overflow-hidden bg-app"
             style={{ cursor: isPanningRef.current ? 'grabbing' : drawingCursor, contain: 'layout style paint' }}
             onMouseDown={onCanvasMouseDown}
         >

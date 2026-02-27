@@ -48,7 +48,7 @@ function getThemeColors() {
     const cs = getComputedStyle(document.documentElement)
     _cachedThemeColors = {
         handleFill: cs.getPropertyValue('--color-elevated').trim() || '#ffffff',
-        canvasBg: cs.getPropertyValue('--color-canvas-bg').trim() || '#0d0d12',
+        canvasBg: cs.getPropertyValue('--color-app').trim() || '#151310',
         textPrimary: cs.getPropertyValue('--color-text-primary').trim() || '#e8e8f0',
         isLight: document.documentElement.dataset.theme === 'light',
     }
