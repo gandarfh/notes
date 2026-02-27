@@ -21,11 +21,13 @@ const BlockHeader = memo(function BlockHeader({
 }) {
     const plugin = BlockRegistry.get(type)
     const label = plugin?.headerLabel || type.toUpperCase()
+    // Track block filePath in store so HeaderExtension re-renders when language changes
+    const blockFilePath = useAppStore(s => s.blocks.get(blockId)?.filePath)
     const ctx = useMemo(() => {
-        // Build a minimal ctx for HeaderExtension — block info needed
         const block = useAppStore.getState().blocks.get(blockId)
         return block ? createPluginContext(block) : null
-    }, [blockId])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [blockId, blockFilePath])
 
     return (
         <div

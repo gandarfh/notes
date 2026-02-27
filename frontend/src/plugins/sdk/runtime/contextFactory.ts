@@ -140,10 +140,11 @@ export function createPluginContext(block: BlockData): PluginContext {
         blocks: {
             listByType(type: string) {
                 const store = getAppStore()
-                const all = store.getState().blocks as Map<string, BlockData>
+                const state = store.getState()
+                const livePageId = state.blocks.get(blockId)?.pageId || block.pageId
                 const result: Array<{ id: string; content: string; type: string }> = []
-                for (const [, b] of all) {
-                    if (b.pageId === block.pageId && b.type === type) {
+                for (const [, b] of state.blocks as Map<string, BlockData>) {
+                    if (b.pageId === livePageId && b.type === type) {
                         result.push({ id: b.id, content: b.content, type: b.type })
                     }
                 }
@@ -152,10 +153,11 @@ export function createPluginContext(block: BlockData): PluginContext {
 
             listAll() {
                 const store = getAppStore()
-                const all = store.getState().blocks as Map<string, BlockData>
+                const state = store.getState()
+                const livePageId = state.blocks.get(blockId)?.pageId || block.pageId
                 const result: Array<{ id: string; content: string; type: string }> = []
-                for (const [, b] of all) {
-                    if (b.pageId === block.pageId) {
+                for (const [, b] of state.blocks as Map<string, BlockData>) {
+                    if (b.pageId === livePageId) {
                         result.push({ id: b.id, content: b.content, type: b.type })
                     }
                 }

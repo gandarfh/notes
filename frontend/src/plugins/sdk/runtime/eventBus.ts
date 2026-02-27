@@ -39,7 +39,14 @@ export class PluginEventBus {
     /**
      * Subscribe to a Wails backend event.
      * Wraps window.runtime.EventsOn and returns unsub.
+     *
+     * IMPORTANT: Wails `EventsOff(event)` removes ALL handlers for that event globally.
+     * We therefore track handlers per event ourselves and only call EventsOff when the
+     * last subscriber for that event unsubscribes.
      */
+    private backendHandlers = new Map<string, Set<(...args: any[]) => void>>()
+    private backendDispatchers = new Map<string, (...args: any[]) => void>()
+
     onBackend(event: string, handler: (...args: any[]) => void): () => void {
         const runtime = (window as any).runtime
         if (!runtime?.EventsOn) {
@@ -47,9 +54,33 @@ export class PluginEventBus {
             return () => { }
         }
 
-        runtime.EventsOn(event, handler)
+        // Ensure we have a handler set for this event
+        if (!this.backendHandlers.has(event)) {
+            this.backendHandlers.set(event, new Set())
+        }
+        const handlers = this.backendHandlers.get(event)!
+        handlers.add(handler)
+
+        // Register a single Wails EventsOn dispatcher if this is the first subscriber
+        if (!this.backendDispatchers.has(event)) {
+            const dispatcher = (...args: any[]) => {
+                for (const fn of this.backendHandlers.get(event) ?? []) {
+                    try { fn(...args) } catch (err) { console.error(`[PluginBus] Backend handler error for '${event}':`, err) }
+                }
+            }
+            this.backendDispatchers.set(event, dispatcher)
+            runtime.EventsOn(event, dispatcher)
+        }
+
+        // Return an unsubscribe fn that only removes this specific handler
         return () => {
-            runtime.EventsOff?.(event)
+            handlers.delete(handler)
+            // Only call EventsOff when the last handler unsubscribes
+            if (handlers.size === 0) {
+                runtime.EventsOff?.(event)
+                this.backendHandlers.delete(event)
+                this.backendDispatchers.delete(event)
+            }
         }
     }
 

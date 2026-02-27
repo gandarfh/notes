@@ -119,22 +119,18 @@ const CodeRenderer = memo(function CodeRenderer({ block, ctx }: PluginRendererPr
 // ── Language Picker Header Extension ───────────────────────
 
 function CodeHeaderExtension({ blockId, ctx }: { blockId: string; ctx: PluginContext }) {
-    // Read current file extension from block state via storage
-    const [currentExt, setCurrentExt] = useState('txt')
-
-    // Get file path from ctx.block
+    // Get file path from ctx.block (reads live from store)
     const ext = ctx.block.filePath?.split('.').pop()?.toLowerCase() || 'txt'
 
     const handleChange = async (newExt: string) => {
         if (!ctx.block.filePath) return
-        // Update the file path extension via RPC
         const parts = ctx.block.filePath.split('.')
         parts[parts.length - 1] = newExt
         const newPath = parts.join('.')
         try {
             await ctx.rpc.call('UpdateBlockFilePath', blockId, newPath)
-        } catch {
-            // If no RPC method exists, silently ignore
+        } catch (err) {
+            console.error('[CodePlugin] Failed to update file extension:', err)
         }
     }
 

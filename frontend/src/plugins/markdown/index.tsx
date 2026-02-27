@@ -312,7 +312,13 @@ const MarkdownRenderer = memo(function MarkdownRenderer({ block, isEditing, ctx 
             className={`markdown-preview ${isEditing ? '' : 'cursor-text select-text'}`}
             style={{ fontSize: `${fontSize}px` }}
             onClick={handleClick}
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(finalHtml, { ADD_TAGS: ['section', 'input'], ADD_ATTR: ['checked', 'disabled', 'data-source-line', 'data-mermaid', 'data-zoom'] }) }}
+            dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(finalHtml, {
+                    USE_PROFILES: { html: true, svg: true, svgFilters: true },
+                    ADD_TAGS: ['section', 'input', 'foreignObject'],
+                    ADD_ATTR: ['checked', 'disabled', 'data-source-line', 'data-mermaid', 'data-zoom', 'transform', 'dominant-baseline', 'text-anchor', 'clip-path', 'marker-end', 'marker-start'],
+                })
+            }}
         />
     )
 })
