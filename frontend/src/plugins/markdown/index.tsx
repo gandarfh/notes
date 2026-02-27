@@ -1,3 +1,4 @@
+import './markdown.css'
 import { marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 import markedKatex from 'marked-katex-extension'

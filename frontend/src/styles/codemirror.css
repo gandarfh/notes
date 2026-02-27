@@ -1,0 +1,66 @@
+/* ============================================================
+   CodeMirror theme overrides (warm dark + light)
+   ============================================================ */
+
+/* ── Dark Mode ── */
+
+.cm-editor {
+    background: var(--color-block-bg) !important;
+}
+
+.cm-gutters {
+    background: var(--color-surface) !important;
+    border-right-color: var(--color-border-subtle) !important;
+    color: var(--color-text-muted) !important;
+}
+
+.cm-activeLineGutter,
+.cm-activeLine {
+    background: var(--overlay-4) !important;
+}
+
+.cm-cursor {
+    border-left-color: var(--color-text-primary) !important;
+}
+
+.cm-selectionBackground {
+    background: rgba(196, 154, 60, 0.18) !important;
+}
+
+.cm-content {
+    color: var(--color-text-primary);
+    caret-color: var(--color-text-primary);
+}
+
+.cm-line {
+    color: var(--color-text-primary);
+}
+
+/* ── Light Mode ── */
+
+:root[data-theme="light"] .cm-editor {
+    background: var(--color-block-bg) !important;
+}
+
+:root[data-theme="light"] .cm-gutters {
+    background: var(--color-surface) !important;
+    border-right-color: var(--color-border-subtle) !important;
+    color: var(--color-text-muted) !important;
+}
+
+:root[data-theme="light"] .cm-activeLineGutter,
+:root[data-theme="light"] .cm-activeLine {
+    background: var(--overlay-4) !important;
+}
+
+:root[data-theme="light"] .cm-cursor {
+    border-left-color: var(--color-text-primary) !important;
+}
+
+:root[data-theme="light"] .cm-selectionBackground {
+    background: rgba(139, 105, 20, 0.15) !important;
+}
+
+:root[data-theme="light"] .cm-content {
+    color: var(--color-text-primary);
+}

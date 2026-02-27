@@ -1,0 +1,192 @@
+/* ── Breadcrumb Navigation ────────────────────────── */
+
+.breadcrumb-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+.breadcrumb-segment {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+}
+
+.breadcrumb-segment:hover {
+    background: var(--color-surface);
+    border-color: var(--color-border-subtle);
+    color: var(--color-text-primary);
+}
+
+.breadcrumb-icon {
+    font-size: 0.846rem;
+}
+
+.breadcrumb-label {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.breadcrumb-chevron {
+    font-size: 0.692rem;
+    opacity: 0.5;
+    margin-left: 1px;
+}
+
+.breadcrumb-sep {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin: 0 1px;
+    user-select: none;
+}
+
+.breadcrumb-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    min-width: 180px;
+    max-height: 280px;
+    overflow-y: auto;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    padding: 4px;
+    z-index: 999;
+}
+
+.breadcrumb-dropdown-page {
+    left: auto;
+    right: 0;
+}
+
+.breadcrumb-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 6px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 0.923rem;
+    font-family: var(--font-sans);
+    transition: background 0.08s;
+}
+
+.breadcrumb-dropdown-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.breadcrumb-dropdown-label:hover {
+    background: var(--color-hover);
+}
+
+.breadcrumb-dropdown-actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+.breadcrumb-dropdown-item:hover .breadcrumb-dropdown-actions {
+    opacity: 1;
+}
+
+.breadcrumb-dropdown-actions button {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.08s;
+}
+
+.breadcrumb-dropdown-actions button:hover {
+    background: var(--color-hover);
+    color: var(--color-text-primary);
+}
+
+.breadcrumb-dropdown-actions button:last-child:hover {
+    color: var(--color-error);
+}
+
+.breadcrumb-dropdown-item.active {
+    background: var(--color-accent-muted);
+    color: var(--color-text-accent);
+}
+
+.breadcrumb-dropdown-icon {
+    font-size: 0.846rem;
+}
+
+.breadcrumb-dropdown-empty {
+    padding: 12px;
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.923rem;
+}
+
+.breadcrumb-rename-input {
+    flex: 1;
+    background: var(--color-elevated);
+    border: 1px solid var(--color-accent);
+    border-radius: 4px;
+    color: var(--color-text-primary);
+    font-size: 0.923rem;
+    font-family: var(--font-sans);
+    padding: 3px 6px;
+    outline: none;
+}
+
+.breadcrumb-search-hint {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    margin-left: 6px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font-size: 0.846rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.12s;
+}
+
+.breadcrumb-search-hint:hover {
+    border-color: var(--color-border-default);
+    color: var(--color-text-secondary);
+    background: var(--color-elevated);
+}
+
+.breadcrumb-search-key {}

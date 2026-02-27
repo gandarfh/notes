@@ -1,3 +1,4 @@
+import './toast.css'
 import { useEffect, useState, useCallback } from 'react'
 import { pluginBus } from '../../plugins/sdk/runtime/eventBus'
 

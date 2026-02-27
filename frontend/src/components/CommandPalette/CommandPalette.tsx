@@ -1,3 +1,4 @@
+import './commandpalette.css'
 import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import { useAppStore } from '../../store'
 import { api } from '../../bridge/wails'

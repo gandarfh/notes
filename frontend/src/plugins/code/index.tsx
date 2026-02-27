@@ -1,3 +1,4 @@
+import './codeblock.css'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.min.css'
 import DOMPurify from 'dompurify'

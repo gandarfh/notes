@@ -1,0 +1,109 @@
+/* ── Code block preview ────────────────────────────────────── */
+
+.code-file-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.code-file-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: rgba(255, 255, 255, 0.015);
+    flex-shrink: 0;
+}
+
+.code-lang-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    font-weight: 600;
+    padding: 2px 20px 2px 6px;
+    cursor: pointer;
+    outline: none;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background-image: url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%236b7280' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+}
+
+.code-lang-select:hover {
+    border-color: var(--color-border-default);
+    color: var(--color-text-primary);
+}
+
+.code-lang-select:focus {
+    border-color: var(--color-accent);
+}
+
+.code-line-count {
+    font-size: 0.65em;
+    color: var(--color-text-muted);
+    opacity: 0.5;
+    letter-spacing: 0.02em;
+}
+
+.code-file-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    font-style: italic;
+    font-size: 0.85em;
+    opacity: 0.6;
+}
+
+.code-file-scroll {
+    flex: 1;
+    overflow: auto;
+}
+
+.code-file-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.code-file-table td {
+    padding: 0;
+    vertical-align: top;
+    line-height: 1.55;
+}
+
+.code-gutter {
+    width: 1px;
+    white-space: nowrap;
+    text-align: right;
+    padding: 0 12px 0 10px !important;
+    color: var(--color-text-muted);
+    opacity: 0.3;
+    user-select: none;
+    font-size: 0.8em;
+    border-right: 1px solid var(--color-border-subtle);
+}
+
+.code-line {
+    padding: 0 14px !important;
+    white-space: pre;
+    font-size: 0.85em;
+}
+
+.code-file-table tr:first-child td {
+    padding-top: 8px !important;
+}
+
+.code-file-table tr:last-child td {
+    padding-bottom: 8px !important;
+}

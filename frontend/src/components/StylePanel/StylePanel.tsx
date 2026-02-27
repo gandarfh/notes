@@ -1,3 +1,4 @@
+import './stylepanel.css'
 import React from 'react'
 import type { DrawingElement } from '../../drawing/types'
 import { isArrowType } from '../../drawing/types'

@@ -1,0 +1,57 @@
+/* ============================================================
+   Light Mode — highlight.js overrides (github-light palette)
+   ============================================================ */
+
+:root[data-theme="light"] .hljs {
+    color: #3b3330;
+    background: transparent;
+}
+
+:root[data-theme="light"] .hljs-keyword,
+:root[data-theme="light"] .hljs-selector-tag {
+    color: #9a4a30;
+}
+
+:root[data-theme="light"] .hljs-string,
+:root[data-theme="light"] .hljs-addition {
+    color: #5a7a3a;
+}
+
+:root[data-theme="light"] .hljs-comment,
+:root[data-theme="light"] .hljs-quote {
+    color: #9a8e80;
+    font-style: italic;
+}
+
+:root[data-theme="light"] .hljs-number,
+:root[data-theme="light"] .hljs-literal {
+    color: #7a5c3e;
+}
+
+:root[data-theme="light"] .hljs-title,
+:root[data-theme="light"] .hljs-section {
+    color: #8b6914;
+}
+
+:root[data-theme="light"] .hljs-built_in {
+    color: #b06a28;
+}
+
+:root[data-theme="light"] .hljs-type,
+:root[data-theme="light"] .hljs-params {
+    color: #6a7a4a;
+}
+
+:root[data-theme="light"] .hljs-attr,
+:root[data-theme="light"] .hljs-variable {
+    color: #b06a28;
+}
+
+:root[data-theme="light"] .hljs-deletion {
+    color: #9a3a28;
+    background: rgba(200, 160, 140, 0.2);
+}
+
+:root[data-theme="light"] .hljs-addition {
+    background: rgba(140, 180, 120, 0.2);
+}

@@ -1,3 +1,4 @@
+import './toolbar.css'
 import { useAppStore } from '../../store'
 import type { DrawingSubTool } from '../../store/types'
 import { useTheme } from '../../hooks/useTheme'
