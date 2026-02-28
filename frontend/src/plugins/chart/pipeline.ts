@@ -158,6 +158,7 @@ export function defaultPipelineConfig(): PipelineConfig {
 
 export interface DataFetcher {
     getRows(databaseId: string): Promise<{ dataJson: string }[]>
+    getColumnMap(databaseId: string): Record<string, string> // uuid → name
 }
 
 // ── Pipeline Executor ──────────────────────────────────────
@@ -221,8 +222,17 @@ export async function executePipeline(config: PipelineConfig, fetcher: DataFetch
 async function fetchSource(databaseId: string, fetcher: DataFetcher): Promise<Row[]> {
     if (!databaseId) return []
     const rawRows = await fetcher.getRows(databaseId)
+    const colMap = fetcher.getColumnMap(databaseId) // uuid → name
     return rawRows.map((r: { dataJson: string }) => {
-        try { return JSON.parse(r.dataJson || '{}') as Row }
+        try {
+            const raw = JSON.parse(r.dataJson || '{}') as Row
+            // Remap UUID keys → column names
+            const mapped: Row = {}
+            for (const [key, value] of Object.entries(raw)) {
+                mapped[colMap[key] || key] = value
+            }
+            return mapped
+        }
         catch { return {} as Row }
     })
 }

@@ -78,6 +78,115 @@ func buildPipelineStages(databaseID string, extraStages []any) []any {
 	return stages
 }
 
+// resolveStagesColumnRefs walks pipeline stages and resolves column name references to UUIDs.
+func resolveStagesColumnRefs(stages []any, configJSON string) []any {
+	resolve := func(ref string) string { return resolveColumnRef(configJSON, ref) }
+	resolveArr := func(arr []any) []any {
+		out := make([]any, len(arr))
+		for i, v := range arr {
+			if s, ok := v.(string); ok {
+				out[i] = resolve(s)
+			} else {
+				out[i] = v
+			}
+		}
+		return out
+	}
+
+	resolved := make([]any, len(stages))
+	for i, raw := range stages {
+		s, ok := raw.(map[string]any)
+		if !ok {
+			resolved[i] = raw
+			continue
+		}
+		// Clone to avoid mutating original
+		out := make(map[string]any, len(s))
+		for k, v := range s {
+			out[k] = v
+		}
+
+		switch out["type"] {
+		case "filter":
+			if conds, ok := out["conditions"].([]any); ok {
+				newConds := make([]any, len(conds))
+				for j, c := range conds {
+					if cm, ok := c.(map[string]any); ok {
+						nc := make(map[string]any, len(cm))
+						for k, v := range cm {
+							nc[k] = v
+						}
+						if col, ok := nc["column"].(string); ok {
+							nc["column"] = resolve(col)
+						}
+						newConds[j] = nc
+					} else {
+						newConds[j] = c
+					}
+				}
+				out["conditions"] = newConds
+			}
+		case "group":
+			if gb, ok := out["groupBy"].([]any); ok {
+				out["groupBy"] = resolveArr(gb)
+			}
+			if metrics, ok := out["metrics"].([]any); ok {
+				newMetrics := make([]any, len(metrics))
+				for j, m := range metrics {
+					if mm, ok := m.(map[string]any); ok {
+						nm := make(map[string]any, len(mm))
+						for k, v := range mm {
+							nm[k] = v
+						}
+						if col, ok := nm["column"].(string); ok {
+							nm["column"] = resolve(col)
+						}
+						newMetrics[j] = nm
+					} else {
+						newMetrics[j] = m
+					}
+				}
+				out["metrics"] = newMetrics
+			}
+		case "sort":
+			if col, ok := out["column"].(string); ok {
+				out["column"] = resolve(col)
+			}
+		case "date_part":
+			if f, ok := out["field"].(string); ok {
+				out["field"] = resolve(f)
+			}
+		case "percent":
+			if col, ok := out["column"].(string); ok {
+				out["column"] = resolve(col)
+			}
+		case "pivot":
+			if rk, ok := out["rowKeys"].([]any); ok {
+				out["rowKeys"] = resolveArr(rk)
+			}
+			if pc, ok := out["pivotColumn"].(string); ok {
+				out["pivotColumn"] = resolve(pc)
+			}
+			if vc, ok := out["valueColumns"].([]any); ok {
+				out["valueColumns"] = resolveArr(vc)
+			}
+		case "string", "math", "type_cast", "default_value":
+			if f, ok := out["field"].(string); ok {
+				out["field"] = resolve(f)
+			}
+		case "join":
+			if lk, ok := out["leftKey"].(string); ok {
+				out["leftKey"] = resolve(lk)
+			}
+			if rk, ok := out["rightKey"].(string); ok {
+				out["rightKey"] = resolve(rk)
+			}
+		}
+		resolved[i] = out
+	}
+	return resolved
+}
+
 func (s *Server) handleCreateChart(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
 	pageID, err := s.resolvePageID(args)
@@ -102,10 +211,6 @@ func (s *Server) handleCreateChart(ctx context.Context, req mcp.CallToolRequest)
 	if err != nil {
 		return nil, fmt.Errorf("resolve localdb: %w", err)
 	}
-
-	// Build name→id mapping so callers can pass column names instead of UUIDs
-	xCol = resolveColumnRef(localDB.ConfigJSON, xCol)
-	yCol = resolveColumnRef(localDB.ConfigJSON, yCol)
 
 	existing, _ := s.blocks.ListBlocks(pageID)
 	x, y := s.layout.NextPosition(existing, 540, 420)
@@ -198,8 +303,8 @@ func (s *Server) handleBatchCreateCharts(ctx context.Context, req mcp.CallToolRe
 			return nil, fmt.Errorf("resolve localdb %s: %w", c.LocalDBBlockID, err)
 		}
 
-		xCol := resolveColumnRef(localDB.ConfigJSON, c.XColumn)
-		yCol := resolveColumnRef(localDB.ConfigJSON, c.YColumn)
+		xCol := c.XColumn
+		yCol := c.YColumn
 
 		// Parse optional pipeline stages
 		extraStages, err := parseStagesJSON(c.StagesJSON)
