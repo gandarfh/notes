@@ -112,7 +112,12 @@ export const useAppStore = create<AppState>((...a) => ({
 
         // ETL sync completed — relay to plugins so LocalDB/Chart blocks refresh
         unsubs.push(onEvent('db:updated', (data: { databaseId: string; jobId: string }) => {
-            pluginBus.emit('localdb:data-changed', { databaseId: data.databaseId })
+            pluginBus.emit('localdb:changed', { databaseId: data.databaseId })
+            // Also reload blocks so the localdb block structure refreshes
+            const activePageId = get().activePageId
+            if (activePageId) {
+                reloadWithUndo(get, activePageId, 'db:updated')
+            }
         }))
 
         // MCP: blocks changed — reload page state and push undo snapshot
@@ -120,6 +125,8 @@ export const useAppStore = create<AppState>((...a) => ({
             const activePageId = get().activePageId
             if (activePageId && data.pageId === activePageId) {
                 reloadWithUndo(get, activePageId, 'MCP: blocks changed')
+                // Also notify LocalDB/Chart plugins to refresh data (ETL may have changed rows)
+                pluginBus.emit('localdb:changed', {})
             }
         }))
 

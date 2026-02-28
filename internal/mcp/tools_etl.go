@@ -158,6 +158,17 @@ func (s *Server) handleRunETLJob(ctx context.Context, req mcp.CallToolRequest) (
 	if err != nil {
 		return nil, fmt.Errorf("run ETL job: %w", err)
 	}
+
+	// Emit db:updated signal for cross-process IPC so the frontend refreshes
+	if result.Status == "success" && s.db != nil {
+		job, _ := s.etl.GetJob(jobID)
+		if job != nil && job.TargetDBID != "" {
+			payload, _ := json.Marshal(map[string]string{"databaseId": job.TargetDBID})
+			s.db.Exec(`INSERT INTO mcp_signals (type, payload) VALUES (?, ?)`,
+				"db:updated", string(payload))
+		}
+	}
+
 	return jsonResult(result)
 }
 

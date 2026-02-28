@@ -28,10 +28,11 @@ type pageWatcher struct {
 	app *App
 	mu  sync.Mutex
 	// Active page tracking
-	pageID     string
-	notebookID string
-	lastDrawn  string // page updated_at fingerprint
-	lastBlock  string // blocks fingerprint (count + max updated_at)
+	pageID      string
+	notebookID  string
+	lastDrawn   string // page updated_at fingerprint
+	lastBlock   string // blocks fingerprint (count + max updated_at)
+	lastLocalDB string // local_databases fingerprint (count + max updated_at)
 	// Page list tracking (sidebar refresh)
 	lastPageList string // pages fingerprint (count + max updated_at)
 	stopCh       chan struct{}
@@ -52,6 +53,7 @@ func (w *pageWatcher) SetPage(pageID, notebookID string) {
 	// Reset tracked state when switching pages
 	w.lastDrawn = ""
 	w.lastBlock = ""
+	w.lastLocalDB = ""
 	w.lastPageList = ""
 }
 
@@ -111,6 +113,8 @@ func (w *pageWatcher) check() {
 		switch s.sigType {
 		case "navigate-page":
 			wailsRuntime.EventsEmit(w.ctx, "mcp:navigate-page", map[string]string{"pageId": extractJSON(s.payload, "pageId")})
+		case "db:updated":
+			wailsRuntime.EventsEmit(w.ctx, "db:updated", map[string]string{"databaseId": extractJSON(s.payload, "databaseId")})
 		}
 		db.Exec(`DELETE FROM mcp_signals WHERE id = ?`, s.id)
 	}
@@ -141,6 +145,16 @@ func (w *pageWatcher) check() {
 		return
 	}
 
+	// ── Check local_databases changes (ETL updates) ────
+	var localDBCount int
+	var localDBUpdated string
+	err = db.QueryRow(
+		`SELECT COUNT(*), COALESCE(MAX(updated_at), '') FROM local_databases`,
+	).Scan(&localDBCount, &localDBUpdated)
+	if err != nil {
+		localDBUpdated = ""
+	}
+
 	// ── Check page list changes (sidebar) ───────────────
 	var pageListFingerprint string
 	if notebookID != "" {
@@ -157,13 +171,16 @@ func (w *pageWatcher) check() {
 	// ── Build fingerprints and compare ──────────────────
 	drawingFingerprint := pageUpdated
 	blockFingerprint := fmt.Sprintf("%d:%s", blockCount, blockUpdated)
+	localDBFingerprint := fmt.Sprintf("%d:%s", localDBCount, localDBUpdated)
 
 	w.mu.Lock()
 	drawingChanged := w.lastDrawn != "" && w.lastDrawn != drawingFingerprint
 	blocksChanged := w.lastBlock != "" && w.lastBlock != blockFingerprint
+	localDBChanged := w.lastLocalDB != "" && w.lastLocalDB != localDBFingerprint
 	pagesChanged := w.lastPageList != "" && pageListFingerprint != "" && w.lastPageList != pageListFingerprint
 	w.lastDrawn = drawingFingerprint
 	w.lastBlock = blockFingerprint
+	w.lastLocalDB = localDBFingerprint
 	if pageListFingerprint != "" {
 		w.lastPageList = pageListFingerprint
 	}
@@ -176,6 +193,10 @@ func (w *pageWatcher) check() {
 		changes++
 	}
 	if blocksChanged {
+		wailsRuntime.EventsEmit(w.ctx, "mcp:blocks-changed", map[string]string{"pageId": pageID})
+		changes++
+	}
+	if localDBChanged {
 		wailsRuntime.EventsEmit(w.ctx, "mcp:blocks-changed", map[string]string{"pageId": pageID})
 		changes++
 	}

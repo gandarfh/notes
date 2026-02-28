@@ -119,7 +119,7 @@ func (e *Engine) RunSync(ctx context.Context, job *SyncJob) (*SyncResult, error)
 	}
 
 	// 5c. Derive output schema from actual records (transforms may have changed columns).
-	outputSchema := deriveSchemaFromRecords(records, schema)
+	outputSchema := deriveSchemaFromRecords(records, schema, job.Transforms)
 
 	// 6. Write to destination.
 	written, err := e.Dest.Write(ctx, job.TargetDBID, outputSchema, records, job.SyncMode)
@@ -320,7 +320,7 @@ func buildTransformers(configs []TransformConfig, dedupeKey string) []Transforme
 
 // deriveSchemaFromRecords builds a schema from the actual keys present in transformed records.
 // It preserves field type hints from the original source schema where available.
-func deriveSchemaFromRecords(records []Record, sourceSchema *Schema) *Schema {
+func deriveSchemaFromRecords(records []Record, sourceSchema *Schema, transforms []TransformConfig) *Schema {
 	if len(records) == 0 {
 		return sourceSchema
 	}
@@ -330,6 +330,17 @@ func deriveSchemaFromRecords(records []Record, sourceSchema *Schema) *Schema {
 	if sourceSchema != nil {
 		for _, f := range sourceSchema.Fields {
 			typeMap[f.Name] = f.Type
+		}
+	}
+
+	// Apply type_cast overrides from transforms.
+	for _, tc := range transforms {
+		if tc.Type == "type_cast" {
+			field, _ := tc.Config["field"].(string)
+			castType, _ := tc.Config["castType"].(string)
+			if field != "" && castType != "" {
+				typeMap[field] = castType
+			}
 		}
 	}
 

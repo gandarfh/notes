@@ -26,12 +26,18 @@ func New(dbPath, dataDir string) (*DB, error) {
 		return nil, fmt.Errorf("create data directory: %w", err)
 	}
 
-	conn, err := sql.Open("sqlite", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
+	conn, err := sql.Open("sqlite", dbPath+"?_busy_timeout=5000")
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 	// SQLite only supports one writer — limit to single connection to prevent SQLITE_BUSY
 	conn.SetMaxOpenConns(1)
+
+	// Enable WAL mode for cross-process read/write (MCP standalone ↔ Wails app)
+	if _, err := conn.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("enable WAL mode: %w", err)
+	}
 
 	db := &DB{conn: conn, dataDir: dataDir}
 	if err := db.migrate(); err != nil {
