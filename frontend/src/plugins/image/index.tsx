@@ -4,15 +4,21 @@ import type { BlockPlugin, PluginRendererProps } from '../sdk'
 // ── Renderer Component ─────────────────────────────────────────
 
 const ImageRenderer = memo(function ImageRenderer({ block, ctx }: PluginRendererProps) {
-    const [src, setSrc] = useState(block.content || '')
+    const [src, setSrc] = useState('')
 
-    // Lazily load image data from disk if content is empty but filePath exists
+    // Load image: prefer valid data URL from content, otherwise load from file on disk
     useEffect(() => {
-        if (block.content) {
+        // If content is a valid image data URL, use it directly
+        if (block.content && block.content.startsWith('data:image/')) {
             setSrc(block.content)
             return
         }
-        if (!block.filePath) return
+
+        // Otherwise load from disk via filePath
+        if (!block.filePath) {
+            setSrc('')
+            return
+        }
 
         ctx?.rpc.call<string>('GetImageData', block.id).then(dataUrl => {
             if (dataUrl) setSrc(dataUrl)
