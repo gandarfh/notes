@@ -15,13 +15,38 @@ import useToastStore from './toastSlice'
 async function reloadWithUndo(get: () => AppState, pageId: string, label: string) {
     try {
         const ps = await api.getPageState(pageId)
-        const blocks = new Map<string, Block>()
-            ; (ps.blocks || []).forEach(b => blocks.set(b.id, b))
+        const incoming = new Map<string, Block>()
+            ; (ps.blocks || []).forEach(b => incoming.set(b.id, b))
 
         const store = get() as any
         const set = useAppStore.setState
+        const current = get().blocks
+        const selectedId = get().selectedBlockId
+        const editingId = get().editingBlockId
+
+        // Smart merge: preserve position/size of blocks the user is actively
+        // interacting with (selected/editing/fullscreen). Other blocks accept
+        // MCP changes including position updates. New blocks added, deleted removed.
+        const merged = new Map<string, Block>()
+        for (const [id, newBlock] of incoming) {
+            const existing = current.get(id)
+            if (existing && (id === selectedId || id === editingId)) {
+                // User is interacting with this block — keep current position/size
+                merged.set(id, {
+                    ...newBlock,
+                    x: existing.x,
+                    y: existing.y,
+                    width: existing.width,
+                    height: existing.height,
+                })
+            } else {
+                // Not interacting — accept full DB state (including MCP moves)
+                merged.set(id, newBlock)
+            }
+        }
+
         set({
-            blocks,
+            blocks: merged,
             connections: ps.connections || [],
             drawingData: ps.page.drawingData || '',
         })

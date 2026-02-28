@@ -103,6 +103,14 @@ func (s *BlockService) UpdateBlockContent(id, content string) error {
 		return err
 	}
 	b.Content = content
+
+	// Also write to the backing file if one exists (markdown, code blocks)
+	if b.FilePath != "" {
+		if err := os.WriteFile(b.FilePath, []byte(content), 0644); err != nil {
+			return fmt.Errorf("write block file: %w", err)
+		}
+	}
+
 	return s.store.UpdateBlock(b)
 }
 
