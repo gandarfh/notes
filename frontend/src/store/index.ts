@@ -139,10 +139,23 @@ export const useAppStore = create<AppState>((...a) => ({
             }
         }))
 
-        // MCP: navigate to page — auto-switch active page
-        unsubs.push(onEvent('mcp:navigate-page', (data: { pageId: string }) => {
-            if (data.pageId && data.pageId !== get().activePageId) {
-                get().selectPage(data.pageId)
+        // MCP: navigate to page — auto-switch active page + notebook context
+        unsubs.push(onEvent('mcp:navigate-page', async (data: { pageId: string }) => {
+            if (!data.pageId || data.pageId === get().activePageId) return
+            // Find which notebook this page belongs to, and switch context
+            const notebooks = get().notebooks
+            for (const nb of notebooks) {
+                const pages = await api.listPages(nb.id)
+                if (pages?.find((p: any) => p.id === data.pageId)) {
+                    const [set] = a
+                    set({
+                        activeNotebookId: nb.id,
+                        pages: pages || [],
+                        expandedNotebooks: new Set([...get().expandedNotebooks, nb.id]),
+                    })
+                    await get().selectPage(data.pageId)
+                    return
+                }
             }
         }))
 

@@ -2,12 +2,23 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+// extractJSON extracts a string value from a JSON payload by key.
+func extractJSON(payload, key string) string {
+	var m map[string]string
+	if json.Unmarshal([]byte(payload), &m) == nil {
+		return m[key]
+	}
+	return ""
+}
 
 // pageWatcher polls the database for changes to the active page,
 // detecting external modifications (e.g. from MCP standalone process)
@@ -74,6 +85,36 @@ func (w *pageWatcher) pollLoop() {
 }
 
 func (w *pageWatcher) check() {
+	db := w.app.db.Conn()
+
+	// ── Check MCP signals FIRST (run regardless of active page) ──
+	type mcpSignal struct {
+		id      int
+		sigType string
+		payload string
+	}
+	var signals []mcpSignal
+	sigRows, sigErr := db.Query(`SELECT id, type, payload FROM mcp_signals ORDER BY id`)
+	if sigErr != nil {
+		log.Printf("[pageWatcher] mcp_signals query error: %v", sigErr)
+	} else {
+		for sigRows.Next() {
+			var s mcpSignal
+			if sigRows.Scan(&s.id, &s.sigType, &s.payload) == nil {
+				signals = append(signals, s)
+			}
+		}
+		sigRows.Close()
+	}
+	// Process collected signals AFTER closing rows (MaxOpenConns=1)
+	for _, s := range signals {
+		switch s.sigType {
+		case "navigate-page":
+			wailsRuntime.EventsEmit(w.ctx, "mcp:navigate-page", map[string]string{"pageId": extractJSON(s.payload, "pageId")})
+		}
+		db.Exec(`DELETE FROM mcp_signals WHERE id = ?`, s.id)
+	}
+
 	w.mu.Lock()
 	pageID := w.pageID
 	notebookID := w.notebookID
@@ -82,8 +123,6 @@ func (w *pageWatcher) check() {
 	if pageID == "" {
 		return
 	}
-
-	db := w.app.db.Conn()
 
 	// ── Check page drawing_data updated_at ──────────────
 	var pageUpdated string

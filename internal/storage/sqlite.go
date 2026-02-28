@@ -218,6 +218,13 @@ func (db *DB) migrate() error {
 		)`,
 		// Add metadata column if missing (migration safety)
 		`ALTER TABLE mcp_approvals ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'`,
+		// MCP cross-process signals (standalone → Wails IPC)
+		`CREATE TABLE IF NOT EXISTS mcp_signals (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			type TEXT NOT NULL,
+			payload TEXT NOT NULL DEFAULT '{}',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	for _, m := range migrations {

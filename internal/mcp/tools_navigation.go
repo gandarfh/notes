@@ -86,5 +86,12 @@ func (s *Server) handleSetActivePage(ctx context.Context, req mcp.CallToolReques
 		return nil, fmt.Errorf("pageId is required")
 	}
 	s.activePageID = pageID
+	// Notify frontend to navigate to this page
+	s.emitter.Emit(ctx, "mcp:navigate-page", map[string]string{"pageId": pageID})
+	// Cross-process IPC: write signal to DB so pageWatcher can relay it to Wails
+	if s.db != nil {
+		s.db.Exec(`INSERT INTO mcp_signals (type, payload) VALUES (?, ?)`,
+			"navigate-page", fmt.Sprintf(`{"pageId":"%s"}`, pageID))
+	}
 	return textResult(fmt.Sprintf("Active page set to %s", pageID)), nil
 }

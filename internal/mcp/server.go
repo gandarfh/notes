@@ -32,6 +32,9 @@ type Server struct {
 
 	// Active page context (set by set_active_page tool)
 	activePageID string
+
+	// DB connection for cross-process IPC signals (standalone mode)
+	db *sql.DB
 }
 
 // Deps holds all dependencies passed from the App layer to the MCP server.
@@ -62,6 +65,7 @@ func New(ctx context.Context, deps Deps) *Server {
 		etl:       deps.ETL,
 		database:  deps.Database,
 		plugins:   deps.Plugins,
+		db:        deps.ApprovalDB,
 	}
 
 	s.mcp = server.NewMCPServer(
