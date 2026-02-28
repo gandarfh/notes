@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"notes/internal/etl"
 	"notes/internal/service"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -12,12 +13,28 @@ import (
 
 func (s *Server) registerETLTools() {
 	s.mcp.AddTool(mcp.NewTool("create_etl_job",
-		mcp.WithDescription("Create an ETL block + sync job (source → LocalDB)"),
+		mcp.WithDescription("Create an ETL block + sync job (source → LocalDB). Supports powerful data transforms (filter, rename, compute, sort, string ops, date extraction, math, type casting, deduplication, and more) applied in sequence between source and destination."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("name", mcp.Description("Job name"), mcp.Required()),
 		mcp.WithString("sourceType", mcp.Description("ETL source type (use list_etl_sources to see available types)"), mcp.Required()),
 		mcp.WithString("sourceConfigJSON", mcp.Description("Source configuration as JSON"), mcp.Required()),
 		mcp.WithString("localdbBlockId", mcp.Description("Target LocalDB block ID"), mcp.Required()),
+		mcp.WithString("transformsJSON", mcp.Description(`Optional JSON array of transforms to apply between source and destination. Each transform has {type, config}. Available types:
+- filter: {field, op (eq|neq|gt|lt|contains), value} — drop rows not matching condition
+- rename: {mapping: {oldName: newName}} — rename columns
+- select: {fields: ["col1","col2"]} — keep only specified columns
+- compute: {columns: [{name, expression}]} — add computed columns, use {field} refs
+- sort: {field, direction (asc|desc)} — sort rows
+- limit: {count} — cap number of rows
+- type_cast: {field, castType (number|string|bool|date|datetime)} — convert types
+- string: {field, op (upper|lower|trim|replace|concat|split|substring), ...} — string ops
+- date_part: {field, part (year|month|day|hour|minute|weekday|week), targetField} — extract date parts
+- default_value: {field, defaultValue} — fill nulls
+- math: {field, op (round|ceil|floor|abs)} — math functions
+- flatten: {sourceField, fields: [{path, alias}]} — extract nested JSON fields
+- dedupe: use dedupeKey param instead
+Example: [{"type":"filter","config":{"field":"age","op":"gt","value":18}},{"type":"string","config":{"field":"name","op":"upper"}}]`)),
+		mcp.WithString("dedupeKey", mcp.Description("Column name for deduplication (optional)")),
 	), s.handleCreateETLJob)
 
 	s.mcp.AddTool(mcp.NewTool("list_etl_sources",
@@ -43,6 +60,19 @@ func (s *Server) handleCreateETLJob(ctx context.Context, req mcp.CallToolRequest
 	sourceType, _ := args["sourceType"].(string)
 	sourceConfigStr, _ := args["sourceConfigJSON"].(string)
 	localdbBlockID, _ := args["localdbBlockId"].(string)
+	dedupeKey, _ := args["dedupeKey"].(string)
+
+	// transformsJSON may come as a string or as a raw JSON array
+	var transformsStr string
+	switch v := args["transformsJSON"].(type) {
+	case string:
+		transformsStr = v
+	default:
+		if v != nil {
+			b, _ := json.Marshal(v)
+			transformsStr = string(b)
+		}
+	}
 
 	pageID, err := s.resolvePageID(args)
 	if err != nil {
@@ -67,6 +97,14 @@ func (s *Server) handleCreateETLJob(ctx context.Context, req mcp.CallToolRequest
 		return nil, fmt.Errorf("parse sourceConfig: %w", err)
 	}
 
+	// Parse transforms
+	var transforms []etl.TransformConfig
+	if transformsStr != "" {
+		if err := json.Unmarshal([]byte(transformsStr), &transforms); err != nil {
+			return nil, fmt.Errorf("parse transforms: %w", err)
+		}
+	}
+
 	// Resolve localdb block → database ID
 	localDB, dbErr := s.localdb.GetDatabase(localdbBlockID)
 	if dbErr != nil {
@@ -78,7 +116,9 @@ func (s *Server) handleCreateETLJob(ctx context.Context, req mcp.CallToolRequest
 		Name:         name,
 		SourceType:   sourceType,
 		SourceConfig: sourceConfig,
+		Transforms:   transforms,
 		TargetDBID:   localDB.ID,
+		DedupeKey:    dedupeKey,
 		Enabled:      true,
 	}
 	job, err := s.etl.CreateJob(ctx, input)

@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -67,8 +68,13 @@ func (s *Server) handleCreateLocalDatabase(ctx context.Context, req mcp.CallTool
 		return nil, fmt.Errorf("create database: %w", err)
 	}
 
-	// Set column config
+	// Set column config — wrap in expected format if raw array
 	if configJSON != "" {
+		trimmed := strings.TrimSpace(configJSON)
+		if strings.HasPrefix(trimmed, "[") {
+			// Caller passed a raw column array — wrap in the object format the frontend expects
+			configJSON = fmt.Sprintf(`{"columns":%s,"activeView":"table"}`, trimmed)
+		}
 		if err := s.localdb.UpdateConfig(db.ID, configJSON); err != nil {
 			return nil, fmt.Errorf("set config: %w", err)
 		}
