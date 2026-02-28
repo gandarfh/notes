@@ -26,7 +26,7 @@ Example: [{"type":"group","groupBy":["category"],"metrics":[{"column":"sales","a
 
 func (s *Server) registerChartTools() {
 	s.mcp.AddTool(mcp.NewTool("create_chart",
-		mcp.WithDescription("Create a chart block linked to a LocalDB. Supports powerful data pipeline stages (filter, group, join, pivot, compute, sort, percent, and more) applied in sequence to transform data before visualization."),
+		mcp.WithDescription("Create a chart block linked to a LocalDB. Supports data pipeline stages (filter, group, join, pivot, compute, sort, percent, etc.) applied in sequence before visualization. The LocalDB must already contain data. If using ETL, run the job first and verify with list_localdb_rows. Use read_localdb_content to get exact column names for xColumn/yColumn."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("localdbBlockId", mcp.Description("Block ID of the LocalDB data source"), mcp.Required()),
 		mcp.WithString("chartType", mcp.Description("Chart type: bar, line, area, pie, scatter, number, etc."), mcp.Required()),
@@ -37,7 +37,7 @@ func (s *Server) registerChartTools() {
 	), s.handleCreateChart)
 
 	s.mcp.AddTool(mcp.NewTool("batch_create_charts",
-		mcp.WithDescription("Create multiple chart blocks at once. Pass a JSON array of chart objects."),
+		mcp.WithDescription("Create multiple chart blocks at once. Pass a JSON array of chart objects. The LocalDB must already contain data. If using ETL, run the job first and verify with list_localdb_rows."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("charts",
 			mcp.Description("JSON array of chart objects [{localdbBlockId, chartType, xColumn, yColumn, title?, stagesJSON?, x?, y?, width?, height?}, ...]"),

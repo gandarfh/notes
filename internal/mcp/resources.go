@@ -24,6 +24,13 @@ func (s *Server) registerResources() {
 		),
 		s.handlePageBlocksResource,
 	)
+
+	// ── notes://guides/workflows ───────────────────────
+	s.mcp.AddResource(mcp.NewResource(
+		"notes://guides/workflows",
+		"Workflow Guide — correct step ordering for common tasks",
+		mcp.WithMIMEType("text/markdown"),
+	), s.handleWorkflowGuideResource)
 }
 
 func (s *Server) handleNotebooksResource(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
@@ -105,4 +112,43 @@ func indexOf(s string, c byte) int {
 		}
 	}
 	return -1
+}
+
+const workflowGuideContent = `# Notes MCP — Workflow Guide
+
+Correct step ordering for common tasks. Following these workflows prevents field name mismatches and empty charts.
+
+## ETL to Chart Pipeline
+
+1. Create data source — HTTP block, database query block, or have file path ready
+2. Preview source data — use ` + "`preview_etl_source`" + ` to see actual column names
+3. Create LocalDB — use ` + "`create_local_database`" + ` with columns matching the preview
+4. Create ETL job — use ` + "`create_etl_job`" + ` connecting source to LocalDB
+5. Run ETL job — call ` + "`run_etl_job`" + ` and wait for completion
+6. Verify data — call ` + "`list_localdb_rows`" + ` and ` + "`read_localdb_content`" + ` to get exact column schema
+7. Create charts — only after step 6, using exact column names from the schema
+
+Do not create charts before running the ETL job. Do not guess column names. Do not skip the preview step.
+
+## Dashboard with Sample Data
+
+1. Create title markdown block
+2. Create LocalDB with columns — save the blockId
+3. Add rows with ` + "`add_localdb_rows`" + `
+4. Verify data with ` + "`list_localdb_rows`" + ` — confirm column names
+5. Create charts using exact column names from step 4
+
+## Column Name Resolution
+
+Charts and pipeline stages accept column names (human-readable) — the system resolves them to internal IDs automatically. Always verify column names from ` + "`read_localdb_content`" + ` or ` + "`list_localdb_rows`" + ` responses.
+`
+
+func (s *Server) handleWorkflowGuideResource(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+	return []mcp.ResourceContents{
+		mcp.TextResourceContents{
+			URI:      "notes://guides/workflows",
+			MIMEType: "text/markdown",
+			Text:     workflowGuideContent,
+		},
+	}, nil
 }

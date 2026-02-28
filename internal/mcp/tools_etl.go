@@ -13,7 +13,7 @@ import (
 
 func (s *Server) registerETLTools() {
 	s.mcp.AddTool(mcp.NewTool("create_etl_job",
-		mcp.WithDescription("Create an ETL block + sync job (source → LocalDB). Supports powerful data transforms (filter, rename, compute, sort, string ops, date extraction, math, type casting, deduplication, and more) applied in sequence between source and destination."),
+		mcp.WithDescription("Create an ETL block + sync job (source to LocalDB). Supports data transforms (filter, rename, compute, sort, string ops, date extraction, math, type casting, deduplication, etc.). After creating the job, call run_etl_job to populate the LocalDB. Only create charts after the job has run and data is verified with list_localdb_rows."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("name", mcp.Description("Job name"), mcp.Required()),
 		mcp.WithString("sourceType", mcp.Description("ETL source type (use list_etl_sources to see available types)"), mcp.Required()),
@@ -42,7 +42,7 @@ Example: [{"type":"filter","config":{"field":"age","op":"gt","value":18}},{"type
 	), s.handleListETLSources)
 
 	s.mcp.AddTool(mcp.NewTool("run_etl_job",
-		mcp.WithDescription("🛑 DESTRUCTIVE: Execute an ETL sync job. May overwrite LocalDB data. Requires user approval."),
+		mcp.WithDescription("DESTRUCTIVE: Execute an ETL sync job. May overwrite LocalDB data. Requires user approval. After a successful run, call list_localdb_rows to verify data, then read_localdb_content to get column schema before creating charts."),
 		mcp.WithString("jobId", mcp.Description("ETL job ID"), mcp.Required()),
 		mcp.WithToolAnnotation(mcp.ToolAnnotation{DestructiveHint: boolPtr(true)}),
 	), s.handleRunETLJob)

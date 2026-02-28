@@ -58,14 +58,13 @@ func (s *Server) handleDashboardPrompt(ctx context.Context, req mcp.GetPromptReq
 				Role: mcp.RoleUser,
 				Content: mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf(`Create a dashboard about "%s" on the active page. Follow these steps:
+					Text: fmt.Sprintf(`Create a dashboard about "%s" on the active page. Follow these steps in order — do not create charts before data exists.
 
-1. First, use write_markdown to create a title block with a header: "# %s Dashboard"
-2. Create a LocalDB (create_local_database) with relevant columns for tracking data
-3. Add sample rows to the LocalDB using add_localdb_rows  
-4. Create a chart (create_chart) linked to the LocalDB
-
-Make sure each block is well-positioned using auto-layout. The dashboard should look professional and organized.`, topic, topic),
+1. write_markdown — create a title block: "# %s Dashboard"
+2. create_local_database — define relevant columns, save the returned blockId
+3. add_localdb_rows — insert sample data using the blockId from step 2
+4. list_localdb_rows — verify data was inserted and confirm column names
+5. create_chart — only now, using the exact column names from step 4`, topic, topic),
 				},
 			},
 		},
@@ -107,15 +106,28 @@ func (s *Server) handleDataPipelinePrompt(ctx context.Context, req mcp.GetPrompt
 				Role: mcp.RoleUser,
 				Content: mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf(`Set up a data pipeline: %s. Follow these steps:
+					Text: fmt.Sprintf(`Set up a data pipeline: %s. Follow these steps strictly in order — each depends on the previous one.
 
-1. Use write_markdown to create a header explaining the pipeline
-2. Create a LocalDB (create_local_database) to store the data with appropriate columns
-3. Create an ETL job (create_etl_job) with source type "%s" targeting the LocalDB
-4. Create a chart (create_chart) linked to the LocalDB to visualize the data
-5. Optionally, add a drawing diagram showing the data flow: Source → ETL → LocalDB → Chart
+1. Create the data source for type "%s":
+   - http_block: create_http_block with the endpoint, then execute_http_request to test
+   - database: create_query_block to verify the query
+   - csv/json: use preview_etl_source to validate the file path
+   - http: just have the URL ready
+   Save any returned block IDs for the ETL config.
 
-The pipeline should be ready to run with run_etl_job.`, description, sourceType),
+2. preview_etl_source — preview the source data to see actual column names and shape.
+
+3. create_local_database — columns matching the preview from step 2. Save the returned blockId.
+
+4. create_etl_job — connect source to LocalDB, include transforms as needed. Save the returned jobId.
+
+5. run_etl_job — populate the LocalDB. Wait for completion.
+
+6. list_localdb_rows + read_localdb_content — verify data loaded and get exact column schema.
+
+7. create_chart or batch_create_charts — only after step 6, using exact column names from the schema.
+
+Do not create charts before the ETL job runs. Do not guess column names. Do not skip the preview step.`, description, sourceType),
 				},
 			},
 		},
