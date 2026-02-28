@@ -51,8 +51,12 @@ export namespace app {
 	    }
 	}
 	export class PageBlockRef {
-	    id: string;
-	    content: string;
+	    blockId: string;
+	    label: string;
+	    method?: string;
+	    url?: string;
+	    connectionId?: string;
+	    query?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new PageBlockRef(source);
@@ -60,8 +64,12 @@ export namespace app {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.content = source["content"];
+	        this.blockId = source["blockId"];
+	        this.label = source["label"];
+	        this.method = source["method"];
+	        this.url = source["url"];
+	        this.connectionId = source["connectionId"];
+	        this.query = source["query"];
 	    }
 	}
 	export class QueryResultView {

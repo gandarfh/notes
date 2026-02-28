@@ -368,9 +368,14 @@ export interface ETLSchemaInfo {
 }
 
 export interface PageBlockRef {
-  id: string
-  name: string
-  type: string
+  blockId: string
+  label: string
+  // HTTP-specific
+  method?: string
+  url?: string
+  // Database-specific
+  connectionId?: string
+  query?: string
 }
 
 // ── HTTP Plugin Types ─────────────────────────────────────
