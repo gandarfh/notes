@@ -238,9 +238,9 @@ function fullscreenBlock(blockId: string) {
     const newH = snap(canvasH - pad * 2)
     resizeBlock(blockId, newW, newH)
 
-    // Center viewport on block
-    const x = -block.x + pad
-    const y = -block.y + pad
+    // Center camera on block — same formula as alignBlockInViewport('center')
+    const x = -(block.x + newW / 2) + canvasW / 2
+    const y = -block.y + canvasH * 0.01
 
     setViewport(x, y, 1)
     saveBlockPosition(blockId)

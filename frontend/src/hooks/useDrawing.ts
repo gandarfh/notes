@@ -3,6 +3,7 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import { useAppStore } from '../store'
 import { setDrawingKeyHandler } from '../input'
 import type { ElementTypeCategory, ElementStyleDefaults } from '../store/types'
+import { pluginBus } from '../plugins/sdk/runtime/eventBus'
 
 // Map any element type string to its style default category
 function elementTypeCategory(type: string): ElementTypeCategory {
@@ -50,6 +51,7 @@ export function useDrawing(
     const drawingDataLoadedRef = useRef('')
     const lastClickTimeRef = useRef(0)
     const lastClickPosRef = useRef({ x: 0, y: 0 })
+    const highlightedElementsRef = useRef<Set<string>>(new Set())
 
     /**
      * Flag set by native mousedown listener BEFORE React handlers fire.
@@ -190,6 +192,22 @@ export function useDrawing(
             for (const el of elements) {
                 const isEditingThis = editorRequest?.elementId === el.id
                 drawElement(ctx, el, selected?.id === el.id || multiSelected.has(el.id), isEditingThis, sketchy)
+
+                // Draw red glow for elements pending deletion
+                if (highlightedElementsRef.current.has(el.id)) {
+                    ctx.save()
+                    ctx.strokeStyle = '#ef4444'
+                    ctx.lineWidth = 3
+                    ctx.shadowColor = '#ef4444'
+                    ctx.shadowBlur = 12
+                    ctx.globalAlpha = 0.5 + 0.3 * Math.sin(Date.now() / 300)
+                    const b = getElementBounds(el)
+                    const pad = 6
+                    ctx.beginPath()
+                    ctx.roundRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2, 8)
+                    ctx.stroke()
+                    ctx.restore()
+                }
             }
 
             // 2. Selection UI
@@ -302,6 +320,51 @@ export function useDrawing(
             render()
         }
     }, [drawingSubTool, buildContext, render])
+
+    // ── Highlight elements pending approval (red glow on canvas) ──
+    const highlightIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+    useEffect(() => {
+        const startPulse = () => {
+            if (highlightIntervalRef.current) return
+            highlightIntervalRef.current = setInterval(() => render(), 33) // ~30fps pulse
+        }
+
+        const stopPulse = () => {
+            if (highlightIntervalRef.current) {
+                clearInterval(highlightIntervalRef.current)
+                highlightIntervalRef.current = null
+            }
+        }
+
+        const unsubRequired = pluginBus.on('mcp:approval-required', (data: any) => {
+            try {
+                const meta = typeof data.metadata === 'string' ? JSON.parse(data.metadata) : data.metadata
+                if (meta?.elementIds?.length) {
+                    for (const id of meta.elementIds) {
+                        highlightedElementsRef.current.add(id)
+                    }
+                    startPulse()
+                }
+            } catch { /* ignore parse errors */ }
+        })
+
+        const clearHighlights = () => {
+            if (highlightedElementsRef.current.size > 0) {
+                highlightedElementsRef.current.clear()
+                stopPulse()
+                render()
+            }
+        }
+
+        const unsubDismissed = pluginBus.on('mcp:approval-dismissed', clearHighlights)
+
+        return () => {
+            unsubRequired()
+            unsubDismissed()
+            stopPulse()
+        }
+    }, [render])
 
     // ── Load drawing data when store changes (page switch) ──
     const drawingData = useAppStore(s => s.drawingData)

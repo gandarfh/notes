@@ -9,6 +9,57 @@ import { createCanvasSlice, createBlockSlice } from './canvasSlice'
 import { createDrawingSlice } from './drawingSlice'
 import { createConnectionSlice } from './connectionSlice'
 import { pluginBus } from '../plugins/sdk/runtime/eventBus'
+import useToastStore from './toastSlice'
+
+// Reload page state from DB and push an undo snapshot (for MCP changes)
+async function reloadWithUndo(get: () => AppState, pageId: string, label: string) {
+    try {
+        const ps = await api.getPageState(pageId)
+        const incoming = new Map<string, Block>()
+            ; (ps.blocks || []).forEach(b => incoming.set(b.id, b))
+
+        const store = get() as any
+        const set = useAppStore.setState
+        const current = get().blocks
+        const selectedId = get().selectedBlockId
+        const editingId = get().editingBlockId
+
+        // Smart merge: preserve position/size of blocks the user is actively
+        // interacting with (selected/editing/fullscreen). Other blocks accept
+        // MCP changes including position updates. New blocks added, deleted removed.
+        const merged = new Map<string, Block>()
+        for (const [id, newBlock] of incoming) {
+            const existing = current.get(id)
+            if (existing && (id === selectedId || id === editingId)) {
+                // User is interacting with this block — keep current position/size
+                merged.set(id, {
+                    ...newBlock,
+                    x: existing.x,
+                    y: existing.y,
+                    width: existing.width,
+                    height: existing.height,
+                })
+            } else {
+                // Not interacting — accept full DB state (including MCP moves)
+                merged.set(id, newBlock)
+            }
+        }
+
+        set({
+            blocks: merged,
+            connections: ps.connections || [],
+            drawingData: ps.page.drawingData || '',
+        })
+
+        // Push undo snapshot so MCP changes can be undone
+        await useUndoTree.getState().pushState(pageId, label, captureSnapshot(get))
+
+        // Show toast notification
+        useToastStore.getState().addToast(`🤖 ${label}`, 'info', 3000)
+    } catch (e) {
+        console.error('reloadWithUndo failed:', e)
+    }
+}
 
 export const useAppStore = create<AppState>((...a) => ({
     ...createNotebookSlice(...a),
@@ -62,6 +113,52 @@ export const useAppStore = create<AppState>((...a) => ({
         // ETL sync completed — relay to plugins so LocalDB/Chart blocks refresh
         unsubs.push(onEvent('db:updated', (data: { databaseId: string; jobId: string }) => {
             pluginBus.emit('localdb:data-changed', { databaseId: data.databaseId })
+        }))
+
+        // MCP: blocks changed — reload page state and push undo snapshot
+        unsubs.push(onEvent('mcp:blocks-changed', (data: { pageId: string }) => {
+            const activePageId = get().activePageId
+            if (activePageId && data.pageId === activePageId) {
+                reloadWithUndo(get, activePageId, 'MCP: blocks changed')
+            }
+        }))
+
+        // MCP: drawing changed — reload drawing data and push undo snapshot
+        unsubs.push(onEvent('mcp:drawing-changed', (data: { pageId: string }) => {
+            const activePageId = get().activePageId
+            if (activePageId && data.pageId === activePageId) {
+                reloadWithUndo(get, activePageId, 'MCP: drawing changed')
+            }
+        }))
+
+        // MCP: pages changed — refresh sidebar page list
+        unsubs.push(onEvent('mcp:pages-changed', (data: { notebookId: string }) => {
+            const activeNotebookId = get().activeNotebookId
+            if (activeNotebookId && data.notebookId === activeNotebookId) {
+                get().loadPages(activeNotebookId)
+            }
+        }))
+
+        // MCP: navigate to page — auto-switch active page
+        unsubs.push(onEvent('mcp:navigate-page', (data: { pageId: string }) => {
+            if (data.pageId && data.pageId !== get().activePageId) {
+                get().selectPage(data.pageId)
+            }
+        }))
+
+        // MCP: activity pulse — emit to plugin bus for indicator + toast
+        unsubs.push(onEvent('mcp:activity', (data: { changes: number; pageId: string }) => {
+            pluginBus.emit('mcp:activity', data)
+        }))
+
+        // MCP: approval required — relay to plugin bus for ApprovalModal
+        unsubs.push(onEvent('mcp:approval-required', (data: any) => {
+            pluginBus.emit('mcp:approval-required', data)
+        }))
+
+        // MCP: approval dismissed (timeout)
+        unsubs.push(onEvent('mcp:approval-dismissed', (data: any) => {
+            pluginBus.emit('mcp:approval-dismissed', data)
         }))
 
         return () => unsubs.forEach(fn => fn())

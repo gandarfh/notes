@@ -1,0 +1,224 @@
+/* ── MCP Approval Toast ─────────────────────────────────── */
+
+.mcp-approval-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: auto;
+}
+
+.mcp-approval-toast {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    border-radius: 14px;
+    background: rgba(15, 15, 25, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(24px);
+    min-width: 380px;
+    max-width: 520px;
+    animation: mcp-slide-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mcp-approval-toast.mcp-destructive {
+    border-color: rgba(239, 68, 68, 0.3);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(239, 68, 68, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+@keyframes mcp-slide-in {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.mcp-approval-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #f59e0b;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+    flex-shrink: 0;
+    animation: mcp-pulse 2s ease-in-out infinite;
+}
+
+.mcp-approval-indicator.destructive {
+    background: #ef4444;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+}
+
+@keyframes mcp-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+.mcp-approval-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.mcp-approval-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #f0f0f0;
+    margin-bottom: 3px;
+    letter-spacing: -0.01em;
+}
+
+.mcp-approval-desc {
+    font-size: 12px;
+    color: #8b8b9e;
+    line-height: 1.4;
+    word-break: break-word;
+    max-width: 280px;
+}
+
+/* Target badges for affected elements */
+.mcp-approval-targets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.mcp-target-badge {
+    font-size: 10px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.mcp-approval-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.mcp-approval-btn {
+    padding: 7px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+}
+
+.mcp-approve {
+    background: #22c55e;
+    color: #fff;
+}
+
+.mcp-approve:hover {
+    background: #16a34a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.mcp-approve-destructive {
+    background: #ef4444;
+    color: #fff;
+}
+
+.mcp-approve-destructive:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.mcp-reject {
+    background: transparent;
+    color: #6b6b80;
+    padding: 7px 10px;
+    font-weight: 500;
+}
+
+.mcp-reject:hover {
+    color: #ef4444;
+}
+
+/* ── Light mode overrides ─────────────────────────────── */
+
+[data-theme='light'] .mcp-approval-toast {
+    background: rgba(255, 255, 255, 0.97);
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.12),
+        0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme='light'] .mcp-approval-toast.mcp-destructive {
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+[data-theme='light'] .mcp-approval-title {
+    color: #1a1a2e;
+}
+
+[data-theme='light'] .mcp-approval-desc {
+    color: #4a4a5a;
+}
+
+[data-theme='light'] .mcp-target-badge {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+[data-theme='light'] .mcp-reject {
+    color: #9ca3af;
+}
+
+[data-theme='light'] .mcp-reject:hover {
+    color: #ef4444;
+}
+
+/* ── Block pending-delete highlight ─────────────────────── */
+
+.mcp-pending-delete {
+    outline: 3px solid #ef4444 !important;
+    outline-offset: 2px !important;
+    animation: mcp-block-pulse 1.2s ease-in-out infinite !important;
+}
+
+@keyframes mcp-block-pulse {
+
+    0%,
+    100% {
+        filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.3));
+    }
+
+    50% {
+        filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.8));
+    }
+}

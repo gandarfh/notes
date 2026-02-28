@@ -5,6 +5,8 @@ import { Toolbar } from './components/Toolbar/Toolbar'
 import { Canvas } from './components/Canvas/Canvas'
 import { UndoPanel } from './components/UndoPanel/UndoPanel'
 import { ToastContainer } from './components/Toast/Toast'
+import { ApprovalModal } from './components/MCP/ApprovalModal'
+import { MCPIndicator } from './components/MCP/MCPIndicator'
 import { useAppStore } from './store'
 import { useUndoTree } from './store/useUndoTree'
 import { restoreSnapshot } from './store/helpers'
@@ -121,6 +123,8 @@ export function App() {
                 )}
             </main>
             <ToastContainer />
+            <ApprovalModal />
+            <MCPIndicator />
         </div>
     )
 }

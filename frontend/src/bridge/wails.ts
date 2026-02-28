@@ -83,6 +83,9 @@ declare global {
           ExecuteHTTPRequest(blockID: string, configJSON: string): Promise<HTTPResponse>
           SaveBlockHTTPConfig(blockID: string, config: string): Promise<void>
           ListPageHTTPBlocks(pageID: string): Promise<PageBlockRef[]>
+          // MCP approval
+          ApproveAction(id: string): Promise<void>
+          RejectAction(id: string): Promise<void>
         }
       }
     }

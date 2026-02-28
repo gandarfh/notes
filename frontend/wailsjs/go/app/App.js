@@ -6,6 +6,10 @@ export function ApplyMutations(arg1, arg2, arg3) {
   return window['go']['app']['App']['ApplyMutations'](arg1, arg2, arg3);
 }
 
+export function ApproveAction(arg1) {
+  return window['go']['app']['App']['ApproveAction'](arg1);
+}
+
 export function BatchUpdateLocalDBRows(arg1, arg2) {
   return window['go']['app']['App']['BatchUpdateLocalDBRows'](arg1, arg2);
 }
@@ -208,6 +212,10 @@ export function PreviewETLSource(arg1, arg2) {
 
 export function PushUndoNode(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['PushUndoNode'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function RejectAction(arg1) {
+  return window['go']['app']['App']['RejectAction'](arg1);
 }
 
 export function RenameLocalDatabase(arg1, arg2) {

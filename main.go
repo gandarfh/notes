@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
@@ -19,6 +20,14 @@ var assets embed.FS
 var icon []byte
 
 func main() {
+	// MCP standalone mode: run as stdio server with no GUI
+	for _, arg := range os.Args[1:] {
+		if arg == "--mcp" {
+			notesApp.ServeMCP()
+			return
+		}
+	}
+
 	app := notesApp.New()
 
 	// macOS needs an Edit menu for Cmd+C/V/X/A to reach the WebView

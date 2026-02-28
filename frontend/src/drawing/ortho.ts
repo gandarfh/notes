@@ -183,6 +183,7 @@ export function computeOrthoRoute(
     dx: number, dy: number,
     startSide?: AnchorSide, endSide?: AnchorSide,
     startRect?: Rect, endRect?: Rect,
+    allObstacles?: Rect[],
 ): number[][] {
     const margin = GRID
 
@@ -213,6 +214,15 @@ export function computeOrthoRoute(
         x: endRect.x - margin, y: endRect.y - margin,
         w: endRect.w + margin * 2, h: endRect.h + margin * 2,
     })
+    // Add all other obstacles (inflated)
+    if (allObstacles) {
+        for (const obs of allObstacles) {
+            obstacles.push({
+                x: obs.x - margin, y: obs.y - margin,
+                w: obs.w + margin * 2, h: obs.h + margin * 2,
+            })
+        }
+    }
 
     // Build rulers from obstacle edges + antenna points
     const vRulers: number[] = []
@@ -270,12 +280,17 @@ export function computeOrthoRoute(
     // Always include antenna points
     rawSpots.push(antenna1, antenna2)
 
-    // Filter out spots inside original shape rects
+    // Filter out spots inside original shape rects (src/dst only), but ALWAYS keep antenna points
     const originalObstacles: Rect[] = []
     if (startRect) originalObstacles.push(startRect)
     if (endRect) originalObstacles.push(endRect)
 
+    const ant1Key = `${Math.round(antenna1.x * 100)},${Math.round(antenna1.y * 100)}`
+    const ant2Key = `${Math.round(antenna2.x * 100)},${Math.round(antenna2.y * 100)}`
+
     const spots = rawSpots.filter(p => {
+        const pk = `${Math.round(p.x * 100)},${Math.round(p.y * 100)}`
+        if (pk === ant1Key || pk === ant2Key) return true // always keep antenna points
         for (const obs of originalObstacles) {
             if (rectContains(obs, p, 1)) return false
         }
@@ -290,8 +305,9 @@ export function computeOrthoRoute(
         if (!seen.has(k)) { seen.add(k); uniqueSpots.push(s) }
     }
 
-    // Run Dijkstra pathfinding (block edges through original shape bodies)
-    const path = buildGraphAndRoute(uniqueSpots, antenna1, antenna2, originalObstacles)
+    // Run Dijkstra pathfinding (block edges through original shape bodies + all obstacles)
+    const blockRects = [...originalObstacles, ...(allObstacles || [])]
+    const path = buildGraphAndRoute(uniqueSpots, antenna1, antenna2, blockRects)
 
     // Compose final path: origin → antenna path → destination
     const fullPath = [origin, ...path, dest]

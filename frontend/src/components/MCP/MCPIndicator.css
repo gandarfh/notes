@@ -1,0 +1,58 @@
+/* MCP Activity Indicator */
+
+.mcp-indicator {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 9998;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary, #666);
+    pointer-events: none;
+    animation: mcp-fade-in 0.3s ease;
+}
+
+.mcp-indicator__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: mcp-pulse 1.5s ease-in-out infinite;
+}
+
+.mcp-indicator__label {
+    text-transform: uppercase;
+}
+
+@keyframes mcp-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(0.85);
+    }
+}
+
+@keyframes mcp-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

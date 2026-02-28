@@ -86,4 +86,8 @@ export const api = {
     executeHTTPRequest: httpAPI.executeRequest,
     saveBlockHTTPConfig: httpAPI.saveBlockConfig,
     listPageHTTPBlocks: etlAPI.listPageHTTPBlocks,
+
+    // ── MCP approval ──────────────────────────────────────
+    approveAction: (id: string) => go().ApproveAction(id),
+    rejectAction: (id: string) => go().RejectAction(id),
 } as const

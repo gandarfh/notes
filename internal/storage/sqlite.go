@@ -206,6 +206,18 @@ func (db *DB) migrate() error {
 			error TEXT NOT NULL DEFAULT ''
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_etl_run_logs_job ON etl_run_logs(job_id)`,
+		// MCP cross-process approval queue (standalone ↔ Wails IPC)
+		`CREATE TABLE IF NOT EXISTS mcp_approvals (
+			id TEXT PRIMARY KEY,
+			tool TEXT NOT NULL,
+			description TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending',
+			metadata TEXT NOT NULL DEFAULT '{}',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			resolved_at DATETIME
+		)`,
+		// Add metadata column if missing (migration safety)
+		`ALTER TABLE mcp_approvals ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'`,
 	}
 
 	for _, m := range migrations {

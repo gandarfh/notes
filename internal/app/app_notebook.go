@@ -40,6 +40,19 @@ func (a *App) CreatePage(notebookID, name string) (*domain.Page, error) {
 
 func (a *App) GetPageState(pageID string) (*domain.PageState, error) {
 	wailsRuntime.LogInfof(a.ctx, "[GetPageState] loading page: %s", pageID)
+	// Track active page so the watcher can detect external changes
+	if a.watcher != nil {
+		// Resolve notebook ID for page list tracking
+		notebookID := ""
+		ps, err := a.notebooks.GetPageState(pageID)
+		if err == nil && ps != nil {
+			notebookID = ps.Page.NotebookID
+			a.watcher.SetPage(pageID, notebookID)
+			return ps, nil
+		}
+		a.watcher.SetPage(pageID, notebookID)
+		return ps, err
+	}
 	return a.notebooks.GetPageState(pageID)
 }
 
