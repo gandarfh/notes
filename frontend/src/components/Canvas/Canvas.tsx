@@ -119,6 +119,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
     const lastAppliedZoomRef = useRef(useAppStore.getState().viewport.zoom)
     const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+
     // ── Drawing hook ──
     const onBlockCreate = useCallback(async (type: string, x: number, y: number, w: number, h: number) => {
         const block = await useAppStore.getState().createBlock(type, x, y, w, h)
@@ -192,7 +193,11 @@ export function Canvas({ onEditBlock }: CanvasProps) {
 
     // Keep viewportRef in sync with store (for external viewport changes like double-click zoom)
     useEffect(() => {
-        const unsub = useAppStore.subscribe((s) => {
+        const unsub = useAppStore.subscribe((s, prev) => {
+            // Only react when viewport actually changed — ignore unrelated store updates
+            // (e.g. block saves, selection) that would re-apply stale viewport values
+            if (s.viewport === prev.viewport) return
+
             const v = s.viewport
             const cur = viewportRef.current
             // Skip if we already applied this viewport (avoids double-paint from our own commits)
@@ -204,9 +209,11 @@ export function Canvas({ onEditBlock }: CanvasProps) {
     }, [applyViewport])
 
     // ── Debounced store commit (non-blocking) ──
-    const commitViewport = useCallback((v: { x: number; y: number; zoom: number }) => {
+    const commitViewport = useCallback(() => {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
         saveTimeoutRef.current = setTimeout(() => {
+            // Always commit the LATEST viewport, not a stale captured value
+            const v = viewportRef.current
             useAppStore.getState().setViewport(v.x, v.y, v.zoom)
             useAppStore.getState().saveViewport()
             saveTimeoutRef.current = null
@@ -264,7 +271,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             const newV = { x: v.x + dx, y: v.y + dy, zoom: v.zoom }
             viewportRef.current = newV
             applyViewport(newV)
-            commitViewport(newV)
+            commitViewport()
             w.__perfEnd?.('onMove')
         }
 
@@ -421,7 +428,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
                 }
                 viewportRef.current = newV
                 applyViewport(newV)
-                commitViewport(newV)
+                commitViewport()
             } else {
                 // Two-finger scroll → Pan (standard macOS/trackpad behavior)
                 const newV = {
@@ -431,7 +438,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
                 }
                 viewportRef.current = newV
                 applyViewport(newV)
-                commitViewport(newV)
+                commitViewport()
             }
         }
 
