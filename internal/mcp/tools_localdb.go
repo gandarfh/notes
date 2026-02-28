@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -72,6 +73,17 @@ func (s *Server) handleCreateLocalDatabase(ctx context.Context, req mcp.CallTool
 	if configJSON != "" {
 		trimmed := strings.TrimSpace(configJSON)
 		if strings.HasPrefix(trimmed, "[") {
+			// Strict validation of the columns
+			var strictColumns []struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+				Type string `json:"type,omitempty"`
+			}
+			dec := json.NewDecoder(strings.NewReader(trimmed))
+			dec.DisallowUnknownFields()
+			if err := dec.Decode(&strictColumns); err != nil {
+				return nil, fmt.Errorf("invalid column definitions JSON contract (check allowed fields, typically id, name, type): %w", err)
+			}
 			// Caller passed a raw column array — wrap in the object format the frontend expects
 			configJSON = fmt.Sprintf(`{"columns":%s,"activeView":"table"}`, trimmed)
 		}

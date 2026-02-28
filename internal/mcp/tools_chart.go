@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -63,7 +64,7 @@ func parseStagesJSON(raw any) ([]any, error) {
 		return nil, nil
 	}
 	var stages []any
-	if err := json.Unmarshal([]byte(jsonStr), &stages); err != nil {
+	if err := parseJSON(jsonStr, &stages); err != nil {
 		return nil, fmt.Errorf("parse stagesJSON: %w", err)
 	}
 	return stages, nil
@@ -258,7 +259,7 @@ func resolveColumnRef(configJSON, ref string) string {
 			Name string `json:"name"`
 		} `json:"columns"`
 	}
-	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
+	if err := parseJSON(configJSON, &cfg); err != nil {
 		return ref
 	}
 	for _, col := range cfg.Columns {
@@ -289,8 +290,11 @@ func (s *Server) handleBatchCreateCharts(ctx context.Context, req mcp.CallToolRe
 		Width          *float64 `json:"width"`
 		Height         *float64 `json:"height"`
 	}
-	if err := json.Unmarshal([]byte(chartsJSON), &charts); err != nil {
-		return nil, fmt.Errorf("parse charts JSON: %w", err)
+	
+	dec := json.NewDecoder(strings.NewReader(chartsJSON))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&charts); err != nil {
+		return nil, fmt.Errorf("invalid charts JSON contract (check allowed fields): %w", err)
 	}
 	if len(charts) == 0 {
 		return nil, fmt.Errorf("charts array is empty")

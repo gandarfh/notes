@@ -10,9 +10,36 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
+// ── Valid drawing colors ────────────────────────────────────
+// Must match the palette defined in frontend ColorPicker.tsx + StylePanel.tsx BG_COLORS.
+var validDrawingColors = map[string]bool{
+	// Grayscale
+	"#1e1e2e": true, "#545475": true, "#828298": true, "#bfbfcf": true, "#e8e8f0": true,
+	// Vivid
+	"#e03131": true, "#f08c00": true, "#2f9e44": true, "#1971c2": true, "#9c36b5": true,
+	// Pastel
+	"#ffc9c9": true, "#ffec99": true, "#b2f2bb": true, "#a5d8ff": true, "#eebefa": true,
+	// Special
+	"transparent": true, "#343446": true,
+	// Stroke defaults
+	"#e0e0e0": true, "#ffffff": true, "#000000": true,
+}
+
+// sanitizeColor returns the color if it's in the palette, otherwise returns the fallback.
+func sanitizeColor(color, fallback string) string {
+	if color == "" {
+		return fallback
+	}
+	normalized := strings.ToLower(strings.TrimSpace(color))
+	if validDrawingColors[normalized] {
+		return color
+	}
+	return fallback
+}
+
 func (s *Server) registerDrawingTools() {
 	s.mcp.AddTool(mcp.NewTool("add_drawing_element",
-		mcp.WithDescription("Add a shape or text element to the drawing layer"),
+		mcp.WithDescription("Add a shape or text element to the drawing layer. SAFE COLORS (theme-aware): Vivid: Red (#e03131), Orange (#f08c00), Green (#2f9e44), Blue (#1971c2), Purple (#9c36b5). Pastel: LightRed (#ffc9c9), LightYellow (#ffec99), LightGreen (#b2f2bb), LightBlue (#a5d8ff), LightPurple (#eebefa). Gray: Dark (#1e1e2e), MidDark (#545475), Mid (#828298), Light (#bfbfcf), Near-white (#e8e8f0). Special: transparent, DarkBg (#343446). Use #e8e8f0 for strokeColor to ensure visibility. Colors outside this palette will be ignored."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("type", mcp.Description("Element type: rectangle, ellipse, diamond, text"), mcp.Required()),
 		mcp.WithNumber("x", mcp.Description("X position"), mcp.Required()),
@@ -20,8 +47,8 @@ func (s *Server) registerDrawingTools() {
 		mcp.WithNumber("width", mcp.Description("Width"), mcp.Required()),
 		mcp.WithNumber("height", mcp.Description("Height"), mcp.Required()),
 		mcp.WithString("text", mcp.Description("Text content (optional)")),
-		mcp.WithString("fillColor", mcp.Description("Fill color hex (optional, e.g. #3b82f6)")),
-		mcp.WithString("strokeColor", mcp.Description("Stroke color hex (optional)")),
+		mcp.WithString("fillColor", mcp.Description("Fill/background color hex from the palette (optional, e.g. #e03131, #a5d8ff). Invalid colors will be ignored.")),
+		mcp.WithString("strokeColor", mcp.Description("Stroke color hex (optional, use #e8e8f0 for best visibility)")),
 	), s.handleAddDrawingElement)
 
 	s.mcp.AddTool(mcp.NewTool("add_drawing_arrow",
@@ -33,10 +60,10 @@ func (s *Server) registerDrawingTools() {
 	), s.handleAddDrawingArrow)
 
 	s.mcp.AddTool(mcp.NewTool("update_drawing_element",
-		mcp.WithDescription("Update properties of a drawing element"),
+		mcp.WithDescription("Update properties of a drawing element. DO NOT pass 'id' in the patchJSON."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("elementId", mcp.Description("Element ID to update"), mcp.Required()),
-		mcp.WithString("patchJSON", mcp.Description("JSON object with properties to update (x, y, width, height, text, fillColor, strokeColor)"), mcp.Required()),
+		mcp.WithString("patchJSON", mcp.Description("JSON object with properties to update. DO NOT pass 'id'."), mcp.Required()),
 	), s.handleUpdateDrawingElement)
 
 	s.mcp.AddTool(mcp.NewTool("move_drawing_element",
@@ -89,21 +116,21 @@ func (s *Server) registerDrawingTools() {
 	), s.handleClearDrawing)
 
 	s.mcp.AddTool(mcp.NewTool("add_drawing_group",
-		mcp.WithDescription("Add a visual group/container with dashed border and label (for organizing related elements)"),
+		mcp.WithDescription("Add a visual group/container with dashed border and label. Use #e8e8f0 for strokeColor for theme visibility."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("label", mcp.Description("Group label text"), mcp.Required()),
 		mcp.WithNumber("x", mcp.Description("X position"), mcp.Required()),
 		mcp.WithNumber("y", mcp.Description("Y position"), mcp.Required()),
 		mcp.WithNumber("width", mcp.Description("Width"), mcp.Required()),
 		mcp.WithNumber("height", mcp.Description("Height"), mcp.Required()),
-		mcp.WithString("strokeColor", mcp.Description("Border color hex (optional, default #64748b)")),
+		mcp.WithString("strokeColor", mcp.Description("Border color hex (optional, default #e8e8f0)")),
 	), s.handleAddDrawingGroup)
 
 	// ── Batch operations ──────────────────────────────────
 	s.mcp.AddTool(mcp.NewTool("batch_add_drawing_elements",
-		mcp.WithDescription("Add multiple drawing elements at once. Pass a JSON array of element objects (each with type, x, y, width, height, and optional text, fillColor, strokeColor)."),
+		mcp.WithDescription("Add multiple elements. DO NOT pass 'id' properties. The system auto-generates them and returns an array of the created IDs in the exact order of your input array. SAFE COLORS — Vivid: Red (#e03131), Orange (#f08c00), Green (#2f9e44), Blue (#1971c2), Purple (#9c36b5). Pastel: LightRed (#ffc9c9), LightYellow (#ffec99), LightGreen (#b2f2bb), LightBlue (#a5d8ff), LightPurple (#eebefa). Gray: Dark (#1e1e2e), MidDark (#545475), Mid (#828298), Light (#bfbfcf), Near-white (#e8e8f0). Special: transparent, DarkBg (#343446). Use #e8e8f0 for strokeColor. Colors outside this palette will be ignored."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
-		mcp.WithString("elements", mcp.Description("JSON array of element objects [{type, x, y, width, height, text?, fillColor?, strokeColor?}, ...]"), mcp.Required()),
+		mcp.WithString("elements", mcp.Description("JSON array of element objects [{type, x, y, width, height...}]. DO NOT pass 'id'."), mcp.Required()),
 	), s.handleBatchAddDrawingElements)
 
 	s.mcp.AddTool(mcp.NewTool("batch_delete_drawing_elements",
@@ -114,13 +141,111 @@ func (s *Server) registerDrawingTools() {
 	), s.handleBatchDeleteDrawingElements)
 
 	s.mcp.AddTool(mcp.NewTool("batch_update_drawing_elements",
-		mcp.WithDescription("Update multiple drawing elements at once. Pass a JSON array of patch objects (each with elementId and properties to update: x, y, width, height, text, fillColor, strokeColor)."),
+		mcp.WithDescription("Update multiple drawing elements at once. DO NOT pass 'id' in the patch, only pass 'elementId' and the allowed patch fields. Pass a JSON array of patch objects (each with elementId and properties to update)."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
-		mcp.WithString("patches", mcp.Description("JSON array of patch objects [{elementId, x?, y?, width?, height?, text?, fillColor?, strokeColor?}, ...]"), mcp.Required()),
+		mcp.WithString("patches", mcp.Description("JSON array of patch objects [{elementId, x?, y?, width?, height?...}]. DO NOT pass 'id'."), mcp.Required()),
 	), s.handleBatchUpdateDrawingElements)
 }
 
 // ── Drawing data helpers ────────────────────────────────────
+
+// Strict structs for MCP validation (Fail Fast on unknown fields)
+type StrictDrawingElement struct {
+	Type            string         `json:"type"`
+	X               float64        `json:"x"`
+	Y               float64        `json:"y"`
+	Width           float64        `json:"width"`
+	Height          float64        `json:"height"`
+	Points          [][]float64    `json:"points,omitempty"`
+	Text            *string        `json:"text,omitempty"`
+	StrokeColor     *string        `json:"strokeColor,omitempty"`
+	StrokeWidth     *float64       `json:"strokeWidth,omitempty"`
+	BackgroundColor *string        `json:"backgroundColor,omitempty"`
+	FillColor       *string        `json:"fillColor,omitempty"`
+	FontSize        *float64       `json:"fontSize,omitempty"`
+	Roundness       *bool          `json:"roundness,omitempty"`
+	BorderRadius    *float64       `json:"borderRadius,omitempty"`
+	FontFamily      *string        `json:"fontFamily,omitempty"`
+	FontWeight      *float64       `json:"fontWeight,omitempty"`
+	TextColor       *string        `json:"textColor,omitempty"`
+	FillStyle       *string        `json:"fillStyle,omitempty"`
+	Opacity         *float64       `json:"opacity,omitempty"`
+	StrokeDasharray *string        `json:"strokeDasharray,omitempty"`
+	TextAlign       *string        `json:"textAlign,omitempty"`
+	VerticalAlign   *string        `json:"verticalAlign,omitempty"`
+	StartConnection map[string]any `json:"startConnection,omitempty"`
+	EndConnection   map[string]any `json:"endConnection,omitempty"`
+	ArrowEnd        *string        `json:"arrowEnd,omitempty"`
+	ArrowStart      *string        `json:"arrowStart,omitempty"`
+	Label           *string        `json:"label,omitempty"`
+	LabelT          *float64       `json:"labelT,omitempty"`
+	IsGroup         *bool          `json:"isGroup,omitempty"`
+}
+
+type StrictDrawingPatch struct {
+	Type            *string        `json:"type,omitempty"`
+	X               *float64       `json:"x,omitempty"`
+	Y               *float64       `json:"y,omitempty"`
+	Width           *float64       `json:"width,omitempty"`
+	Height          *float64       `json:"height,omitempty"`
+	Points          [][]float64    `json:"points,omitempty"`
+	Text            *string        `json:"text,omitempty"`
+	StrokeColor     *string        `json:"strokeColor,omitempty"`
+	StrokeWidth     *float64       `json:"strokeWidth,omitempty"`
+	BackgroundColor *string        `json:"backgroundColor,omitempty"`
+	FillColor       *string        `json:"fillColor,omitempty"`
+	FontSize        *float64       `json:"fontSize,omitempty"`
+	Roundness       *bool          `json:"roundness,omitempty"`
+	BorderRadius    *float64       `json:"borderRadius,omitempty"`
+	FontFamily      *string        `json:"fontFamily,omitempty"`
+	FontWeight      *float64       `json:"fontWeight,omitempty"`
+	TextColor       *string        `json:"textColor,omitempty"`
+	FillStyle       *string        `json:"fillStyle,omitempty"`
+	Opacity         *float64       `json:"opacity,omitempty"`
+	StrokeDasharray *string        `json:"strokeDasharray,omitempty"`
+	TextAlign       *string        `json:"textAlign,omitempty"`
+	VerticalAlign   *string        `json:"verticalAlign,omitempty"`
+	StartConnection map[string]any `json:"startConnection,omitempty"`
+	EndConnection   map[string]any `json:"endConnection,omitempty"`
+	ArrowEnd        *string        `json:"arrowEnd,omitempty"`
+	ArrowStart      *string        `json:"arrowStart,omitempty"`
+	Label           *string        `json:"label,omitempty"`
+	LabelT          *float64       `json:"labelT,omitempty"`
+	IsGroup         *bool          `json:"isGroup,omitempty"`
+}
+
+type StrictBatchPatch struct {
+	ElementID       string         `json:"elementId"`
+	Type            *string        `json:"type,omitempty"`
+	X               *float64       `json:"x,omitempty"`
+	Y               *float64       `json:"y,omitempty"`
+	Width           *float64       `json:"width,omitempty"`
+	Height          *float64       `json:"height,omitempty"`
+	Points          [][]float64    `json:"points,omitempty"`
+	Text            *string        `json:"text,omitempty"`
+	StrokeColor     *string        `json:"strokeColor,omitempty"`
+	StrokeWidth     *float64       `json:"strokeWidth,omitempty"`
+	BackgroundColor *string        `json:"backgroundColor,omitempty"`
+	FillColor       *string        `json:"fillColor,omitempty"`
+	FontSize        *float64       `json:"fontSize,omitempty"`
+	Roundness       *bool          `json:"roundness,omitempty"`
+	BorderRadius    *float64       `json:"borderRadius,omitempty"`
+	FontFamily      *string        `json:"fontFamily,omitempty"`
+	FontWeight      *float64       `json:"fontWeight,omitempty"`
+	TextColor       *string        `json:"textColor,omitempty"`
+	FillStyle       *string        `json:"fillStyle,omitempty"`
+	Opacity         *float64       `json:"opacity,omitempty"`
+	StrokeDasharray *string        `json:"strokeDasharray,omitempty"`
+	TextAlign       *string        `json:"textAlign,omitempty"`
+	VerticalAlign   *string        `json:"verticalAlign,omitempty"`
+	StartConnection map[string]any `json:"startConnection,omitempty"`
+	EndConnection   map[string]any `json:"endConnection,omitempty"`
+	ArrowEnd        *string        `json:"arrowEnd,omitempty"`
+	ArrowStart      *string        `json:"arrowStart,omitempty"`
+	Label           *string        `json:"label,omitempty"`
+	LabelT          *float64       `json:"labelT,omitempty"`
+	IsGroup         *bool          `json:"isGroup,omitempty"`
+}
 
 type drawingElement map[string]any
 
@@ -133,7 +258,7 @@ func (s *Server) getDrawingElements(pageID string) ([]drawingElement, error) {
 		return nil, nil
 	}
 	var elements []drawingElement
-	if err := json.Unmarshal([]byte(state.Page.DrawingData), &elements); err != nil {
+	if err := parseJSON(state.Page.DrawingData, &elements); err != nil {
 		return nil, fmt.Errorf("parse drawing data: %w", err)
 	}
 	return elements, nil
@@ -261,9 +386,9 @@ func (s *Server) handleAddDrawingGroup(ctx context.Context, req mcp.CallToolRequ
 
 	elements, _ := s.getDrawingElements(pageID)
 
-	stroke := "#64748b"
+	stroke := "#828298"
 	if sc, ok := args["strokeColor"].(string); ok {
-		stroke = sc
+		stroke = sanitizeColor(sc, "#828298")
 	}
 
 	el := drawingElement{
@@ -308,7 +433,7 @@ func (s *Server) handleAddDrawingElement(ctx context.Context, req mcp.CallToolRe
 		"y":               args["y"],
 		"width":           args["width"],
 		"height":          args["height"],
-		"strokeColor":     "#1e1e1e",
+		"strokeColor":     "#e8e8f0",
 		"strokeWidth":     float64(2),
 		"backgroundColor": "transparent",
 	}
@@ -316,10 +441,10 @@ func (s *Server) handleAddDrawingElement(ctx context.Context, req mcp.CallToolRe
 		el["text"] = text
 	}
 	if fill, ok := args["fillColor"].(string); ok {
-		el["backgroundColor"] = fill
+		el["backgroundColor"] = sanitizeColor(fill, "transparent")
 	}
 	if stroke, ok := args["strokeColor"].(string); ok {
-		el["strokeColor"] = stroke
+		el["strokeColor"] = sanitizeColor(stroke, "#e8e8f0")
 	}
 
 	elements = append(elements, el)
@@ -398,7 +523,7 @@ func (s *Server) handleAddDrawingArrow(ctx context.Context, req mcp.CallToolRequ
 		"y":               info.srcY,
 		"width":           w,
 		"height":          h,
-		"strokeColor":     "#1e1e1e",
+		"strokeColor":     "#e8e8f0",
 		"strokeWidth":     float64(2),
 		"backgroundColor": "transparent",
 		"arrowEnd":        "arrow",
@@ -444,6 +569,14 @@ func (s *Server) handleUpdateDrawingElement(ctx context.Context, req mcp.CallToo
 	elementID, _ := args["elementId"].(string)
 	patchStr, _ := args["patchJSON"].(string)
 
+	// Strict validation
+	dec := json.NewDecoder(strings.NewReader(patchStr))
+	dec.DisallowUnknownFields()
+	var strictPatch StrictDrawingPatch
+	if err := dec.Decode(&strictPatch); err != nil {
+		return nil, fmt.Errorf("invalid patch JSON contract (check allowed fields, do not pass 'id'): %w", err)
+	}
+
 	elements, err := s.getDrawingElements(pageID)
 	if err != nil {
 		return nil, err
@@ -455,11 +588,30 @@ func (s *Server) handleUpdateDrawingElement(ctx context.Context, req mcp.CallToo
 	}
 
 	var patch map[string]any
-	if err := json.Unmarshal([]byte(patchStr), &patch); err != nil {
+	if err := parseJSON(patchStr, &patch); err != nil {
 		return nil, fmt.Errorf("parse patch JSON: %w", err)
 	}
 	for k, v := range patch {
-		el[k] = v
+		switch k {
+		case "fillColor":
+			if cs, ok := v.(string); ok {
+				el["backgroundColor"] = sanitizeColor(cs, "transparent")
+			}
+		case "backgroundColor":
+			if cs, ok := v.(string); ok {
+				el[k] = sanitizeColor(cs, "transparent")
+			}
+		case "strokeColor":
+			if cs, ok := v.(string); ok {
+				el[k] = sanitizeColor(cs, "#e8e8f0")
+			}
+		case "textColor":
+			if cs, ok := v.(string); ok {
+				el[k] = sanitizeColor(cs, "#e8e8f0")
+			}
+		default:
+			el[k] = v
+		}
 	}
 	elements[idx] = el
 
@@ -783,8 +935,17 @@ func (s *Server) handleBatchAddDrawingElements(ctx context.Context, req mcp.Call
 	}
 
 	elementsJSON, _ := args["elements"].(string)
+
+	// Strict validation
+	dec := json.NewDecoder(strings.NewReader(elementsJSON))
+	dec.DisallowUnknownFields()
+	var strictElements []StrictDrawingElement
+	if err := dec.Decode(&strictElements); err != nil {
+		return nil, fmt.Errorf("invalid elements JSON contract (check allowed fields, do not pass 'id'): %w", err)
+	}
+
 	var newElements []drawingElement
-	if err := json.Unmarshal([]byte(elementsJSON), &newElements); err != nil {
+	if err := parseJSON(elementsJSON, &newElements); err != nil {
 		return nil, fmt.Errorf("invalid elements JSON: %w", err)
 	}
 
@@ -812,9 +973,17 @@ func (s *Server) handleBatchAddDrawingElements(ctx context.Context, req mcp.Call
 		}
 		if newElements[i]["backgroundColor"] == nil {
 			if fc, ok := newElements[i]["fillColor"].(string); ok {
-				newElements[i]["backgroundColor"] = fc
+				newElements[i]["backgroundColor"] = sanitizeColor(fc, "transparent")
 				delete(newElements[i], "fillColor")
 			}
+		} else if bg, ok := newElements[i]["backgroundColor"].(string); ok {
+			newElements[i]["backgroundColor"] = sanitizeColor(bg, "transparent")
+		}
+		if sc, ok := newElements[i]["strokeColor"].(string); ok {
+			newElements[i]["strokeColor"] = sanitizeColor(sc, "#e8e8f0")
+		}
+		if tc, ok := newElements[i]["textColor"].(string); ok {
+			newElements[i]["textColor"] = sanitizeColor(tc, "#e8e8f0")
 		}
 		existing = append(existing, newElements[i])
 		created = append(created, id)
@@ -915,8 +1084,17 @@ func (s *Server) handleBatchUpdateDrawingElements(ctx context.Context, req mcp.C
 	}
 
 	patchesJSON, _ := args["patches"].(string)
+
+	// Strict validation
+	dec := json.NewDecoder(strings.NewReader(patchesJSON))
+	dec.DisallowUnknownFields()
+	var strictPatches []StrictBatchPatch
+	if err := dec.Decode(&strictPatches); err != nil {
+		return nil, fmt.Errorf("invalid patches JSON contract (check allowed fields, do not pass 'id'): %w", err)
+	}
+
 	var patches []map[string]any
-	if err := json.Unmarshal([]byte(patchesJSON), &patches); err != nil {
+	if err := parseJSON(patchesJSON, &patches); err != nil {
 		return nil, fmt.Errorf("invalid patches JSON: %w", err)
 	}
 
@@ -945,7 +1123,21 @@ func (s *Server) handleBatchUpdateDrawingElements(ctx context.Context, req mcp.C
 				continue
 			}
 			if k == "fillColor" {
-				elements[i]["backgroundColor"] = v
+				if cs, ok := v.(string); ok {
+					elements[i]["backgroundColor"] = sanitizeColor(cs, "transparent")
+				}
+			} else if k == "backgroundColor" {
+				if cs, ok := v.(string); ok {
+					elements[i][k] = sanitizeColor(cs, "transparent")
+				}
+			} else if k == "strokeColor" {
+				if cs, ok := v.(string); ok {
+					elements[i][k] = sanitizeColor(cs, "#e8e8f0")
+				}
+			} else if k == "textColor" {
+				if cs, ok := v.(string); ok {
+					elements[i][k] = sanitizeColor(cs, "#e8e8f0")
+				}
 			} else {
 				elements[i][k] = v
 			}

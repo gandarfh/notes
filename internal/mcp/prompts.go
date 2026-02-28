@@ -143,16 +143,19 @@ func (s *Server) handleSystemDiagramPrompt(ctx context.Context, req mcp.GetPromp
 				Role: mcp.RoleUser,
 				Content: mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf(`Create a system architecture diagram for "%s" using the drawing tools. Follow these steps:
+					Text: fmt.Sprintf(`Create a system architecture diagram for "%s" using the drawing tools. 
 
-1. Identify the main components of the system
-2. Use add_drawing_element to create a rectangle for each component, with descriptive text
-3. Use add_drawing_arrow to connect related components, showing data flow or dependencies
-4. Add labels to arrows using update_arrow_label to describe the connections
-5. Use arrange_drawing_elements to ensure the layout is clean
-6. Add a write_markdown block with a legend or description of the architecture
+IMPORTANT VISIBILITY RULES:
+- Use SAFE COLORS for theme compatibility: Indigo (#6366f1), Emerald (#10b981), Rose (#ef4444), Blue (#3b82f6), Amber (#f59e0b), Violet (#8b5cf6), Gray (#6b7280).
+- ALWAYS use #e8e8f0 for strokeColor to ensure visibility in both Dark and Light themes.
 
-Use consistent colors: #3b82f6 for primary components, #10b981 for databases, #f59e0b for external services.`, systemName),
+Follow these steps:
+1. Identify the main components of the system.
+2. Use add_drawing_element to create shapes (use fillColor from safe colors, strokeColor: #e8e8f0).
+3. Use add_drawing_arrow to connect components and update_arrow_label for descriptions.
+4. Add a write_markdown block explaining the architecture.
+
+Suggested Colors: #6366f1 (Services), #10b981 (Databases), #f59e0b (External APIs).`, systemName),
 				},
 			},
 		},

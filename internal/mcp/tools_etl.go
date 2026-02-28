@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"notes/internal/etl"
 	"notes/internal/service"
@@ -93,15 +94,19 @@ func (s *Server) handleCreateETLJob(ctx context.Context, req mcp.CallToolRequest
 
 	// Parse source config
 	var sourceConfig map[string]any
-	if err := json.Unmarshal([]byte(sourceConfigStr), &sourceConfig); err != nil {
+	dec := json.NewDecoder(strings.NewReader(sourceConfigStr))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&sourceConfig); err != nil {
 		return nil, fmt.Errorf("parse sourceConfig: %w", err)
 	}
 
 	// Parse transforms
 	var transforms []etl.TransformConfig
 	if transformsStr != "" {
-		if err := json.Unmarshal([]byte(transformsStr), &transforms); err != nil {
-			return nil, fmt.Errorf("parse transforms: %w", err)
+		dec := json.NewDecoder(strings.NewReader(transformsStr))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&transforms); err != nil {
+			return nil, fmt.Errorf("invalid transforms JSON contract (check allowed fields): %w", err)
 		}
 	}
 
