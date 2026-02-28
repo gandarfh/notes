@@ -20,6 +20,23 @@ type GoBlockPlugin interface {
 	OnDelete(blockID string) error
 }
 
+// MCPToolDef describes a tool that a plugin exposes to the MCP server.
+type MCPToolDef struct {
+	Name        string                                   // e.g. "mywidget_refresh"
+	Description string                                   // shown to agents
+	InputSchema map[string]any                           // JSON Schema for parameters
+	Destructive bool                                     // requires human approval
+	Handler     func(params map[string]any) (any, error) // executes the tool
+}
+
+// MCPCapablePlugin extends GoBlockPlugin with MCP tool declarations.
+// Plugins that implement this interface will have their tools auto-registered
+// with the MCP server on startup.
+type MCPCapablePlugin interface {
+	GoBlockPlugin
+	MCPTools() []MCPToolDef
+}
+
 // GoPluginRegistry manages registered Go-side block plugins.
 type GoPluginRegistry struct {
 	mu      sync.RWMutex
@@ -51,6 +68,16 @@ func (r *GoPluginRegistry) OnCreate(blockID, pageID, blockType string) error {
 		return nil // not managed by a plugin
 	}
 	return p.OnCreate(blockID, pageID)
+}
+
+// ForEach iterates all registered plugins. Used by the MCP server to
+// auto-register tools for each plugin type.
+func (r *GoPluginRegistry) ForEach(fn func(GoBlockPlugin)) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, p := range r.plugins {
+		fn(p)
+	}
 }
 
 // OnDelete dispatches a delete lifecycle event to the relevant plugin (if any).

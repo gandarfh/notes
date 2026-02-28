@@ -10,6 +10,8 @@ import {storage} from '../models';
 
 export function ApplyMutations(arg1:string,arg2:string,arg3:Array<dbclient.Mutation>):Promise<dbclient.MutationResult>;
 
+export function ApproveAction(arg1:string):Promise<void>;
+
 export function BatchUpdateLocalDBRows(arg1:string,arg2:string):Promise<void>;
 
 export function ChangeBlockFileExt(arg1:string,arg2:string):Promise<string>;
@@ -111,6 +113,8 @@ export function PickTextFile():Promise<string>;
 export function PreviewETLSource(arg1:string,arg2:string):Promise<service.PreviewResult>;
 
 export function PushUndoNode(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<storage.UndoNode>;
+
+export function RejectAction(arg1:string):Promise<void>;
 
 export function RenameLocalDatabase(arg1:string,arg2:string):Promise<void>;
 

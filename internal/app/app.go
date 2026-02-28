@@ -9,6 +9,7 @@ import (
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
+	mcpserver "notes/internal/mcp"
 	"notes/internal/neovim"
 	"notes/internal/plugins"
 	"notes/internal/secret"
@@ -39,6 +40,12 @@ type App struct {
 
 	// Plugin registry
 	pluginRegistry *service.GoPluginRegistry
+
+	// MCP server (agents connect via stdio)
+	mcpServer *mcpserver.Server
+
+	// Page change watcher (detects external DB changes from MCP standalone)
+	watcher *pageWatcher
 
 	// Terminal / editor
 	term           *terminal.Manager
@@ -134,6 +141,28 @@ func (a *App) Startup(ctx context.Context) {
 		wailsRuntime.LogErrorf(ctx, "Failed to create neovim bridge: %v", err)
 	}
 	a.nvim = nvim
+
+	// ── MCP Server ──────────────────────────────────────────
+	a.mcpServer = mcpserver.New(ctx, mcpserver.Deps{
+		Emitter:   a,
+		Notebooks: a.notebooks,
+		Blocks:    a.blocks,
+		LocalDB:   a.localdb,
+		ETL:       a.etl,
+		Database:  a.database,
+		Plugins:   a.pluginRegistry,
+	})
+	// Start MCP stdio server in background goroutine
+	go func() {
+		if err := a.mcpServer.ServeStdio(); err != nil {
+			wailsRuntime.LogErrorf(ctx, "MCP server error: %v", err)
+		}
+	}()
+
+	// ── Page Watcher ────────────────────────────────────────
+	// Polls DB for changes made by external MCP process, emits Wails events.
+	a.watcher = newPageWatcher(ctx, a)
+	a.watcher.Start()
 }
 
 // ── Shutdown ────────────────────────────────────────────────
@@ -155,7 +184,12 @@ func (a *App) Shutdown(ctx context.Context) {
 		a.nvim.Close()
 	}
 
-	// 3. Graceful ETL shutdown — wait up to 3s for running jobs
+	// 3. Stop page watcher
+	if a.watcher != nil {
+		a.watcher.Stop()
+	}
+
+	// 4. Graceful ETL shutdown — wait up to 3s for running jobs
 	if a.etl != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -172,4 +206,32 @@ func (a *App) Shutdown(ctx context.Context) {
 	if a.db != nil {
 		a.db.Close()
 	}
+}
+
+// ── MCP Approval Bindings ──────────────────────────────────
+
+// ApproveAction approves a pending MCP destructive action.
+func (a *App) ApproveAction(actionID string) {
+	// In-process mode: notify via channel
+	if a.mcpServer != nil {
+		a.mcpServer.Approve(actionID)
+	}
+	// Cross-process mode: update SQLite row so standalone MCP unblocks
+	a.db.Conn().Exec(
+		`UPDATE mcp_approvals SET status = 'approved', resolved_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		actionID,
+	)
+}
+
+// RejectAction rejects a pending MCP destructive action.
+func (a *App) RejectAction(actionID string) {
+	// In-process mode: notify via channel
+	if a.mcpServer != nil {
+		a.mcpServer.Reject(actionID)
+	}
+	// Cross-process mode: update SQLite row so standalone MCP unblocks
+	a.db.Conn().Exec(
+		`UPDATE mcp_approvals SET status = 'rejected', resolved_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		actionID,
+	)
 }

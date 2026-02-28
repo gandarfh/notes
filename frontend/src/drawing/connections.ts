@@ -94,7 +94,7 @@ export function updateConnectedArrows(elements: DrawingElement[], movedElementId
             const dx = absEnd.x - absStart.x
             const dy = absEnd.y - absStart.y
 
-            // Build obstacle rects relative to arrow origin (all shapes, not just start/end)
+            // Build obstacle rects relative to arrow origin (all shapes except src/dst)
             const sR: Rect | undefined = el.startConnection
                 ? (() => { const s = shapeElements.find(e => e.id === el.startConnection!.elementId); return s ? { x: s.x - absStart.x, y: s.y - absStart.y, w: s.width, h: s.height } : undefined })()
                 : undefined
@@ -102,7 +102,13 @@ export function updateConnectedArrows(elements: DrawingElement[], movedElementId
                 ? (() => { const s = shapeElements.find(e => e.id === el.endConnection!.elementId); return s ? { x: s.x - absStart.x, y: s.y - absStart.y, w: s.width, h: s.height } : undefined })()
                 : undefined
 
-            el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, el.endConnection?.side, sR, eR)
+            // Collect all other shapes as obstacles (arrow-local coords)
+            const excludeIds = new Set([el.startConnection?.elementId, el.endConnection?.elementId].filter(Boolean))
+            const obstacleRects: Rect[] = shapeElements
+                .filter(e => !excludeIds.has(e.id))
+                .map(e => ({ x: e.x - absStart.x, y: e.y - absStart.y, w: e.width, h: e.height }))
+
+            el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, el.endConnection?.side, sR, eR, obstacleRects)
             enforceOrthogonality(el)
         } else {
             // Simple arrow — just update endpoints

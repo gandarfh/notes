@@ -20,6 +20,12 @@ export interface PluginEventMap {
     'localdb:data-changed': { databaseId: string }
     // ETL job completed (triggered from backend event relay)
     'etl:job-completed': { jobId: string }
+    // MCP activity pulse (external agent made changes)
+    'mcp:activity': { changes: number; pageId: string }
+    // MCP approval required for destructive action
+    'mcp:approval-required': { id: string; tool: string; description: string; metadata?: string }
+    // MCP approval dismissed (timeout)
+    'mcp:approval-dismissed': { id: string }
 }
 
 // ── Backend (Wails Events) events ─────────────────────────

@@ -26,6 +26,13 @@ function findElById(elements: DrawingElement[], id?: string): DrawingElement | u
     return id ? elements.find(e => e.id === id) : undefined
 }
 
+/** Collect non-arrow shape bounding boxes as obstacles (arrow-local coords) */
+function collectObstacles(elements: DrawingElement[], arrowX: number, arrowY: number, excludeIds: Set<string | undefined>): Rect[] {
+    return elements
+        .filter(e => !isArrowType(e) && !excludeIds.has(e.id))
+        .map(e => ({ x: e.x - arrowX, y: e.y - arrowY, w: e.width, h: e.height }))
+}
+
 export class ArrowHandler implements InteractionHandler {
     private s: ArrowState = { pending: null, hoveredAnchor: null, hoveredElement: null }
     private lastRouteTime = 0
@@ -93,7 +100,11 @@ export class ArrowHandler implements InteractionHandler {
             const sRect = elRect(startEl, ctx.currentElement.x, ctx.currentElement.y, ctx.elements)
             const eRect = elRect(endEl, ctx.currentElement.x, ctx.currentElement.y, ctx.elements)
 
-            ctx.currentElement.points = computeOrthoRoute(dx, dy, sSide, eSide, sRect, eRect)
+            // Collect obstacles (all shapes except src/dst)
+            const excludeIds = new Set([ctx.currentElement.startConnection?.elementId, endConn?.elementId])
+            const obstacles = collectObstacles(ctx.elements, ctx.currentElement.x, ctx.currentElement.y, excludeIds)
+
+            ctx.currentElement.points = computeOrthoRoute(dx, dy, sSide, eSide, sRect, eRect, obstacles)
 
             ctx.currentElement.width = Math.abs(dx)
             ctx.currentElement.height = Math.abs(dy)
@@ -138,7 +149,11 @@ export class ArrowHandler implements InteractionHandler {
             const now = performance.now()
             if (now - this.lastRouteTime >= this.ROUTE_THROTTLE) {
                 this.lastRouteTime = now
-                ctx.currentElement.points = computeOrthoRoute(dx, dy, sSide, eSide, sRect, eRect)
+                // Collect obstacles (all shapes except src/dst)
+                const excludeIds = new Set([ctx.currentElement.startConnection?.elementId, nearAnchor?.elementId])
+                const obstacles = collectObstacles(ctx.elements, ctx.currentElement.x, ctx.currentElement.y, excludeIds)
+
+                ctx.currentElement.points = computeOrthoRoute(dx, dy, sSide, eSide, sRect, eRect, obstacles)
             }
         }
 

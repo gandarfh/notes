@@ -552,10 +552,10 @@ function drawArrowLabel(
 
     const lines = el.label.split('\n')
     const lineH = fontSize * 1.3
-    const maxLineLen = Math.max(...lines.map(l => l.length))
-    const textWidth = maxLineLen * fontSize * 0.6
+    ctx.font = `${fw} ${fontSize}px ${font}`
+    const textWidth = Math.max(...lines.map(l => ctx.measureText(l).width))
     const textHeight = lineH * lines.length
-    const padX = 6, padY = 2
+    const padX = 3, padY = 2
 
     // Background rect
     ctx.fillStyle = getThemeColors().canvasBg

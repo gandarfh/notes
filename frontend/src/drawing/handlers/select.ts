@@ -811,14 +811,24 @@ export class SelectHandler implements InteractionHandler {
                 const endAbs = { x: el.x + el.points[el.points.length - 1][0], y: el.y + el.points[el.points.length - 1][1] }
                 el.x = usePt.x; el.y = usePt.y
                 const dx = endAbs.x - usePt.x, dy = endAbs.y - usePt.y
-                el.points = computeOrthoRoute(dx, dy, effectiveConn?.side, el.endConnection?.side)
+                // Collect obstacles (all shapes except src/dst)
+                const excludeIds = new Set([effectiveConn?.elementId, el.endConnection?.elementId])
+                const obstacles = ctx.elements
+                    .filter(e => !isArrowType(e) && !excludeIds.has(e.id))
+                    .map(e => ({ x: e.x - usePt.x, y: e.y - usePt.y, w: e.width, h: e.height }))
+                el.points = computeOrthoRoute(dx, dy, effectiveConn?.side, el.endConnection?.side, undefined, undefined, obstacles)
             }
             el.startConnection = effectiveConn
         } else {
             const usePt = effectiveConn && !conn && origin ? { x: origin.x, y: origin.y } : pt
             if (el.type === 'ortho-arrow' && el.points) {
                 const dx = usePt.x - el.x, dy = usePt.y - el.y
-                el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, effectiveConn?.side)
+                // Collect obstacles (all shapes except src/dst)
+                const excludeIds = new Set([el.startConnection?.elementId, effectiveConn?.elementId])
+                const obstacles = ctx.elements
+                    .filter(e => !isArrowType(e) && !excludeIds.has(e.id))
+                    .map(e => ({ x: e.x - el.x, y: e.y - el.y, w: e.width, h: e.height }))
+                el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, effectiveConn?.side, undefined, undefined, obstacles)
             }
             el.endConnection = effectiveConn
         }

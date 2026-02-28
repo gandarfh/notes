@@ -13,6 +13,7 @@ const (
 	BlockTypeLocalDB  BlockType = "localdb"
 	BlockTypeChart    BlockType = "chart"
 	BlockTypeETL      BlockType = "etl"
+	BlockTypeHTTP     BlockType = "http"
 )
 
 type Block struct {
