@@ -75,14 +75,53 @@ func (r *appHTTPBlockResolver) GetHTTPBlockContent(blockID string) (url, method,
 		return "", "", "", "", fmt.Errorf("resolve http block %s: %w", blockID, err)
 	}
 	var cfg struct {
-		URL     string            `json:"url"`
-		Method  string            `json:"method"`
-		Headers map[string]string `json:"headers"`
-		Body    string            `json:"body"`
+		URL     string          `json:"url"`
+		Method  string          `json:"method"`
+		Headers json.RawMessage `json:"headers"`
+		Body    json.RawMessage `json:"body"`
 	}
 	if e := json.Unmarshal([]byte(b.Content), &cfg); e != nil {
 		return "", "", "", "", fmt.Errorf("parse http block config: %w", e)
 	}
-	hdrs, _ := json.Marshal(cfg.Headers)
-	return cfg.URL, cfg.Method, string(hdrs), cfg.Body, nil
+
+	// Headers may be stored as [{key, value, enabled}] array or {k:v} map.
+	headers := make(map[string]string)
+	if len(cfg.Headers) > 0 {
+		// Try array format first (frontend stores [{key, value, enabled}]).
+		var kvPairs []struct {
+			Key     string `json:"key"`
+			Value   string `json:"value"`
+			Enabled *bool  `json:"enabled"`
+		}
+		if err := json.Unmarshal(cfg.Headers, &kvPairs); err == nil {
+			for _, kv := range kvPairs {
+				if kv.Key != "" && (kv.Enabled == nil || *kv.Enabled) {
+					headers[kv.Key] = kv.Value
+				}
+			}
+		} else {
+			// Fallback: try map format.
+			_ = json.Unmarshal(cfg.Headers, &headers)
+		}
+	}
+
+	// Body may be stored as {mode, content} object or plain string.
+	var bodyStr string
+	if len(cfg.Body) > 0 {
+		var bodyObj struct {
+			Mode    string `json:"mode"`
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal(cfg.Body, &bodyObj); err == nil {
+			if bodyObj.Mode != "none" {
+				bodyStr = bodyObj.Content
+			}
+		} else {
+			// Fallback: try plain string.
+			_ = json.Unmarshal(cfg.Body, &bodyStr)
+		}
+	}
+
+	hdrs, _ := json.Marshal(headers)
+	return cfg.URL, cfg.Method, string(hdrs), bodyStr, nil
 }
