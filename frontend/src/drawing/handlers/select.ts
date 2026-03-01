@@ -499,6 +499,32 @@ export class SelectHandler implements InteractionHandler {
             return
         }
 
+        // Group label editing — positioned at top-left on the border (matching canvas render)
+        if (hit.type === 'group') {
+            const currentLabel = hit.text || ''
+            const resolvedFont = ctx.isSketchy ? "'Architects Daughter', Caveat, cursive" : hit.fontFamily
+            const baseFontSize = hit.fontSize || 14
+            const resolvedSize = ctx.isSketchy ? Math.round(baseFontSize * 1.3) : baseFontSize
+            const isLight = document.documentElement.dataset.theme === 'light'
+            ctx.showEditor({
+                worldX: hit.x + 12,
+                worldY: hit.y - 2,
+                initialText: currentLabel,
+                elementId: hit.id,
+                fontSize: Math.max(resolvedSize, 12),
+                fontFamily: resolvedFont,
+                fontWeight: 600,
+                textColor: isLight ? '#e8e8f0' : '#1e1e2e',
+                textAlign: 'left',
+                background: isLight ? '#1e1e2e' : '#e8e8f0',
+                onCommit: (text) => {
+                    hit.text = text || undefined
+                    ctx.save(); ctx.render()
+                },
+            })
+            return
+        }
+
         // Text/shape label editing
         const wx = hit.type === 'text' ? hit.x : hit.x + hit.width / 2
         const wy = hit.type === 'text' ? hit.y : hit.y + hit.height / 2

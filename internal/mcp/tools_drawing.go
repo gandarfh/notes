@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -39,9 +40,9 @@ func sanitizeColor(color, fallback string) string {
 
 func (s *Server) registerDrawingTools() {
 	s.mcp.AddTool(mcp.NewTool("add_drawing_element",
-		mcp.WithDescription("Add a shape or text element to the drawing layer. SAFE COLORS (theme-aware): Vivid: Red (#e03131), Orange (#f08c00), Green (#2f9e44), Blue (#1971c2), Purple (#9c36b5). Pastel: LightRed (#ffc9c9), LightYellow (#ffec99), LightGreen (#b2f2bb), LightBlue (#a5d8ff), LightPurple (#eebefa). Gray: Dark (#1e1e2e), MidDark (#545475), Mid (#828298), Light (#bfbfcf), Near-white (#e8e8f0). Special: transparent, DarkBg (#343446). Use #e8e8f0 for strokeColor to ensure visibility. Colors outside this palette will be ignored."),
+		mcp.WithDescription("Add a shape or text element to the drawing layer. SAFE COLORS (theme-aware): Vivid: Red (#e03131), Orange (#f08c00), Green (#2f9e44), Blue (#1971c2), Purple (#9c36b5). Pastel: LightRed (#ffc9c9), LightYellow (#ffec99), LightGreen (#b2f2bb), LightBlue (#a5d8ff), LightPurple (#eebefa). Gray: Dark (#1e1e2e), MidDark (#545475), Mid (#828298), Light (#bfbfcf), Near-white (#e8e8f0). Special: transparent, DarkBg (#343446). Use #e8e8f0 for strokeColor to ensure visibility. Colors outside this palette will be ignored. SPACING: keep at least 80px gap between elements so arrows remain readable."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
-		mcp.WithString("type", mcp.Description("Element type: rectangle, ellipse, diamond, text"), mcp.Required()),
+		mcp.WithString("type", mcp.Description("Element type: rectangle, ellipse, diamond, text. For group containers (bounded contexts), use add_drawing_group instead."), mcp.Required()),
 		mcp.WithNumber("x", mcp.Description("X position"), mcp.Required()),
 		mcp.WithNumber("y", mcp.Description("Y position"), mcp.Required()),
 		mcp.WithNumber("width", mcp.Description("Width"), mcp.Required()),
@@ -52,7 +53,7 @@ func (s *Server) registerDrawingTools() {
 	), s.handleAddDrawingElement)
 
 	s.mcp.AddTool(mcp.NewTool("add_drawing_arrow",
-		mcp.WithDescription("Add an arrow connecting two elements"),
+		mcp.WithDescription("Add an arrow connecting two elements. For best readability, keep at least 80px gap between connected elements."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("fromId", mcp.Description("Source element ID"), mcp.Required()),
 		mcp.WithString("toId", mcp.Description("Target element ID"), mcp.Required()),
@@ -116,7 +117,7 @@ func (s *Server) registerDrawingTools() {
 	), s.handleClearDrawing)
 
 	s.mcp.AddTool(mcp.NewTool("add_drawing_group",
-		mcp.WithDescription("Add a visual group/container with dashed border and label. Use #e8e8f0 for strokeColor for theme visibility."),
+		mcp.WithDescription("Add a visual group/container with dashed border and label. Use #e8e8f0 for strokeColor for theme visibility. Groups are non-obstructing: arrows pass through them freely and cannot connect to them. Use groups for bounded contexts, architectural layers, or logical sections. The label renders at the top-left corner with an inverted theme-aware background pill."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("label", mcp.Description("Group label text"), mcp.Required()),
 		mcp.WithNumber("x", mcp.Description("X position"), mcp.Required()),
@@ -128,7 +129,7 @@ func (s *Server) registerDrawingTools() {
 
 	// ── Batch operations ──────────────────────────────────
 	s.mcp.AddTool(mcp.NewTool("batch_add_drawing_elements",
-		mcp.WithDescription("Add multiple elements. DO NOT pass 'id' properties. The system auto-generates them and returns an array of the created IDs in the exact order of your input array. SAFE COLORS — Vivid: Red (#e03131), Orange (#f08c00), Green (#2f9e44), Blue (#1971c2), Purple (#9c36b5). Pastel: LightRed (#ffc9c9), LightYellow (#ffec99), LightGreen (#b2f2bb), LightBlue (#a5d8ff), LightPurple (#eebefa). Gray: Dark (#1e1e2e), MidDark (#545475), Mid (#828298), Light (#bfbfcf), Near-white (#e8e8f0). Special: transparent, DarkBg (#343446). Use #e8e8f0 for strokeColor. Colors outside this palette will be ignored."),
+		mcp.WithDescription("Add multiple elements. DO NOT pass 'id' properties. The system auto-generates them and returns an array of the created IDs in the exact order of your input array. SAFE COLORS \u2014 Vivid: Red (#e03131), Orange (#f08c00), Green (#2f9e44), Blue (#1971c2), Purple (#9c36b5). Pastel: LightRed (#ffc9c9), LightYellow (#ffec99), LightGreen (#b2f2bb), LightBlue (#a5d8ff), LightPurple (#eebefa). Gray: Dark (#1e1e2e), MidDark (#545475), Mid (#828298), Light (#bfbfcf), Near-white (#e8e8f0). Special: transparent, DarkBg (#343446). Use #e8e8f0 for strokeColor. Colors outside this palette will be ignored. SPACING: keep at least 80px gap between elements so arrows remain readable."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("elements", mcp.Description("JSON array of element objects [{type, x, y, width, height...}]. DO NOT pass 'id'."), mcp.Required()),
 	), s.handleBatchAddDrawingElements)
@@ -393,7 +394,7 @@ func (s *Server) handleAddDrawingGroup(ctx context.Context, req mcp.CallToolRequ
 
 	el := drawingElement{
 		"id":              genDrawingID(),
-		"type":            "rectangle",
+		"type":            "group",
 		"x":               args["x"],
 		"y":               args["y"],
 		"width":           args["width"],
@@ -402,9 +403,6 @@ func (s *Server) handleAddDrawingGroup(ctx context.Context, req mcp.CallToolRequ
 		"strokeWidth":     float64(2),
 		"backgroundColor": "transparent",
 		"text":            args["label"],
-		"strokeDasharray": "8 4",
-		"opacity":         0.7,
-		"isGroup":         true,
 	}
 
 	// Insert at beginning so it renders behind other elements
@@ -486,6 +484,20 @@ func (s *Server) handleAddDrawingArrow(ctx context.Context, req mcp.CallToolRequ
 
 	dx := info.dstX - info.srcX
 	dy := info.dstY - info.srcY
+
+	// Enforce minimum arrow distance — if elements too close, push anchors apart
+	arrowDist := math.Sqrt(dx*dx + dy*dy)
+	if arrowDist > 0 && arrowDist < minArrowDist {
+		scale := minArrowDist / arrowDist
+		midX := info.srcX + dx/2
+		midY := info.srcY + dy/2
+		info.srcX = midX - (dx/2)*scale
+		info.srcY = midY - (dy/2)*scale
+		info.dstX = midX + (dx/2)*scale
+		info.dstY = midY + (dy/2)*scale
+		dx = info.dstX - info.srcX
+		dy = info.dstY - info.srcY
+	}
 
 	// Collect obstacle rects (all shapes except source/target), in arrow-local coords
 	excludeIDs := map[string]bool{fromID: true, toID: true}
@@ -952,6 +964,84 @@ func (s *Server) handleBatchAddDrawingElements(ctx context.Context, req mcp.Call
 	existing, err := s.getDrawingElements(pageID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Enforce minimum gap (80px) between non-arrow elements
+	const minGap = 80.0
+	for i := 1; i < len(newElements); i++ {
+		ti, _ := newElements[i]["type"].(string)
+		if ti == "ortho-arrow" || ti == "arrow" || ti == "line" {
+			continue
+		}
+		// Skip groups — they are containers and don't participate in spacing
+		if ti == "group" {
+			continue
+		}
+		if gi, _ := newElements[i]["isGroup"].(bool); gi {
+			continue
+		}
+		ix, _ := newElements[i]["x"].(float64)
+		iy, _ := newElements[i]["y"].(float64)
+		iw, _ := newElements[i]["width"].(float64)
+		ih, _ := newElements[i]["height"].(float64)
+
+		for j := 0; j < i; j++ {
+			tj, _ := newElements[j]["type"].(string)
+			if tj == "ortho-arrow" || tj == "arrow" || tj == "line" {
+				continue
+			}
+			if tj == "group" {
+				continue
+			}
+			if gj, _ := newElements[j]["isGroup"].(bool); gj {
+				continue
+			}
+			jx, _ := newElements[j]["x"].(float64)
+			jy, _ := newElements[j]["y"].(float64)
+			jw, _ := newElements[j]["width"].(float64)
+			jh, _ := newElements[j]["height"].(float64)
+
+			// Skip if j is a container (much larger than i)
+			if jw*jh > iw*ih*4 {
+				continue
+			}
+
+			// Compute edge-to-edge gaps
+			gapX := 0.0 // horizontal gap (negative = overlap)
+			if ix+iw <= jx {
+				gapX = jx - (ix + iw)
+			} else if jx+jw <= ix {
+				gapX = ix - (jx + jw)
+			}
+			gapY := 0.0
+			if iy+ih <= jy {
+				gapY = jy - (iy + ih)
+			} else if jy+jh <= iy {
+				gapY = iy - (jy + jh)
+			}
+
+			// If both axes overlap or are too close, push i away
+			needsFixX := gapX < minGap && (iy < jy+jh && iy+ih > jy) // vertically overlapping
+			needsFixY := gapY < minGap && (ix < jx+jw && ix+iw > jx) // horizontally overlapping
+
+			if needsFixX {
+				if ix+iw/2 >= jx+jw/2 {
+					// i is to the right of j — push right
+					newElements[i]["x"] = jx + jw + minGap
+				} else {
+					// i is to the left of j — push left
+					newElements[i]["x"] = jx - iw - minGap
+				}
+				ix, _ = newElements[i]["x"].(float64)
+			}
+			if needsFixY && !needsFixX {
+				if iy+ih/2 >= jy+jh/2 {
+					newElements[i]["y"] = jy + jh + minGap
+				} else {
+					newElements[i]["y"] = jy - ih - minGap
+				}
+			}
+		}
 	}
 
 	// Assign IDs and defaults to each new element

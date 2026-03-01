@@ -84,6 +84,7 @@ export function useDrawing(
             ['rectangle', new ShapeHandler('rectangle')],
             ['ellipse', new ShapeHandler('ellipse')],
             ['diamond', new ShapeHandler('diamond')],
+            ['group', new ShapeHandler('group')],
             ['freedraw', new FreedrawHandler()],
             ['text', new TextHandler()],
         ])
@@ -283,7 +284,7 @@ export function useDrawing(
             // Set cursor based on tool
             const toolCursors: Record<string, string> = {
                 'draw-select': 'default', 'block': 'crosshair', 'db-block': 'crosshair', 'code-block': 'crosshair', 'localdb-block': 'crosshair', 'chart-block': 'crosshair', 'etl-block': 'crosshair', 'http-block': 'crosshair',
-                'rectangle': 'crosshair', 'ellipse': 'crosshair', 'diamond': 'crosshair',
+                'rectangle': 'crosshair', 'ellipse': 'crosshair', 'diamond': 'crosshair', 'group': 'crosshair',
                 'ortho-arrow': 'crosshair', 'freedraw': 'crosshair', 'text': 'text',
             }
             setDrawingCursor(toolCursors[tool] || 'default')
@@ -507,6 +508,7 @@ export function useDrawing(
                 // 'd' and 'l' conflict with block layer — skip when a block is selected
                 case 'd': if (!blockSelected) { ctx.setSubTool('db-block'); return true } break
                 case 'l': if (!blockSelected) { ctx.setSubTool('localdb-block'); return true } break
+                case 'g': ctx.setSubTool('group'); return true
             }
             switch (e.key.toLowerCase()) {
                 case 'delete': case 'backspace':

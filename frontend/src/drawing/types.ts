@@ -35,7 +35,7 @@ export interface Connection {
 
 export interface DrawingElement {
     id: string
-    type: 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'ortho-arrow' | 'freedraw' | 'text' | 'diamond'
+    type: 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'ortho-arrow' | 'freedraw' | 'text' | 'diamond' | 'group'
     x: number
     y: number
     width: number
@@ -67,7 +67,7 @@ export interface DrawingElement {
     labelT?: number  // 0..1 position along arrow path (default 0.5 = midpoint)
 }
 
-export type DrawingSubTool = 'draw-select' | 'block' | 'db-block' | 'code-block' | 'localdb-block' | 'chart-block' | 'etl-block' | 'http-block' | 'rectangle' | 'ellipse' | 'ortho-arrow' | 'freedraw' | 'text' | 'diamond'
+export type DrawingSubTool = 'draw-select' | 'block' | 'db-block' | 'code-block' | 'localdb-block' | 'chart-block' | 'etl-block' | 'http-block' | 'rectangle' | 'ellipse' | 'ortho-arrow' | 'freedraw' | 'text' | 'diamond' | 'group'
 
 export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 

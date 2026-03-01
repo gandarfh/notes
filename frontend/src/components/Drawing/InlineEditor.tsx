@@ -103,7 +103,7 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
         lineHeight: 1.3,
         textAlign: isCenter ? 'center' : 'left',
         outline: 'none',
-        background: 'transparent',
+        background: request.background || 'transparent',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
         caretColor: '#818cf8',

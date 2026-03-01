@@ -10,7 +10,8 @@ import (
 // Ported from frontend/src/drawing/ortho.ts (Dijkstra-based)
 // ═══════════════════════════════════════════════════════════════
 
-const routeMargin = 30.0
+const routeMargin = 40.0
+const minArrowDist = 60.0 // minimum distance between arrow endpoints
 
 type point struct{ x, y float64 }
 
@@ -576,6 +577,15 @@ func isArrow(el drawingElement) bool {
 	return t == "ortho-arrow" || t == "arrow"
 }
 
+func isGroup(el drawingElement) bool {
+	t, _ := el["type"].(string)
+	if t == "group" {
+		return true
+	}
+	g, _ := el["isGroup"].(bool)
+	return g
+}
+
 // ── Obstacle collection ────────────────────────────────────
 
 // collectObstacleRects returns bounding boxes for all non-arrow elements,
@@ -584,6 +594,9 @@ func collectObstacleRects(elements []drawingElement, excludeIDs map[string]bool,
 	var rects []rect
 	for _, el := range elements {
 		if isArrow(el) {
+			continue
+		}
+		if isGroup(el) {
 			continue
 		}
 		id, _ := el["id"].(string)
@@ -605,6 +618,9 @@ func collectWorldObstacleRects(elements []drawingElement, excludeIDs map[string]
 	var rects []rect
 	for _, el := range elements {
 		if isArrow(el) {
+			continue
+		}
+		if isGroup(el) {
 			continue
 		}
 		id, _ := el["id"].(string)

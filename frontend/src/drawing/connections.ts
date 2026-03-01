@@ -4,7 +4,7 @@ import { computeOrthoRoute, enforceOrthogonality, type Rect } from './ortho'
 /** Get anchor points for a shape element */
 export function getAnchors(el: DrawingElement): AnchorPoint[] {
     if (el.type === 'line' || el.type === 'arrow' || el.type === 'ortho-arrow' ||
-        el.type === 'freedraw' || el.type === 'text') return []
+        el.type === 'freedraw' || el.type === 'text' || el.type === 'group') return []
 
     const anchors: AnchorPoint[] = []
     const sides: { side: AnchorSide; x1: number; y1: number; x2: number; y2: number }[] = [
@@ -68,7 +68,7 @@ export function findNearestAnchor(elements: DrawingElement[], x: number, y: numb
  */
 export function updateConnectedArrows(elements: DrawingElement[], movedElementId: string) {
     // Collect all non-arrow shape rects once (reused for every arrow)
-    const shapeElements = elements.filter(e => !isArrowType(e))
+    const shapeElements = elements.filter(e => !isArrowType(e) && e.type !== 'group')
 
     for (const el of elements) {
         if (!isArrowType(el)) continue

@@ -28,6 +28,8 @@ export interface EditorRequest {
     // Shape dimensions for flex centering (only for centered text inside shapes)
     shapeWidth?: number
     shapeHeight?: number
+    /** Optional background color for the editor (e.g. group labels with pill background) */
+    background?: string
     onCommit: (text: string) => void
     onCancel?: () => void
 }

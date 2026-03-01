@@ -29,7 +29,7 @@ function findElById(elements: DrawingElement[], id?: string): DrawingElement | u
 /** Collect non-arrow shape bounding boxes as obstacles (arrow-local coords) */
 function collectObstacles(elements: DrawingElement[], arrowX: number, arrowY: number, excludeIds: Set<string | undefined>): Rect[] {
     return elements
-        .filter(e => !isArrowType(e) && !excludeIds.has(e.id))
+        .filter(e => !isArrowType(e) && e.type !== 'group' && !excludeIds.has(e.id))
         .map(e => ({ x: e.x - arrowX, y: e.y - arrowY, w: e.width, h: e.height }))
 }
 

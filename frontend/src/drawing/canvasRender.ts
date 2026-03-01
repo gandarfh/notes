@@ -749,6 +749,33 @@ export function drawElement(
             if (el.opacity != null && el.opacity < 1) ctx.restore()
             return
         }
+        case 'group': {
+            // Dashed border, no fill, label at top-left on the border
+            ctx.strokeStyle = color
+            ctx.lineWidth = sw
+            ctx.setLineDash([8, 4])
+            ctx.beginPath()
+            ctx.rect(el.x, el.y, el.width, el.height)
+            ctx.stroke()
+            ctx.setLineDash([])
+
+            // Label at top-left on the border line
+            if (!hideText && el.text) {
+                const labelX = el.x + 12
+                const labelY = el.y - 2
+                ctx.font = `600 ${Math.max(textSize, 12)}px ${font}`
+                const labelW = ctx.measureText(el.text).width + 12
+                const { isLight } = getThemeColors()
+                ctx.fillStyle = isLight ? '#1e1e2e' : '#e8e8f0'
+                ctx.fillRect(labelX - 6, labelY - textSize - 2, labelW, textSize + 6)
+                ctx.fillStyle = isLight ? '#e8e8f0' : '#1e1e2e'
+                ctx.textAlign = 'start'
+                ctx.textBaseline = 'alphabetic'
+                ctx.fillText(el.text, labelX, labelY)
+            }
+            if (el.opacity != null && el.opacity < 1) ctx.restore()
+            return
+        }
         default: break
     }
 
