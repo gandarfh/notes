@@ -10,8 +10,9 @@ import (
 // Ported from frontend/src/drawing/ortho.ts (Dijkstra-based)
 // ═══════════════════════════════════════════════════════════════
 
-const routeMargin = 40.0
+const routeMargin = 60.0
 const minArrowDist = 60.0 // minimum distance between arrow endpoints
+const arrowGap = 15.0     // gap between parallel arrows
 
 type point struct{ x, y float64 }
 
@@ -134,7 +135,7 @@ type edge struct {
 	dir byte // 'h' or 'v'
 }
 
-func buildGraphAndRoute(spots []point, origin, dest point, shapeRects []rect) []point {
+func buildGraphAndRoute(spots []point, origin, dest point, shapeRects, arrowRects []rect) []point {
 	// Index spots by x and y for fast neighbor lookup
 	byX := map[int64][]point{}
 	byY := map[int64][]point{}
@@ -162,6 +163,17 @@ func buildGraphAndRoute(spots []point, origin, dest point, shapeRects []rect) []
 		return false
 	}
 
+	// Arrow crossing penalty (soft obstacle)
+	arrowPenalty := func(a, b point) float64 {
+		penalty := 0.0
+		for _, r := range arrowRects {
+			if edgeCrossesRect(a, b, r) {
+				penalty += 150.0 // moderate penalty per arrow crossed
+			}
+		}
+		return penalty
+	}
+
 	// Build adjacency
 	adj := map[int64][]edge{}
 	for _, s := range spots {
@@ -177,7 +189,7 @@ func buildGraphAndRoute(spots []point, origin, dest point, shapeRects []rect) []
 			if blocked(a, b) {
 				continue
 			}
-			w := math.Abs(b.y - a.y)
+			w := math.Abs(b.y-a.y) + arrowPenalty(a, b)
 			adj[ptKey(a)] = append(adj[ptKey(a)], edge{b, w, 'v'})
 			adj[ptKey(b)] = append(adj[ptKey(b)], edge{a, w, 'v'})
 		}
@@ -188,7 +200,7 @@ func buildGraphAndRoute(spots []point, origin, dest point, shapeRects []rect) []
 			if blocked(a, b) {
 				continue
 			}
-			w := math.Abs(b.x - a.x)
+			w := math.Abs(b.x-a.x) + arrowPenalty(a, b)
 			adj[ptKey(a)] = append(adj[ptKey(a)], edge{b, w, 'h'})
 			adj[ptKey(b)] = append(adj[ptKey(b)], edge{a, w, 'h'})
 		}
@@ -204,7 +216,7 @@ func buildGraphAndRoute(spots []point, origin, dest point, shapeRects []rect) []
 	destNode := nodes[ptKey(dest)]
 	if originNode == nil || destNode == nil {
 		// L-shaped fallback (never diagonal)
-		return []point{origin, pt(dest.x, origin.y), dest}
+		return lShapeFallback(origin, dest)
 	}
 
 	originNode.dist = 0
@@ -258,6 +270,21 @@ func buildGraphAndRoute(spots []point, origin, dest point, shapeRects []rect) []
 		return path
 	}
 	// L-shaped fallback (never diagonal)
+	return lShapeFallback(origin, dest)
+}
+
+// lShapeFallback creates an L-shaped path between two points, ensuring
+// no duplicate points (which would cause diagonal artifacts after simplification).
+func lShapeFallback(origin, dest point) []point {
+	if math.Abs(origin.x-dest.x) < 0.5 {
+		// Same X — straight vertical line
+		return []point{origin, dest}
+	}
+	if math.Abs(origin.y-dest.y) < 0.5 {
+		// Same Y — straight horizontal line
+		return []point{origin, dest}
+	}
+	// L-shape: go horizontal then vertical
 	return []point{origin, pt(dest.x, origin.y), dest}
 }
 
@@ -267,7 +294,7 @@ func buildGraphAndRoute(spots []point, origin, dest point, shapeRects []rect) []
 // All output points are relative to arrow origin (0,0).
 // obstacles is a list of element bounding boxes in world coords.
 // srcX,srcY is the world position of the arrow start.
-func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect *rect, allObstacles []rect) [][]float64 {
+func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect *rect, shapeObstacles, arrowObstacles []rect) [][]float64 {
 	margin := routeMargin
 
 	// If no rects provided, use simple L/Z routing
@@ -284,7 +311,7 @@ func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect
 	antenna1 := pt(sdx*margin, sdy*margin)
 	antenna2 := pt(dx+ddx*margin, dy+ddy*margin)
 
-	// Build inflated obstacle rects
+	// Build inflated obstacle rects (only from shapes — NOT arrows)
 	var obstacles []rect
 	if srcRect != nil {
 		obstacles = append(obstacles, rect{
@@ -299,13 +326,15 @@ func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect
 		})
 	}
 
-	// Add all other obstacles (inflated)
-	for _, obs := range allObstacles {
+	// Inflate shape obstacles for grid generation
+	for _, obs := range shapeObstacles {
 		obstacles = append(obstacles, rect{
 			obs.x - margin, obs.y - margin,
 			obs.w + margin*2, obs.h + margin*2,
 		})
 	}
+	// NOTE: Arrow obstacles are NOT inflated and NOT used for grid generation.
+	// They are passed separately to Dijkstra as soft penalties.
 
 	// Build rulers from obstacle edges + antenna points
 	var vRulers, hRulers []float64
@@ -368,8 +397,6 @@ func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect
 	rawSpots = append(rawSpots, antenna1, antenna2)
 
 	// Original (non-inflated) obstacle rects for collision filtering
-	// NOTE: Only use src/dst rects for spot filtering (matches frontend)
-	// Do NOT include allObstacles here — they would filter out antenna points
 	var originalObs []rect
 	if srcRect != nil {
 		originalObs = append(originalObs, *srcRect)
@@ -378,18 +405,22 @@ func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect
 		originalObs = append(originalObs, *dstRect)
 	}
 
-	// Filter out spots inside original shape rects, but ALWAYS keep antenna points
+	// All rects for spot filtering (src, dst, plus all other shape obstacles)
+	allOriginalRects := append([]rect{}, originalObs...)
+	allOriginalRects = append(allOriginalRects, shapeObstacles...)
+
+	// Filter out spots inside any shape rect, but ALWAYS keep antenna points
 	ant1Key := ptKey(antenna1)
 	ant2Key := ptKey(antenna2)
 	var spots []point
 	for _, p := range rawSpots {
 		pk := ptKey(p)
 		if pk == ant1Key || pk == ant2Key {
-			spots = append(spots, p) // never filter antenna points
+			spots = append(spots, p)
 			continue
 		}
 		inside := false
-		for _, obs := range originalObs {
+		for _, obs := range allOriginalRects {
 			if rectContains(obs, p, 1) {
 				inside = true
 				break
@@ -411,12 +442,15 @@ func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect
 		}
 	}
 
-	// Run Dijkstra (block edges through original rects + other obstacles)
-	blockRects := append(originalObs, allObstacles...)
-	path := buildGraphAndRoute(uniqueSpots, antenna1, antenna2, blockRects)
+	// Run Dijkstra: shapes hard-block edges, arrows add soft penalty
+	blockRects := append(originalObs, shapeObstacles...)
+	path := buildGraphAndRoute(uniqueSpots, antenna1, antenna2, blockRects, arrowObstacles)
 
 	// Compose: origin → antenna path → destination
 	fullPath := append([]point{origin}, append(path, dest)...)
+
+	// Deduplicate consecutive points BEFORE simplification (prevents diagonals)
+	fullPath = dedupPoints(fullPath)
 
 	// Simplify collinear
 	simplified := []point{fullPath[0]}
@@ -436,7 +470,7 @@ func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect
 		result = append(result, []float64{p.x, p.y})
 	}
 
-	// Deduplicate consecutive
+	// Final dedup consecutive (after float conversion)
 	clean := [][]float64{result[0]}
 	for i := 1; i < len(result); i++ {
 		if math.Abs(result[i][0]-clean[len(clean)-1][0]) > 0.5 ||
@@ -448,8 +482,22 @@ func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect
 	if len(clean) >= 2 {
 		return clean
 	}
-	// Fallback: L-shaped route (never diagonal)
 	return simpleOrthoRoute(dx, dy, srcSide, dstSide)
+}
+
+// dedupPoints removes consecutive duplicate/near-duplicate points.
+func dedupPoints(pts []point) []point {
+	if len(pts) == 0 {
+		return pts
+	}
+	result := []point{pts[0]}
+	for i := 1; i < len(pts); i++ {
+		if math.Abs(pts[i].x-result[len(result)-1].x) > 0.5 ||
+			math.Abs(pts[i].y-result[len(result)-1].y) > 0.5 {
+			result = append(result, pts[i])
+		}
+	}
+	return result
 }
 
 // simpleOrthoRoute is the fallback L/Z-shaped routing without obstacle avoidance.
@@ -550,8 +598,8 @@ func maxF(vals ...float64) float64 {
 // ── Connection slot distribution ───────────────────────────
 
 // connectSlot computes the `t` parameter for a new arrow connecting
-// to the given element on the given side. It counts existing arrows
-// on that side and distributes slots evenly.
+// to the given element on the given side. Uses binary subdivision to
+// evenly distribute connection points: 0.5, 0.25, 0.75, 0.125, 0.875...
 func connectSlot(elements []drawingElement, elementID, side string) float64 {
 	count := 0
 	for _, el := range elements {
@@ -568,8 +616,34 @@ func connectSlot(elements []drawingElement, elementID, side string) float64 {
 			}
 		}
 	}
-	// Distribute: 1 arrow = center (0.5); 2 = 0.33/0.66; 3 = 0.25/0.50/0.75; etc.
-	return float64(count+1) / float64(count+2)
+	return binarySubdivisionT(count)
+}
+
+// binarySubdivisionT returns the t-value for the nth connection slot.
+// Pattern: 0.5, 0.25, 0.75, 0.125, 0.875, 0.375, 0.625...
+// This maximizes spacing between successive connection points.
+func binarySubdivisionT(index int) float64 {
+	// Find which level of the binary tree this index falls in
+	k := 0
+	threshold := 1 // 2^0 = 1 item at level 0
+	remaining := index
+	for remaining >= threshold {
+		remaining -= threshold
+		k++
+		threshold *= 2
+	}
+	// Position within level k: (2*remaining+1) / 2^(k+1)
+	denom := 1 << uint(k+1)
+	num := 2*remaining + 1
+	t := float64(num) / float64(denom)
+	// Clamp to [0.1, 0.9] to avoid placing arrows at corners
+	if t < 0.1 {
+		t = 0.1
+	}
+	if t > 0.9 {
+		t = 0.9
+	}
+	return t
 }
 
 func isArrow(el drawingElement) bool {
@@ -650,4 +724,64 @@ func elementRect(elements []drawingElement, id string) *rect {
 		}
 	}
 	return nil
+}
+
+// ── Arrow-as-obstacle collection ───────────────────────────
+
+// collectArrowObstacleRects extracts thin rectangles from existing arrow paths
+// so that new arrows route around them. Each arrow segment becomes a thin rect
+// of arrowGap width, preventing parallel arrow overlap.
+func collectArrowObstacleRects(elements []drawingElement, excludeIDs map[string]bool, originX, originY float64) []rect {
+	var rects []rect
+	for _, el := range elements {
+		if !isArrow(el) {
+			continue
+		}
+		id, _ := el["id"].(string)
+		if excludeIDs[id] {
+			continue
+		}
+		ax, _ := el["x"].(float64)
+		ay, _ := el["y"].(float64)
+		rawPts, ok := el["points"].([]any)
+		if !ok || len(rawPts) < 2 {
+			continue
+		}
+
+		// Extract points
+		pts := make([]point, 0, len(rawPts))
+		for _, rp := range rawPts {
+			switch v := rp.(type) {
+			case []any:
+				if len(v) >= 2 {
+					px, _ := v[0].(float64)
+					py, _ := v[1].(float64)
+					pts = append(pts, pt(px+ax-originX, py+ay-originY))
+				}
+			case []float64:
+				if len(v) >= 2 {
+					pts = append(pts, pt(v[0]+ax-originX, v[1]+ay-originY))
+				}
+			}
+		}
+
+		// Create thin rects from each segment
+		for i := 0; i < len(pts)-1; i++ {
+			p1, p2 := pts[i], pts[i+1]
+			segLen := math.Abs(p2.x-p1.x) + math.Abs(p2.y-p1.y)
+			if segLen < 5 {
+				continue // skip very short segments
+			}
+			if math.Abs(p1.y-p2.y) < 1 {
+				// Horizontal segment
+				minX := math.Min(p1.x, p2.x)
+				rects = append(rects, rect{minX, p1.y - arrowGap/2, math.Abs(p2.x - p1.x), arrowGap})
+			} else if math.Abs(p1.x-p2.x) < 1 {
+				// Vertical segment
+				minY := math.Min(p1.y, p2.y)
+				rects = append(rects, rect{p1.x - arrowGap/2, minY, arrowGap, math.Abs(p2.y - p1.y)})
+			}
+		}
+	}
+	return rects
 }

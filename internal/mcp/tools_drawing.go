@@ -501,21 +501,107 @@ func (s *Server) handleAddDrawingArrow(ctx context.Context, req mcp.CallToolRequ
 
 	// Collect obstacle rects (all shapes except source/target), in arrow-local coords
 	excludeIDs := map[string]bool{fromID: true, toID: true}
-	obstacles := collectObstacleRects(elements, excludeIDs, info.srcX, info.srcY)
 
-	// Convert source/target rects to arrow-local coords for routing
-	var localSrcRect, localDstRect *rect
-	if srcR != nil {
-		r := rect{srcR.x - info.srcX, srcR.y - info.srcY, srcR.w, srcR.h}
-		localSrcRect = &r
-	}
-	if dstR != nil {
-		r := rect{dstR.x - info.srcX, dstR.y - info.srcY, dstR.w, dstR.h}
-		localDstRect = &r
+	// ── Multi-candidate routing ──
+	// Try the primary side combination first. If the path is unreasonably long
+	// (>3x manhattan distance), try alternative side combinations and pick shortest.
+
+	type routeCandidate struct {
+		srcSide, dstSide string
+		srcT, dstT       float64
+		srcAnchor        point
+		dstAnchor        point
+		points           [][]float64
+		pathLen          float64
+		bendCount        int
+		score            float64 // pathLen + bendCount*5 (tie-breaker only)
 	}
 
-	// Compute obstacle-aware ortho route
-	points := computeOrthoRoute(dx, dy, info.srcSide, info.dstSide, localSrcRect, localDstRect, obstacles)
+	// Helper: compute a full route for given sides
+	tryRoute := func(sSide, dSide string) *routeCandidate {
+		sT := connectSlot(elements, fromID, sSide)
+		dT := connectSlot(elements, toID, dSide)
+		var sAnchor, dAnchor point
+		if srcR != nil {
+			sAnchor.x, sAnchor.y = anchorPoint(*srcR, sSide, sT)
+		}
+		if dstR != nil {
+			dAnchor.x, dAnchor.y = anchorPoint(*dstR, dSide, dT)
+		}
+		cdx := dAnchor.x - sAnchor.x
+		cdy := dAnchor.y - sAnchor.y
+
+		// Collect shape obstacles + arrow obstacles separately
+		shapeObs := collectObstacleRects(elements, excludeIDs, sAnchor.x, sAnchor.y)
+		arrowObs := collectArrowObstacleRects(elements, excludeIDs, sAnchor.x, sAnchor.y)
+
+		var lsr, ldr *rect
+		if srcR != nil {
+			r := rect{srcR.x - sAnchor.x, srcR.y - sAnchor.y, srcR.w, srcR.h}
+			lsr = &r
+		}
+		if dstR != nil {
+			r := rect{dstR.x - sAnchor.x, dstR.y - sAnchor.y, dstR.w, dstR.h}
+			ldr = &r
+		}
+		pts := computeOrthoRoute(cdx, cdy, sSide, dSide, lsr, ldr, shapeObs, arrowObs)
+
+		// Compute total path length and bend count
+		totalLen := 0.0
+		bends := 0
+		for i := 1; i < len(pts); i++ {
+			totalLen += math.Abs(pts[i][0]-pts[i-1][0]) + math.Abs(pts[i][1]-pts[i-1][1])
+			if i >= 2 {
+				// Check if direction changed (bend)
+				dx1 := pts[i-1][0] - pts[i-2][0]
+				dy1 := pts[i-1][1] - pts[i-2][1]
+				dx2 := pts[i][0] - pts[i-1][0]
+				dy2 := pts[i][1] - pts[i-1][1]
+				if (dx1 != 0 && dy2 != 0) || (dy1 != 0 && dx2 != 0) {
+					bends++
+				}
+			}
+		}
+		score := totalLen + float64(bends)*5
+		return &routeCandidate{sSide, dSide, sT, dT, point{sAnchor.x, sAnchor.y}, point{dAnchor.x, dAnchor.y}, pts, totalLen, bends, score}
+	}
+
+	// Always try the primary route + all common alternatives
+	// This ensures the best visual path is always found
+	best := tryRoute(info.srcSide, info.dstSide)
+
+	allCombos := [][2]string{
+		{"bottom", "top"},
+		{"top", "bottom"},
+		{"right", "left"},
+		{"left", "right"},
+		{"bottom", "bottom"},
+		{"top", "top"},
+		{"right", "right"},
+		{"left", "left"},
+	}
+	for _, combo := range allCombos {
+		if combo[0] == info.srcSide && combo[1] == info.dstSide {
+			continue // skip primary, already tried
+		}
+		candidate := tryRoute(combo[0], combo[1])
+		if candidate.score < best.score {
+			best = candidate
+		}
+	}
+
+	// Use the best route
+	info.srcSide = best.srcSide
+	info.dstSide = best.dstSide
+	srcT = best.srcT
+	dstT = best.dstT
+	info.srcX = best.srcAnchor.x
+	info.srcY = best.srcAnchor.y
+	info.dstX = best.dstAnchor.x
+	info.dstY = best.dstAnchor.y
+	dx = info.dstX - info.srcX
+	dy = info.dstY - info.srcY
+	points := best.points
 
 	// Compute bounding box
 	w, h := 0.0, 0.0
