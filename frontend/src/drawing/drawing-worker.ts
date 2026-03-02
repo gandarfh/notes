@@ -54,17 +54,9 @@ interface RenderState {
     theme: 'light' | 'dark'
 }
 
-// ── WASM Engine (same as drawing-wasm.ts but self-contained in worker) ──
+// ── WASM Engine (types from drawing-shared.ts) ──
 
-interface PathCmd { op: number; args: number[] }
-
-interface StrokePath {
-    cmds: PathCmd[]
-    opacity: number
-    strokeWidth: number
-    isClip?: boolean
-    isFill?: boolean
-}
+import { type PathCmd, type StrokePath, SHAPE_IDS, ARROW_STYLE_IDS, OP_MOVE_TO, OP_LINE_TO, OP_CURVE_TO, OP_QUAD_TO, OP_ARC, OP_CLOSE } from './drawing-shared'
 
 interface WASMExports {
     memory: WebAssembly.Memory
@@ -79,22 +71,6 @@ interface WASMExports {
     getArrowHeadPathsBin: () => number
     getSketchPathsBin: () => number
 }
-
-const SHAPE_IDS: Record<string, number> = {
-    rectangle: 0, ellipse: 1, diamond: 2,
-    database: 3, vm: 4, terminal: 5, user: 6, cloud: 7,
-}
-
-const ARROW_STYLE_IDS: Record<string, number> = {
-    none: 0, dot: 1, arrow: 2, triangle: 3, bar: 4, diamond: 5,
-}
-
-const OP_MOVE_TO = 0
-const OP_LINE_TO = 1
-const OP_CURVE_TO = 2
-const OP_QUAD_TO = 3
-const OP_ARC = 4
-const OP_CLOSE = 5
 
 let engine: {
     exports: WASMExports
@@ -287,20 +263,6 @@ function renderStrokePaths(
         }
         ctx.restore()
     }
-}
-
-// ── Caches ──
-const _arrowCache = new Map<string, { key: string; paths: StrokePath[] }>()
-const _shapeCache = new Map<string, StrokePath[]>()
-
-function arrowCacheKey(el: DrawingElement, sw: number): string {
-    let h = `${sw}|${el.arrowEnd}|${el.arrowStart}|${el.strokeDasharray || ''}`
-    if (el.points) for (const p of el.points) h += `|${p[0]}|${p[1]}`
-    return h
-}
-
-function shapeCacheKey(el: DrawingElement, sw: number): string {
-    return `${el.id}|${el.type}|${el.width}|${el.height}|${sw}|${el.backgroundColor}|${el.fillStyle}|${el.strokeDasharray || ''}`
 }
 
 function isArrowType(el: DrawingElement): boolean {
@@ -529,7 +491,7 @@ self.onmessage = async (e: MessageEvent) => {
                 // Create/resize internal OffscreenCanvas as needed
                 if (!canvas || canvas.width !== cw || canvas.height !== ch) {
                     canvas = new OffscreenCanvas(cw, ch)
-                    ctx = canvas.getContext('2d')!
+                    ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D | null
                 }
                 if (!ctx) return
 

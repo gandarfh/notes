@@ -9,20 +9,12 @@
  */
 
 import type { AnchorSide } from './types'
+export type { PathCmd, StrokePath } from './drawing-shared'
+export { SHAPE_IDS, SIDE_IDS, ARROW_STYLE_IDS } from './drawing-shared'
+import { type PathCmd, type StrokePath, SIDE_IDS } from './drawing-shared'
 
 // Re-export Rect to match Go's drawing.Rect
 export interface Rect { x: number; y: number; w: number; h: number }
-
-export interface PathCmd { op: number; args: number[] }
-
-export interface StrokePath {
-    cmds: PathCmd[]
-    opacity: number
-    strokeWidth: number
-    isClip?: boolean
-    isFill?: boolean
-    fillColor?: string
-}
 
 export interface RouteOpts {
     startSide?: AnchorSide
@@ -33,21 +25,8 @@ export interface RouteOpts {
     arrowObstacles?: Rect[]
 }
 
-// ── ID Mappings (must match Go's main.go) ──
-
-export const SHAPE_IDS: Record<string, number> = {
-    rectangle: 0, ellipse: 1, diamond: 2,
-    database: 3, vm: 4, terminal: 5, user: 6, cloud: 7,
-}
-
-export const SIDE_IDS: Record<string, number> = {
-    top: 0, right: 1, bottom: 2, left: 3,
-}
 const SIDE_NAMES: AnchorSide[] = ['top', 'right', 'bottom', 'left']
 
-export const ARROW_STYLE_IDS: Record<string, number> = {
-    none: 0, dot: 1, arrow: 2, triangle: 3, bar: 4, diamond: 5,
-}
 
 interface WASMExports {
     memory: WebAssembly.Memory
