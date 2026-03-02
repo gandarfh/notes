@@ -4,7 +4,7 @@
  * Lightweight Canvas2D functions for selection UI, anchors, and box selection.
  * NO WASM calls — all element rendering is in the Web Worker (drawing-worker.ts).
  */
-import { type DrawingElement, type AnchorPoint, ANCHOR_RADIUS, HANDLE_SIZE } from './types'
+import { type DrawingElement, type AnchorPoint, ANCHOR_RADIUS, HANDLE_SIZE, getElementBounds } from './types'
 
 // ── Theme helpers (lightweight, no WASM) ──
 
@@ -194,12 +194,13 @@ export function drawBoxSelection(
     for (const el of elements) {
         if (previewIds.has(el.id)) {
             const pad = 4
+            const b = getElementBounds(el)
             ctx.fillStyle = 'rgba(99,102,241,0.06)'
             ctx.strokeStyle = ACCENT
             ctx.lineWidth = 1.5
             ctx.setLineDash([4, 2])
             ctx.beginPath()
-            ctx.roundRect(el.x - pad, el.y - pad, el.width + pad * 2, el.height + pad * 2, 3)
+            ctx.roundRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2, 3)
             ctx.fill()
             ctx.stroke()
             ctx.setLineDash([])

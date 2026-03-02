@@ -106,8 +106,15 @@ export class ArrowHandler implements InteractionHandler {
 
             ctx.currentElement.points = computeOrthoRoute(dx, dy, sSide, eSide, sRect, eRect, obstacles)
 
-            ctx.currentElement.width = Math.abs(dx)
-            ctx.currentElement.height = Math.abs(dy)
+            // Compute width/height from actual path bounds
+            let maxPx = 0, maxPy = 0
+            for (const p of ctx.currentElement.points!) {
+                const apx = Math.abs(p[0]), apy = Math.abs(p[1])
+                if (apx > maxPx) maxPx = apx
+                if (apy > maxPy) maxPy = apy
+            }
+            ctx.currentElement.width = maxPx
+            ctx.currentElement.height = maxPy
 
             ctx.elements.push(ctx.currentElement)
             ctx.selectedElement = ctx.currentElement

@@ -137,7 +137,14 @@ export function updateConnectedArrows(elements: DrawingElement[], movedElementId
             el.points[el.points.length - 1] = [absEnd.x - absStart.x, absEnd.y - absStart.y]
         }
 
-        el.width = Math.abs((el.points[el.points.length - 1]?.[0] ?? 0))
-        el.height = Math.abs((el.points[el.points.length - 1]?.[1] ?? 0))
+        // Compute width/height from actual path bounds (not just last point)
+        let maxPx = 0, maxPy = 0
+        for (const p of el.points!) {
+            const apx = Math.abs(p[0]), apy = Math.abs(p[1])
+            if (apx > maxPx) maxPx = apx
+            if (apy > maxPy) maxPy = apy
+        }
+        el.width = maxPx
+        el.height = maxPy
     }
 }
