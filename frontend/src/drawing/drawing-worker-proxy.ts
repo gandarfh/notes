@@ -23,6 +23,7 @@ export interface RenderState {
     canvasBg: string
     defaultStroke: string
     highlightColor: string
+    editingElementId: string | null
 }
 
 export class DrawingWorkerProxy {

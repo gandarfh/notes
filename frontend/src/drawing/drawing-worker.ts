@@ -55,6 +55,7 @@ interface RenderState {
     canvasBg: string
     defaultStroke: string
     highlightColor: string
+    editingElementId: string | null
 }
 
 // ── WASM Engine (types from drawing-shared.ts) ──
@@ -366,7 +367,7 @@ function drawElement(ctx: OffscreenCanvasRenderingContext2D, el: DrawingElement,
             } catch { /* WASM error — skip */ }
 
             // Arrow label
-            if (el.label && el.points.length >= 2) {
+            if (el.label && el.points.length >= 2 && _editingElementId !== el.id) {
                 drawArrowLabel(ctx, el, color)
             }
             if (el.opacity != null && el.opacity < 1) ctx.restore()
@@ -388,6 +389,7 @@ function drawElement(ctx: OffscreenCanvasRenderingContext2D, el: DrawingElement,
             return
         }
         case 'text': {
+            if (_editingElementId === el.id) break
             const lines = (el.text || '').split('\n')
             ctx.fillStyle = textFill
             ctx.font = `${fw} ${el.fontSize ?? 16}px ${font}`
@@ -410,7 +412,7 @@ function drawElement(ctx: OffscreenCanvasRenderingContext2D, el: DrawingElement,
             ctx.stroke()
             ctx.setLineDash([])
             // Group label
-            if (el.text) {
+            if (el.text && _editingElementId !== el.id) {
                 ctx.fillStyle = textFill
                 ctx.font = `${fw} ${textSize}px ${font}`
                 ctx.textBaseline = 'alphabetic'
@@ -434,8 +436,8 @@ function drawElement(ctx: OffscreenCanvasRenderingContext2D, el: DrawingElement,
         }
     }
 
-    // Text inside shapes
-    if (el.text && !isArrowType(el) && el.type !== 'text' && el.type !== 'freedraw' && el.type !== 'group') {
+    // Text inside shapes (skip if inline editor is open for this element)
+    if (el.text && !isArrowType(el) && el.type !== 'text' && el.type !== 'freedraw' && el.type !== 'group' && _editingElementId !== el.id) {
         const cx = el.x + el.width / 2, cy = el.y + el.height / 2
         const lines = el.text.split('\n')
         const lineH = textSize * 1.2
@@ -510,6 +512,7 @@ let _lastSketchy = false
 let _lastCanvasBg = ''
 let _lastDefaultStroke = ''
 let _lastHighlightColor = ''
+let _editingElementId: string | null = null
 
 self.onmessage = async (e: MessageEvent) => {
     const msg = e.data
@@ -556,6 +559,7 @@ self.onmessage = async (e: MessageEvent) => {
                 _lastCanvasBg = state.canvasBg
                 _lastDefaultStroke = state.defaultStroke
                 _lastHighlightColor = state.highlightColor
+                _editingElementId = state.editingElementId
 
                 // Draw all elements
                 const elements = [...state.elements]

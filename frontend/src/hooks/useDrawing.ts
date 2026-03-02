@@ -175,6 +175,7 @@ export function useDrawing(
                         canvasBg: cs.getPropertyValue('--color-app').trim(),
                         defaultStroke: cs.getPropertyValue('--color-text-primary').trim(),
                         highlightColor: cs.getPropertyValue('--color-error').trim(),
+                        editingElementId: editorRequest?.elementId ?? null,
                     }
                     workerProxy.requestRender(state)
                 }
