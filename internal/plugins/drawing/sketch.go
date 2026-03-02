@@ -86,31 +86,6 @@ func sketchEdge(x1, y1, x2, y2 float64, sw float64, seed float64, overshoot floa
 }
 
 // ── Sketchy Shape Outlines ──
-
-// SketchOutline generates all stroke paths for a shape's sketchy outline.
-// Returns multiple StrokePaths that the frontend applies sequentially.
-func SketchOutline(shapeType string, w, h float64, seed int, sw float64) []StrokePath {
-	shape := DefaultRegistry.Get(shapeType)
-	if shape == nil {
-		return nil
-	}
-
-	fseed := float64(seed)
-
-	switch shapeType {
-	case "rectangle":
-		return sketchRectOutline(0, 0, w, h, sw, fseed)
-	case "ellipse":
-		return sketchEllipseOutline(w/2, h/2, w/2, h/2, sw, fseed)
-	case "diamond":
-		return sketchDiamondOutline(w/2, h/2, w, h, sw, fseed)
-	default:
-		// Custom shapes: decompose OutlinePath into edges and sketch each
-		return sketchFromPathCmds(shape.OutlinePath(w, h), sw, fseed)
-	}
-}
-
-// sketchRectOutline generates a sketchy rectangle (4 edges × 2 passes).
 func sketchRectOutline(x, y, w, h float64, sw float64, seed float64) []StrokePath {
 	corners := [][2]float64{{x, y}, {x + w, y}, {x + w, y + h}, {x, y + h}}
 	var paths []StrokePath
@@ -212,20 +187,13 @@ func sketchFromPathCmds(cmds []PathCmd, sw float64, seed float64) []StrokePath {
 
 // ── Fill (hachure or solid) ──
 
-// SketchFill generates fill strokes for a shape.
-// fillStyle: "hachure" (diagonal stripes) or "solid" (dense marker wash)
-// The frontend clips these strokes to the shape outline.
-func SketchFill(shapeType string, w, h float64, seed int, fillColor string, fillStyle string) []StrokePath {
+// sketchShapeFill generates fill strokes for any shape that implements ShapeDef.
+// Uses the shape's OutlinePath as a clip mask, then draws hachure or solid fill lines.
+// This is the default fill implementation shared by all shapes.
+func sketchShapeFill(shape ShapeDef, w, h float64, seed int, fillColor, fillStyle string) []StrokePath {
 	fseed := float64(seed)
-
-	// Generate the clip path from the shape outline
-	shape := DefaultRegistry.Get(shapeType)
-	if shape == nil {
-		return nil
-	}
 	clipCmds := shape.OutlinePath(w, h)
 
-	// Clip path stroke (the frontend uses this as ctx.clip())
 	clipPath := StrokePath{
 		Cmds:   clipCmds,
 		IsClip: true,
@@ -235,7 +203,6 @@ func SketchFill(shapeType string, w, h float64, seed int, fillColor string, fill
 	cxc, cyc := w/2, h/2
 
 	if fillStyle == "solid" {
-		// Dense marker wash — tight spacing, low opacity, straight lines
 		baseAngle := 0.5 + (sr(fseed, fseed, 60)-0.5)*0.3
 		cos, sin := math.Cos(baseAngle), math.Sin(baseAngle)
 		diag := math.Hypot(w, h) + 30
@@ -265,7 +232,6 @@ func SketchFill(shapeType string, w, h float64, seed int, fillColor string, fill
 			})
 		}
 	} else {
-		// Hachure — diagonal stripes with quadratic wobble
 		baseAngle := 0.7 + (sr(fseed, fseed, 50)-0.5)*0.2
 		cos, sin := math.Cos(baseAngle), math.Sin(baseAngle)
 		diag := math.Hypot(w, h) + 20

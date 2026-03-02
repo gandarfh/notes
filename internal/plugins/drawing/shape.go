@@ -26,10 +26,14 @@ type ShapeDef interface {
 	Anchors(w, h float64) []AnchorPoint
 	NearestAnchor(w, h, px, py float64) AnchorPoint
 
-	// Rendering
+	// Rendering — declarative paths
 	OutlinePath(w, h float64) []PathCmd // shape border
 	IconPath(w, h float64) []PathCmd    // interior icon (optional, e.g. DB lines)
 	IsFilled() bool                     // true = solid fill, false = stroke only
+
+	// Sketch rendering — each shape knows how to draw itself in sketchy style
+	SketchOutline(w, h float64, seed int, sw float64) []StrokePath
+	SketchFill(w, h float64, seed int, fillColor, fillStyle string) []StrokePath
 }
 
 // ═══════════════════════════════════════════════════════════════

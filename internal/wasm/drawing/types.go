@@ -132,24 +132,26 @@ func convertAnchors(anchors []drawing.AnchorPoint) []anchorJSON {
 
 // sketchAllPaths combines fill + outline + icon paths for a shape.
 func sketchAllPaths(shapeType string, w, h float64, seed int, sw float64, fillColor, fillStyle string) []drawing.StrokePath {
+	shape := drawing.DefaultRegistry.Get(shapeType)
+	if shape == nil {
+		return nil
+	}
+
 	var all []drawing.StrokePath
 
 	if fillColor != "" {
 		if fillStyle == "" {
 			fillStyle = "hachure"
 		}
-		all = append(all, drawing.SketchFill(shapeType, w, h, seed, fillColor, fillStyle)...)
+		all = append(all, shape.SketchFill(w, h, seed, fillColor, fillStyle)...)
 	}
 
-	all = append(all, drawing.SketchOutline(shapeType, w, h, seed, sw)...)
+	all = append(all, shape.SketchOutline(w, h, seed, sw)...)
 
-	shape := drawing.DefaultRegistry.Get(shapeType)
-	if shape != nil {
-		if iconCmds := shape.IconPath(w, h); len(iconCmds) > 0 {
-			all = append(all, drawing.StrokePath{
-				Cmds: iconCmds, Opacity: 0.7, StrokeWidth: sw,
-			})
-		}
+	if iconCmds := shape.IconPath(w, h); len(iconCmds) > 0 {
+		all = append(all, drawing.StrokePath{
+			Cmds: iconCmds, Opacity: 0.7, StrokeWidth: sw,
+		})
 	}
 	return all
 }

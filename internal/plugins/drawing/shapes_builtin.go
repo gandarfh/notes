@@ -41,6 +41,14 @@ func (s *RectangleShape) OutlinePath(w, h float64) []PathCmd {
 
 func (s *RectangleShape) IconPath(w, h float64) []PathCmd { return nil }
 
+func (s *RectangleShape) SketchOutline(w, h float64, seed int, sw float64) []StrokePath {
+	return sketchRectOutline(0, 0, w, h, sw, float64(seed))
+}
+
+func (s *RectangleShape) SketchFill(w, h float64, seed int, fillColor, fillStyle string) []StrokePath {
+	return sketchShapeFill(s, w, h, seed, fillColor, fillStyle)
+}
+
 // ── Ellipse ────────────────────────────────────────────────
 
 type EllipseShape struct{}
@@ -76,6 +84,14 @@ func (s *EllipseShape) OutlinePath(w, h float64) []PathCmd {
 }
 
 func (s *EllipseShape) IconPath(w, h float64) []PathCmd { return nil }
+
+func (s *EllipseShape) SketchOutline(w, h float64, seed int, sw float64) []StrokePath {
+	return sketchEllipseOutline(w/2, h/2, w/2, h/2, sw, float64(seed))
+}
+
+func (s *EllipseShape) SketchFill(w, h float64, seed int, fillColor, fillStyle string) []StrokePath {
+	return sketchShapeFill(s, w, h, seed, fillColor, fillStyle)
+}
 
 // ── Diamond ────────────────────────────────────────────────
 
@@ -113,6 +129,14 @@ func (s *DiamondShape) OutlinePath(w, h float64) []PathCmd {
 }
 
 func (s *DiamondShape) IconPath(w, h float64) []PathCmd { return nil }
+
+func (s *DiamondShape) SketchOutline(w, h float64, seed int, sw float64) []StrokePath {
+	return sketchDiamondOutline(w/2, h/2, w, h, sw, float64(seed))
+}
+
+func (s *DiamondShape) SketchFill(w, h float64, seed int, fillColor, fillStyle string) []StrokePath {
+	return sketchShapeFill(s, w, h, seed, fillColor, fillStyle)
+}
 
 // ── Helpers ────────────────────────────────────────────────
 

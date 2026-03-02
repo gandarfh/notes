@@ -55,6 +55,14 @@ func (s *DatabaseShape) IconPath(w, h float64) []PathCmd {
 	}
 }
 
+func (s *DatabaseShape) SketchOutline(w, h float64, seed int, sw float64) []StrokePath {
+	return sketchFromPathCmds(s.OutlinePath(w, h), sw, float64(seed))
+}
+
+func (s *DatabaseShape) SketchFill(w, h float64, seed int, fillColor, fillStyle string) []StrokePath {
+	return sketchShapeFill(s, w, h, seed, fillColor, fillStyle)
+}
+
 // ── VM (Server) ────────────────────────────────────────────
 
 type VMShape struct{}
@@ -101,6 +109,14 @@ func (s *VMShape) IconPath(w, h float64) []PathCmd {
 		{Op: OpMoveTo, Args: []float64{pad, y2}}, {Op: OpLineTo, Args: []float64{w - pad, y2}},
 		{Op: OpMoveTo, Args: []float64{pad, y3}}, {Op: OpLineTo, Args: []float64{w - pad, y3}},
 	}
+}
+
+func (s *VMShape) SketchOutline(w, h float64, seed int, sw float64) []StrokePath {
+	return sketchFromPathCmds(s.OutlinePath(w, h), sw, float64(seed))
+}
+
+func (s *VMShape) SketchFill(w, h float64, seed int, fillColor, fillStyle string) []StrokePath {
+	return sketchShapeFill(s, w, h, seed, fillColor, fillStyle)
 }
 
 // ── Terminal ───────────────────────────────────────────────
@@ -156,6 +172,14 @@ func (s *TerminalShape) IconPath(w, h float64) []PathCmd {
 	}
 }
 
+func (s *TerminalShape) SketchOutline(w, h float64, seed int, sw float64) []StrokePath {
+	return sketchFromPathCmds(s.OutlinePath(w, h), sw, float64(seed))
+}
+
+func (s *TerminalShape) SketchFill(w, h float64, seed int, fillColor, fillStyle string) []StrokePath {
+	return sketchShapeFill(s, w, h, seed, fillColor, fillStyle)
+}
+
 // ── User (Person) ──────────────────────────────────────────
 
 type UserShape struct{}
@@ -197,6 +221,14 @@ func (s *UserShape) OutlinePath(w, h float64) []PathCmd {
 }
 
 func (s *UserShape) IconPath(w, h float64) []PathCmd { return nil }
+
+func (s *UserShape) SketchOutline(w, h float64, seed int, sw float64) []StrokePath {
+	return sketchFromPathCmds(s.OutlinePath(w, h), sw, float64(seed))
+}
+
+func (s *UserShape) SketchFill(w, h float64, seed int, fillColor, fillStyle string) []StrokePath {
+	return sketchShapeFill(s, w, h, seed, fillColor, fillStyle)
+}
 
 // ── Cloud ──────────────────────────────────────────────────
 
@@ -240,6 +272,14 @@ func (s *CloudShape) OutlinePath(w, h float64) []PathCmd {
 }
 
 func (s *CloudShape) IconPath(w, h float64) []PathCmd { return nil }
+
+func (s *CloudShape) SketchOutline(w, h float64, seed int, sw float64) []StrokePath {
+	return sketchFromPathCmds(s.OutlinePath(w, h), sw, float64(seed))
+}
+
+func (s *CloudShape) SketchFill(w, h float64, seed int, fillColor, fillStyle string) []StrokePath {
+	return sketchShapeFill(s, w, h, seed, fillColor, fillStyle)
+}
 
 func init() {
 	DefaultRegistry.Register(&DatabaseShape{})
