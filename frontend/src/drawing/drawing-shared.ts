@@ -22,7 +22,6 @@ export interface StrokePath {
 
 export const SHAPE_IDS: Record<string, number> = {
     rectangle: 0, ellipse: 1, diamond: 2,
-    database: 3, vm: 4, terminal: 5, user: 6, cloud: 7,
 }
 
 export const SIDE_IDS: Record<string, number> = {
