@@ -1,7 +1,7 @@
 package mcpserver
 
 import (
-	"notes/pkg/drawing"
+	"notes/internal/plugins/drawing"
 )
 
 // ═══════════════════════════════════════════════════════════════

@@ -13,7 +13,7 @@ tinygo build \
   -target wasm \
   -no-debug \
   -opt 2 \
-  "$PROJECT_ROOT/pkg/drawing/cmd/wasm/main.go"
+  "$PROJECT_ROOT/internal/wasm/drawing/"
 
 SIZE=$(ls -lh "$OUTPUT" | awk '{print $5}')
 echo "✅ Built $OUTPUT ($SIZE)"
