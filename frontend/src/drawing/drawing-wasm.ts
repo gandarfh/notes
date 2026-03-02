@@ -317,7 +317,7 @@ async function loadWASM(): Promise<DrawingEngine> {
     // which sets up the Go runtime environment
     const go = new (globalThis as any).Go()
 
-    const wasmPath = '/drawing.wasm'
+    const wasmPath = `/drawing.wasm?v=${Date.now()}`
     const result = await WebAssembly.instantiateStreaming(
         fetch(wasmPath),
         go.importObject,
@@ -328,5 +328,6 @@ async function loadWASM(): Promise<DrawingEngine> {
 
     const exports = result.instance.exports as unknown as WASMExports
     _engine = new DrawingEngine(exports)
+        ; (globalThis as any).__drawingEngine = _engine
     return _engine
 }

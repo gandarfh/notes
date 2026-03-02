@@ -78,6 +78,13 @@ func ComputeOrthoRoute(dx, dy float64, opts RouteOpts) [][]float64 {
 	if len(plan.Result) >= 2 {
 		return plan.Result
 	}
+
+	// Pipeline failed — try obstacle-aware fallback detour
+	if len(opts.ShapeObstacles) > 0 {
+		if detour := obstacleDetour(dx, dy, opts); detour != nil {
+			return detour
+		}
+	}
 	return SimpleOrthoRoute(dx, dy, opts.StartSide, opts.EndSide)
 }
 
@@ -108,6 +115,86 @@ func SimpleOrthoRoute(dx, dy float64, srcSide, dstSide string) [][]float64 {
 		points = [][]float64{{0, 0}, {a1x, 0}, {dx, 0}, {dx, dy}}
 	}
 	return SimplifyOrtho(points)
+}
+
+// obstacleDetour produces a U-shaped path around obstacles when the Dijkstra fails.
+// It finds the combined bounding box of all obstacles between origin and dest,
+// then routes around the nearest clear edge with proper antenna margins.
+func obstacleDetour(dx, dy float64, opts RouteOpts) [][]float64 {
+	m := RouteMargin
+
+	// Combine all obstacle rects into a union bounding box
+	allRects := opts.ShapeObstacles
+	if opts.StartRect != nil {
+		allRects = append(allRects, *opts.StartRect)
+	}
+	if opts.EndRect != nil {
+		allRects = append(allRects, *opts.EndRect)
+	}
+	if len(allRects) == 0 {
+		return nil
+	}
+
+	// Find bounding box of all obstacles
+	minX, minY := allRects[0].X, allRects[0].Y
+	maxX, maxY := allRects[0].X+allRects[0].W, allRects[0].Y+allRects[0].H
+	for _, r := range allRects[1:] {
+		if r.X < minX {
+			minX = r.X
+		}
+		if r.Y < minY {
+			minY = r.Y
+		}
+		if r.X+r.W > maxX {
+			maxX = r.X + r.W
+		}
+		if r.Y+r.H > maxY {
+			maxY = r.Y + r.H
+		}
+	}
+
+	// Compute antenna extensions (outward from connection sides)
+	sdx, sdy := SideDir(opts.StartSide)
+	ddx, ddy := SideDir(opts.EndSide)
+	a1x, a1y := sdx*m, sdy*m       // start antenna offset
+	a2x, a2y := dx+ddx*m, dy+ddy*m // end antenna offset
+
+	isVert := opts.StartSide == "top" || opts.StartSide == "bottom"
+
+	if isVert {
+		// Vertical path blocked — detour horizontally around obstacle cluster
+		leftEdge := minX - m
+		rightEdge := maxX + m
+		detourX := rightEdge
+		if math.Abs(leftEdge) < math.Abs(rightEdge) {
+			detourX = leftEdge
+		}
+		// U-shape with antennas: origin → antenna → detour → antenna → dest
+		return SimplifyOrtho([][]float64{
+			{0, 0},
+			{0, a1y},
+			{detourX, a1y},
+			{detourX, a2y},
+			{dx, a2y},
+			{dx, dy},
+		})
+	}
+
+	// Horizontal path blocked — detour vertically around obstacle cluster
+	topEdge := minY - m
+	bottomEdge := maxY + m
+	detourY := bottomEdge
+	if math.Abs(topEdge) < math.Abs(bottomEdge) {
+		detourY = topEdge
+	}
+	return SimplifyOrtho([][]float64{
+		{0, 0},
+		{a1x, 0},
+		{a1x, detourY},
+		{a2x, detourY},
+		{a2x, dy},
+		{dx, dy},
+	})
 }
 
 // SideDir returns the directional unit vector for a side.

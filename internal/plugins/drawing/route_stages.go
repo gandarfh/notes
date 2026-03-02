@@ -10,11 +10,46 @@ import "math"
 
 // StageAntennas computes the start/end antenna points by extruding
 // outward from the connection side by the route margin.
+// If an antenna lands inside an obstacle, deflects it perpendicular.
 func StageAntennas(p *RoutePlan) {
 	sdx, sdy := SideDir(p.Opts.StartSide)
 	ddx, ddy := SideDir(p.Opts.EndSide)
 	p.Antennas[0] = Vec2{sdx * p.Margin, sdy * p.Margin}
 	p.Antennas[1] = Vec2{p.Dest.X + ddx*p.Margin, p.Dest.Y + ddy*p.Margin}
+
+	// Deflect antennas away from obstacles if they land inside one
+	for i := range p.Antennas {
+		for _, obs := range p.Opts.ShapeObstacles {
+			inflated := Rect{obs.X - p.Margin, obs.Y - p.Margin, obs.W + p.Margin*2, obs.H + p.Margin*2}
+			if inflated.Contains(p.Antennas[i], 0) {
+				// Deflect perpendicular to the side direction
+				// For vertical sides (top/bottom), move horizontally outside obstacle
+				// For horizontal sides (left/right), move vertically outside obstacle
+				side := p.Opts.StartSide
+				if i == 1 {
+					side = p.Opts.EndSide
+				}
+				if side == "top" || side == "bottom" {
+					// Move to whichever side of the inflated obstacle is closer
+					distLeft := p.Antennas[i].X - inflated.X
+					distRight := inflated.X + inflated.W - p.Antennas[i].X
+					if distLeft < distRight {
+						p.Antennas[i].X = inflated.X - 1
+					} else {
+						p.Antennas[i].X = inflated.X + inflated.W + 1
+					}
+				} else {
+					distTop := p.Antennas[i].Y - inflated.Y
+					distBottom := inflated.Y + inflated.H - p.Antennas[i].Y
+					if distTop < distBottom {
+						p.Antennas[i].Y = inflated.Y - 1
+					} else {
+						p.Antennas[i].Y = inflated.Y + inflated.H + 1
+					}
+				}
+			}
+		}
+	}
 }
 
 // StageExpandObstacles inflates each shape obstacle by the route margin
@@ -44,7 +79,7 @@ func StageExpandObstacles(p *RoutePlan) {
 }
 
 // StageComputeSpots generates candidate waypoints from ruler grid
-// intersections, midpoints, and antenna points.
+// intersections, midpoints, obstacle corners, and antenna points.
 func StageComputeSpots(p *RoutePlan) {
 	m := p.Margin
 	ant1, ant2 := p.Antennas[0], p.Antennas[1]
@@ -105,6 +140,18 @@ func StageComputeSpots(p *RoutePlan) {
 		}
 	}
 
+	// ── Inflated obstacle corners ──
+	// Explicit corner spots ensure the Dijkstra graph has waypoints to route around
+	// each obstacle, even when obstacles are tightly packed.
+	for _, obs := range p.Obstacles {
+		rawSpots = append(rawSpots,
+			Vec2{obs.X, obs.Y},                 // top-left
+			Vec2{obs.X + obs.W, obs.Y},         // top-right
+			Vec2{obs.X, obs.Y + obs.H},         // bottom-left
+			Vec2{obs.X + obs.W, obs.Y + obs.H}, // bottom-right
+		)
+	}
+
 	rawSpots = append(rawSpots, ant1, ant2)
 	p.Spots = rawSpots
 }
@@ -158,8 +205,58 @@ func StageDijkstra(p *RoutePlan) {
 
 // StageSimplify composes origin → path → dest, deduplicates consecutive
 // points, removes collinear waypoints, and converts to [][]float64.
+// Inserts orthogonal waypoints when antennas are deflected (offset from origin/dest).
 func StageSimplify(p *RoutePlan) {
-	fullPath := append([]Vec2{p.Origin}, append(p.Path, p.Dest)...)
+	// Build full path with L-shaped connectors for deflected antennas
+	var fullPath []Vec2
+	fullPath = append(fullPath, p.Origin)
+
+	// If antenna1 is offset from origin, insert L-shape waypoints
+	ant1 := p.Antennas[0]
+	if len(p.Path) > 0 && (math.Abs(p.Origin.X-ant1.X) > 0.5 && math.Abs(p.Origin.Y-ant1.Y) > 0.5) {
+		isVertStart := p.Opts.StartSide == "top" || p.Opts.StartSide == "bottom"
+		if isVertStart {
+			// Small stub outward, then horizontal to antenna X, then to antenna Y
+			stub := p.Margin * 0.3
+			sdx, sdy := SideDir(p.Opts.StartSide)
+			stubY := p.Origin.Y + sdy*stub
+			_ = sdx
+			fullPath = append(fullPath, Vec2{p.Origin.X, stubY})
+			fullPath = append(fullPath, Vec2{ant1.X, stubY})
+		} else {
+			stub := p.Margin * 0.3
+			sdx, sdy := SideDir(p.Opts.StartSide)
+			stubX := p.Origin.X + sdx*stub
+			_ = sdy
+			fullPath = append(fullPath, Vec2{stubX, p.Origin.Y})
+			fullPath = append(fullPath, Vec2{stubX, ant1.Y})
+		}
+	}
+
+	fullPath = append(fullPath, p.Path...)
+
+	// If antenna2 is offset from dest, insert L-shape waypoints
+	ant2 := p.Antennas[1]
+	if len(p.Path) > 0 && (math.Abs(p.Dest.X-ant2.X) > 0.5 && math.Abs(p.Dest.Y-ant2.Y) > 0.5) {
+		isVertEnd := p.Opts.EndSide == "top" || p.Opts.EndSide == "bottom"
+		if isVertEnd {
+			stub := p.Margin * 0.3
+			ddx, ddy := SideDir(p.Opts.EndSide)
+			stubY := p.Dest.Y + ddy*stub
+			_ = ddx
+			fullPath = append(fullPath, Vec2{ant2.X, stubY})
+			fullPath = append(fullPath, Vec2{p.Dest.X, stubY})
+		} else {
+			stub := p.Margin * 0.3
+			ddx, ddy := SideDir(p.Opts.EndSide)
+			stubX := p.Dest.X + ddx*stub
+			_ = ddy
+			fullPath = append(fullPath, Vec2{stubX, ant2.Y})
+			fullPath = append(fullPath, Vec2{stubX, p.Dest.Y})
+		}
+	}
+
+	fullPath = append(fullPath, p.Dest)
 	fullPath = dedupVec2s(fullPath)
 
 	// Remove collinear

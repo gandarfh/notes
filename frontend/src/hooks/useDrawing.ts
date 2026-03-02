@@ -30,6 +30,10 @@ import { FreedrawHandler } from '../drawing/handlers/freedraw'
 import { TextHandler } from '../drawing/handlers/text'
 import { BlockHandler, type BlockCreationCallback } from '../drawing/handlers/block'
 import { genId } from '../drawing/types'
+import { getDrawingEngine } from '../drawing/drawing-wasm'
+
+// Eagerly load WASM engine on main thread so ortho routing can use Dijkstra
+getDrawingEngine().catch(() => { /* WASM load failure is non-fatal */ })
 
 
 /**

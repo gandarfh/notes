@@ -58,6 +58,43 @@ func TestComputeOrthoRoute_WithObstacles(t *testing.T) {
 	}
 }
 
+func TestComputeOrthoRoute_SkipMiddle(t *testing.T) {
+	// Top and Bottom elements with Middle obstacle directly between them
+	srcRect := Rect{X: -60, Y: -60, W: 120, H: 60}
+	dstRect := Rect{X: -60, Y: 140, W: 120, H: 60}
+	obstacle := Rect{X: -60, Y: 40, W: 120, H: 60}
+
+	pts := ComputeOrthoRoute(0, 140, RouteOpts{
+		StartSide:      "bottom",
+		EndSide:        "top",
+		StartRect:      &srcRect,
+		EndRect:        &dstRect,
+		ShapeObstacles: []Rect{obstacle},
+	})
+
+	if len(pts) < 2 {
+		t.Fatalf("expected path, got %d points", len(pts))
+	}
+	// Verify path avoids the obstacle
+	for i := 0; i < len(pts)-1; i++ {
+		a := Vec2{X: pts[i][0], Y: pts[i][1]}
+		b := Vec2{X: pts[i+1][0], Y: pts[i+1][1]}
+		if EdgeCrossesRect(a, b, obstacle) {
+			t.Errorf("segment [%d]→[%d] crosses obstacle: (%.1f,%.1f)→(%.1f,%.1f)",
+				i, i+1, a.X, a.Y, b.X, b.Y)
+		}
+	}
+	// Verify all segments orthogonal
+	for i := 0; i < len(pts)-1; i++ {
+		a, b := pts[i], pts[i+1]
+		dx := math.Abs(a[0] - b[0])
+		dy := math.Abs(a[1] - b[1])
+		if dx > 0.5 && dy > 0.5 {
+			t.Errorf("diagonal segment: (%.1f,%.1f)→(%.1f,%.1f)", a[0], a[1], b[0], b[1])
+		}
+	}
+}
+
 func TestSimpleOrthoRoute_LShape(t *testing.T) {
 	pts := SimpleOrthoRoute(200, 300, "right", "top")
 	if len(pts) < 2 {

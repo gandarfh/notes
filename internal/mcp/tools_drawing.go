@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"notes/internal/plugins/drawing"
 	"strings"
 	"time"
 
@@ -546,13 +547,13 @@ func (s *Server) handleAddDrawingArrow(ctx context.Context, req mcp.CallToolRequ
 		}
 		pts := computeOrthoRoute(cdx, cdy, sSide, dSide, lsr, ldr, shapeObs, arrowObs)
 
-		// Compute total path length and bend count
+		// Compute total path length, bend count, and obstacle crossings
 		totalLen := 0.0
 		bends := 0
+		crossings := 0
 		for i := 1; i < len(pts); i++ {
 			totalLen += math.Abs(pts[i][0]-pts[i-1][0]) + math.Abs(pts[i][1]-pts[i-1][1])
 			if i >= 2 {
-				// Check if direction changed (bend)
 				dx1 := pts[i-1][0] - pts[i-2][0]
 				dy1 := pts[i-1][1] - pts[i-2][1]
 				dx2 := pts[i][0] - pts[i-1][0]
@@ -561,8 +562,16 @@ func (s *Server) handleAddDrawingArrow(ctx context.Context, req mcp.CallToolRequ
 					bends++
 				}
 			}
+			// Check if this segment crosses any obstacle shape
+			for _, obs := range shapeObs {
+				a := drawing.Vec2{X: pts[i-1][0], Y: pts[i-1][1]}
+				b := drawing.Vec2{X: pts[i][0], Y: pts[i][1]}
+				if drawing.EdgeCrossesRect(a, b, drawing.Rect{X: obs.x, Y: obs.y, W: obs.w, H: obs.h}) {
+					crossings++
+				}
+			}
 		}
-		score := totalLen + float64(bends)*5
+		score := totalLen + float64(bends)*5 + float64(crossings)*10000
 		return &routeCandidate{sSide, dSide, sT, dT, point{sAnchor.x, sAnchor.y}, point{dAnchor.x, dAnchor.y}, pts, totalLen, bends, score}
 	}
 

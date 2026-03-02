@@ -112,25 +112,27 @@ func clamp(v, min, max float64) float64 {
 	return v
 }
 
-// EdgeCrossesRect checks if an axis-aligned segment crosses through a rect interior.
+// EdgeCrossesRect checks if an axis-aligned segment crosses through or touches a rect.
+// Expands the rect by a small epsilon so edges sitting exactly on the boundary are blocked.
 func EdgeCrossesRect(a, b Vec2, r Rect) bool {
+	const eps = 1.0
 	if math.Abs(a.Y-b.Y) < 0.5 {
 		y := a.Y
-		if y <= r.Y || y >= r.Y+r.H {
+		if y < r.Y-eps || y > r.Y+r.H+eps {
 			return false
 		}
 		minX := math.Min(a.X, b.X)
 		maxX := math.Max(a.X, b.X)
-		return minX < r.X+r.W && maxX > r.X
+		return minX < r.X+r.W+eps && maxX > r.X-eps
 	}
 	if math.Abs(a.X-b.X) < 0.5 {
 		x := a.X
-		if x <= r.X || x >= r.X+r.W {
+		if x < r.X-eps || x > r.X+r.W+eps {
 			return false
 		}
 		minY := math.Min(a.Y, b.Y)
 		maxY := math.Max(a.Y, b.Y)
-		return minY < r.Y+r.H && maxY > r.Y
+		return minY < r.Y+r.H+eps && maxY > r.Y-eps
 	}
 	return false
 }

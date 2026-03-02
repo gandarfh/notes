@@ -840,9 +840,14 @@ export class SelectHandler implements InteractionHandler {
                 // Collect obstacles (all shapes except src/dst)
                 const excludeIds = new Set([effectiveConn?.elementId, el.endConnection?.elementId])
                 const obstacles = ctx.elements
-                    .filter(e => !isArrowType(e) && !excludeIds.has(e.id))
+                    .filter(e => !isArrowType(e) && e.type !== 'group' && !excludeIds.has(e.id))
                     .map(e => ({ x: e.x - usePt.x, y: e.y - usePt.y, w: e.width, h: e.height }))
-                el.points = computeOrthoRoute(dx, dy, effectiveConn?.side, el.endConnection?.side, undefined, undefined, obstacles)
+                // Compute src/dst rects for obstacle-aware routing
+                const srcEl = effectiveConn ? ctx.elements.find(e => e.id === effectiveConn.elementId) : undefined
+                const dstEl = el.endConnection ? ctx.elements.find(e => e.id === el.endConnection!.elementId) : undefined
+                const sRect = srcEl ? { x: srcEl.x - usePt.x, y: srcEl.y - usePt.y, w: srcEl.width, h: srcEl.height } : undefined
+                const eRect = dstEl ? { x: dstEl.x - usePt.x, y: dstEl.y - usePt.y, w: dstEl.width, h: dstEl.height } : undefined
+                el.points = computeOrthoRoute(dx, dy, effectiveConn?.side, el.endConnection?.side, sRect, eRect, obstacles)
             }
             el.startConnection = effectiveConn
         } else {
@@ -852,9 +857,14 @@ export class SelectHandler implements InteractionHandler {
                 // Collect obstacles (all shapes except src/dst)
                 const excludeIds = new Set([el.startConnection?.elementId, effectiveConn?.elementId])
                 const obstacles = ctx.elements
-                    .filter(e => !isArrowType(e) && !excludeIds.has(e.id))
+                    .filter(e => !isArrowType(e) && e.type !== 'group' && !excludeIds.has(e.id))
                     .map(e => ({ x: e.x - el.x, y: e.y - el.y, w: e.width, h: e.height }))
-                el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, effectiveConn?.side, undefined, undefined, obstacles)
+                // Compute src/dst rects for obstacle-aware routing
+                const srcEl = el.startConnection ? ctx.elements.find(e => e.id === el.startConnection!.elementId) : undefined
+                const dstEl = effectiveConn ? ctx.elements.find(e => e.id === effectiveConn.elementId) : undefined
+                const sRect = srcEl ? { x: srcEl.x - el.x, y: srcEl.y - el.y, w: srcEl.width, h: srcEl.height } : undefined
+                const eRect = dstEl ? { x: dstEl.x - el.x, y: dstEl.y - el.y, w: dstEl.width, h: dstEl.height } : undefined
+                el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, effectiveConn?.side, sRect, eRect, obstacles)
             }
             el.endConnection = effectiveConn
         }

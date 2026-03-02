@@ -103,7 +103,7 @@ async function initWASM(): Promise<void> {
 
     const go = new (globalThis as any).Go()
     const result = await WebAssembly.instantiateStreaming(
-        fetch('/drawing.wasm'),
+        fetch(`/drawing.wasm?v=${Date.now()}`),
         go.importObject,
     )
     go.run(result.instance)
