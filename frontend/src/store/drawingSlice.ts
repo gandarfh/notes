@@ -29,9 +29,7 @@ export const createDrawingSlice: StateCreator<AppState, [], [], DrawingSlice> = 
     setDrawingSubTool: (tool) => set({ drawingSubTool: tool }),
     setBoardStyle: (style) => {
         localStorage.setItem('boardStyle', style)
-        const fontCss = style === 'sketchy'
-            ? "'Caveat', cursive"
-            : "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+        const fontCss = "'Architects Daughter'"
         document.documentElement.style.setProperty('--font-sans', fontCss)
         document.documentElement.style.fontSize = style === 'sketchy' ? '17px' : '13px'
         set({ boardStyle: style })

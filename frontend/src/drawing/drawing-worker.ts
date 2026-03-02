@@ -111,6 +111,19 @@ async function initWASM(): Promise<void> {
         f64Out: new Float64Array(mem, exports.getFloat64ResultBuffer(), 8192),
         lastBuffer: mem,
     }
+
+    // Load fonts in worker (workers have isolated font context — they can't see
+    // fonts loaded via CSS in the main document)
+    try {
+        const fontUrl = 'https://fonts.gstatic.com/s/architectsdaughter/v18/KtkxAKiDZI_td1Lkx62xHZHDtgO_Y-bvTYlg4w.woff2'
+        const fontData = await fetch(fontUrl).then(r => r.arrayBuffer())
+        const face = new FontFace('Architects Daughter', fontData)
+        await face.load()
+            ; (self as any).fonts.add(face)
+        console.log('[drawing-worker] Architects Daughter font loaded')
+    } catch (err) {
+        console.error('[drawing-worker] font load failed:', err)
+    }
 }
 
 // ── Binary WASM helpers ──
@@ -235,23 +248,39 @@ function applyPathCmds(ctx: OffscreenCanvasRenderingContext2D, cmds: PathCmd[]):
 function renderStrokePaths(
     ctx: OffscreenCanvasRenderingContext2D, paths: StrokePath[],
     color: string, sw: number, dash: string,
-    offsetX = 0, offsetY = 0
+    offsetX = 0, offsetY = 0,
+    fillColor?: string
 ): void {
+    // Paths arrive as: [clip?, fill1, fill2, ..., outline1, outline2, icon?]
+    // Clip + fill share a save/restore so clipping persists across fill strokes.
+    let clipActive = false
     for (const sp of paths) {
         if (!sp.cmds) continue
-        ctx.save()
-        if (offsetX || offsetY) ctx.translate(offsetX, offsetY)
-        ctx.globalAlpha = sp.opacity
         if (sp.isClip) {
+            // Start a new clipping group
+            if (clipActive) ctx.restore()
+            ctx.save()
+            if (offsetX || offsetY) ctx.translate(offsetX, offsetY)
             ctx.beginPath()
             applyPathCmds(ctx, sp.cmds)
             ctx.clip()
+            clipActive = true
         } else if (sp.isFill) {
-            ctx.fillStyle = color
+            // Fill strokes render inside the active clip
+            ctx.globalAlpha = sp.opacity
+            ctx.strokeStyle = fillColor || color
+            ctx.lineWidth = sp.strokeWidth || sw
+            ctx.lineCap = 'round'
+            ctx.lineJoin = 'round'
             ctx.beginPath()
             applyPathCmds(ctx, sp.cmds)
-            ctx.fill()
+            ctx.stroke()
         } else {
+            // Outline/icon stroke — close any active clip group first
+            if (clipActive) { ctx.restore(); clipActive = false }
+            ctx.save()
+            if (offsetX || offsetY) ctx.translate(offsetX, offsetY)
+            ctx.globalAlpha = sp.opacity
             ctx.strokeStyle = color
             ctx.lineWidth = sp.strokeWidth || sw
             ctx.lineCap = 'round'
@@ -260,9 +289,10 @@ function renderStrokePaths(
             ctx.beginPath()
             applyPathCmds(ctx, sp.cmds)
             ctx.stroke()
+            ctx.restore()
         }
-        ctx.restore()
     }
+    if (clipActive) ctx.restore()
 }
 
 function isArrowType(el: DrawingElement): boolean {
@@ -275,8 +305,9 @@ function drawElement(ctx: OffscreenCanvasRenderingContext2D, el: DrawingElement,
     const color = remapForTheme(el.strokeColor, isLight)
     const sw = el.strokeWidth
     const seed = hashId(el.id)
-    const textSize = Math.round((el.fontSize || 14) * 1.3)
-    const font = "'Architects Daughter', Caveat, cursive"
+    const baseFontSize = el.fontSize || 14
+    const textSize = _lastSketchy ? Math.round(baseFontSize * 1.3) : baseFontSize
+    const font = "'Architects Daughter'"
     const fw = el.fontWeight || 400
     const textFill = remapForTheme(el.textColor || el.strokeColor, isLight)
     const dash = el.strokeDasharray || ''
@@ -386,9 +417,10 @@ function drawElement(ctx: OffscreenCanvasRenderingContext2D, el: DrawingElement,
             try {
                 const shapeId = SHAPE_IDS[el.type] ?? 0
                 const hasFill = !!(el.backgroundColor && el.backgroundColor !== 'transparent')
+                const bgColor = hasFill ? remapForTheme(el.backgroundColor!, _lastIsLight) : undefined
                 const fillStyleId = el.fillStyle === 'solid' ? 1 : 0
                 const paths = getSketchPathsBin(shapeId, el.width, el.height, seed, sw, hasFill, fillStyleId)
-                renderStrokePaths(ctx, paths, color, sw, dash, el.x, el.y)
+                renderStrokePaths(ctx, paths, color, sw, dash, el.x, el.y, bgColor)
             } catch { /* WASM error — skip */ }
             break
         }
@@ -445,11 +477,12 @@ function drawArrowLabel(ctx: OffscreenCanvasRenderingContext2D, el: DrawingEleme
     }
 
     const fontSize = Math.max(10, Math.min(14, (el.fontSize || 12)))
-    ctx.font = `500 ${fontSize}px Inter, system-ui, sans-serif`
+    ctx.font = `500 ${fontSize}px 'Architects Daughter'`
     const metrics = ctx.measureText(el.label)
     const pw = metrics.width + 6
     const ph = fontSize + 4
-    ctx.fillStyle = color === '#e8e8f0' ? 'rgba(30,30,46,0.85)' : 'rgba(255,255,255,0.9)'
+    ctx.globalAlpha = 1
+    ctx.fillStyle = _lastIsLight ? '#e9e3d9' : '#151310'
     ctx.beginPath()
     ctx.roundRect(lx - pw / 2, ly - ph / 2, pw, ph, 3)
     ctx.fill()
@@ -464,6 +497,8 @@ function drawArrowLabel(ctx: OffscreenCanvasRenderingContext2D, el: DrawingEleme
 let canvas: OffscreenCanvas | null = null
 let ctx: OffscreenCanvasRenderingContext2D | null = null
 let wasmReady = false
+let _lastIsLight = false
+let _lastSketchy = false
 
 self.onmessage = async (e: MessageEvent) => {
     const msg = e.data
@@ -503,6 +538,10 @@ self.onmessage = async (e: MessageEvent) => {
                 const vp = state.viewport
                 const dpr = state.dpr
                 ctx.setTransform(dpr * vp.zoom, 0, 0, dpr * vp.zoom, vp.x * dpr, vp.y * dpr)
+
+                // Track render state for helpers
+                _lastIsLight = isLight
+                _lastSketchy = state.sketchy
 
                 // Draw all elements
                 const elements = [...state.elements]

@@ -479,7 +479,7 @@ export class SelectHandler implements InteractionHandler {
             const lp = getArrowLabelPos(hit)
             if (!lp) return
             const currentLabel = hit.label || ''
-            const resolvedFont = ctx.isSketchy ? "'Architects Daughter', Caveat, cursive" : hit.fontFamily
+            const resolvedFont = "'Architects Daughter'"
             const baseFontSize = hit.fontSize || 14
             const resolvedSize = ctx.isSketchy ? Math.round(baseFontSize * 1.3) : baseFontSize
             ctx.showEditor({
@@ -502,7 +502,7 @@ export class SelectHandler implements InteractionHandler {
         // Group label editing — positioned at top-left on the border (matching canvas render)
         if (hit.type === 'group') {
             const currentLabel = hit.text || ''
-            const resolvedFont = ctx.isSketchy ? "'Architects Daughter', Caveat, cursive" : hit.fontFamily
+            const resolvedFont = "'Architects Daughter'"
             const baseFontSize = hit.fontSize || 14
             const resolvedSize = ctx.isSketchy ? Math.round(baseFontSize * 1.3) : baseFontSize
             const isLight = document.documentElement.dataset.theme === 'light'
@@ -529,7 +529,7 @@ export class SelectHandler implements InteractionHandler {
         const wx = hit.type === 'text' ? hit.x : hit.x + hit.width / 2
         const wy = hit.type === 'text' ? hit.y : hit.y + hit.height / 2
         const currentLabel = hit.text || ''
-        const resolvedFont = ctx.isSketchy ? "'Architects Daughter', Caveat, cursive" : hit.fontFamily
+        const resolvedFont = "'Architects Daughter'"
         const resolvedSize = ctx.isSketchy ? Math.round((hit.fontSize || 14) * 1.3) : hit.fontSize
         const isShape = hit.type !== 'text'
         ctx.showEditor({
@@ -752,7 +752,7 @@ export class SelectHandler implements InteractionHandler {
     private createInlineText(ctx: DrawingContext, world: Point) {
         const tx = ctx.snap(world.x), ty = ctx.snap(world.y)
         const d = ctx.getDefaults('text')
-        const resolvedFont = ctx.isSketchy ? "'Architects Daughter', Caveat, cursive" : d.fontFamily
+        const resolvedFont = "'Architects Daughter'"
         const resolvedSize = ctx.isSketchy ? Math.round((d.fontSize || 14) * 1.3) : d.fontSize
         ctx.showEditor({
             worldX: tx,

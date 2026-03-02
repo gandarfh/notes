@@ -26,11 +26,17 @@ func (s *EllipseShape) NearestAnchor(w, h, px, py float64) AnchorPoint {
 }
 
 func (s *EllipseShape) OutlinePath(w, h float64) []PathCmd {
-	rx, ry := w/2, h/2
+	cx, cy := w/2, h/2
+	// Standard 4-quadrant Bézier approximation of an ellipse (kappa ≈ 0.5522847)
+	k := 0.5522847
+	kx, ky := cx*k, cy*k
 	return []PathCmd{
-		{Op: OpMoveTo, Args: []float64{rx, 0}},
-		{Op: OpArc, Args: []float64{rx, ry, 0, 1, 1, rx, h}},
-		{Op: OpArc, Args: []float64{rx, ry, 0, 1, 1, rx, 0}},
+		{Op: OpMoveTo, Args: []float64{cx, 0}},
+		{Op: OpCurveTo, Args: []float64{cx + kx, 0, w, cy - ky, w, cy}},
+		{Op: OpCurveTo, Args: []float64{w, cy + ky, cx + kx, h, cx, h}},
+		{Op: OpCurveTo, Args: []float64{cx - kx, h, 0, cy + ky, 0, cy}},
+		{Op: OpCurveTo, Args: []float64{0, cy - ky, cx - kx, 0, cx, 0}},
+		{Op: OpClose},
 	}
 }
 

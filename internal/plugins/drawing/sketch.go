@@ -215,6 +215,7 @@ func sketchShapeFill(shape ShapeDef, w, h float64, seed int, fillColor, fillStyl
 				Opacity:     op,
 				StrokeWidth: strokeW,
 				FillColor:   fillColor,
+				IsFill:      true,
 			})
 		}
 	} else {
@@ -245,6 +246,7 @@ func sketchShapeFill(shape ShapeDef, w, h float64, seed int, fillColor, fillStyl
 				Opacity:     op,
 				StrokeWidth: strokeW,
 				FillColor:   fillColor,
+				IsFill:      true,
 			})
 		}
 	}

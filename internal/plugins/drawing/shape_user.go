@@ -23,9 +23,16 @@ func (s *UserShape) OutlinePath(w, h float64) []PathCmd {
 	cx := w / 2
 	headR := w * 0.22
 	headY := h * 0.25
+	k := headR * 0.5522847
 	return []PathCmd{
+		// Head circle (4-quadrant Bézier)
 		{Op: OpMoveTo, Args: []float64{cx + headR, headY}},
-		{Op: OpArc, Args: []float64{headR, headR, 0, 1, 1, cx + headR, headY}},
+		{Op: OpCurveTo, Args: []float64{cx + headR, headY + k, cx + k, headY + headR, cx, headY + headR}},
+		{Op: OpCurveTo, Args: []float64{cx - k, headY + headR, cx - headR, headY + k, cx - headR, headY}},
+		{Op: OpCurveTo, Args: []float64{cx - headR, headY - k, cx - k, headY - headR, cx, headY - headR}},
+		{Op: OpCurveTo, Args: []float64{cx + k, headY - headR, cx + headR, headY - k, cx + headR, headY}},
+		{Op: OpClose},
+		// Body trapezoid
 		{Op: OpMoveTo, Args: []float64{cx - w*0.35, h}},
 		{Op: OpLineTo, Args: []float64{cx - w*0.15, h * 0.50}},
 		{Op: OpLineTo, Args: []float64{cx + w*0.15, h * 0.50}},

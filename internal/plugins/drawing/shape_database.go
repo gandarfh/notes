@@ -25,14 +25,21 @@ func (s *DatabaseShape) NearestAnchor(w, h, px, py float64) AnchorPoint {
 
 func (s *DatabaseShape) OutlinePath(w, h float64) []PathCmd {
 	ry := h * 0.15
+	cx := w / 2
+	kx := cx * 0.5522847
+	ky := ry * 0.5522847
 	return []PathCmd{
+		// Body: left side down, bottom ellipse arc, right side up, top ellipse arc
 		{Op: OpMoveTo, Args: []float64{0, ry}},
-		{Op: OpArc, Args: []float64{w / 2, ry, 0, 0, 1, w, ry}},
+		// Top ellipse (front arc — curves downward)
+		{Op: OpCurveTo, Args: []float64{0, ry - ky, cx - kx, 0, cx, 0}},
+		{Op: OpCurveTo, Args: []float64{cx + kx, 0, w, ry - ky, w, ry}},
+		// Right side down
 		{Op: OpLineTo, Args: []float64{w, h - ry}},
-		{Op: OpArc, Args: []float64{w / 2, ry, 0, 0, 1, 0, h - ry}},
+		// Bottom ellipse arc
+		{Op: OpCurveTo, Args: []float64{w, h - ry + ky, cx + kx, h, cx, h}},
+		{Op: OpCurveTo, Args: []float64{cx - kx, h, 0, h - ry + ky, 0, h - ry}},
 		{Op: OpClose},
-		{Op: OpMoveTo, Args: []float64{0, ry}},
-		{Op: OpArc, Args: []float64{w / 2, ry, 0, 0, 0, w, ry}},
 	}
 }
 

@@ -21,16 +21,18 @@ func (s *VMShape) NearestAnchor(w, h, px, py float64) AnchorPoint {
 
 func (s *VMShape) OutlinePath(w, h float64) []PathCmd {
 	r := w * 0.06
+	k := r * 0.5522847 // kappa for quarter-circle Bézier
 	return []PathCmd{
 		{Op: OpMoveTo, Args: []float64{r, 0}},
 		{Op: OpLineTo, Args: []float64{w - r, 0}},
-		{Op: OpArc, Args: []float64{r, r, 0, 0, 1, w, r}},
+		{Op: OpCurveTo, Args: []float64{w - r + k, 0, w, r - k, w, r}},
 		{Op: OpLineTo, Args: []float64{w, h - r}},
-		{Op: OpArc, Args: []float64{r, r, 0, 0, 1, w - r, h}},
+		{Op: OpCurveTo, Args: []float64{w, h - r + k, w - r + k, h, w - r, h}},
 		{Op: OpLineTo, Args: []float64{r, h}},
-		{Op: OpArc, Args: []float64{r, r, 0, 0, 1, 0, h - r}},
+		{Op: OpCurveTo, Args: []float64{r - k, h, 0, h - r + k, 0, h - r}},
 		{Op: OpLineTo, Args: []float64{0, r}},
-		{Op: OpArc, Args: []float64{r, r, 0, 0, 1, r, 0}},
+		{Op: OpCurveTo, Args: []float64{0, r - k, r - k, 0, r, 0}},
+		{Op: OpClose},
 	}
 }
 
