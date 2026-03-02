@@ -52,6 +52,9 @@ interface RenderState {
     canvasHeight: number
     dpr: number
     theme: 'light' | 'dark'
+    canvasBg: string
+    defaultStroke: string
+    highlightColor: string
 }
 
 // ── WASM Engine (types from drawing-shared.ts) ──
@@ -219,12 +222,17 @@ function hashId(id: string): number {
     return Math.abs(h)
 }
 
-function remapForTheme(c: string, isLight = false): string {
-    if (!c) return isLight ? '#1e1e2e' : '#e8e8f0'
-    if (c === '#e8e8f0' && isLight) return '#1e1e2e'
-    if (c === '#1e1e2e' && !isLight) return '#e8e8f0'
+function remapForTheme(c: string, _isLight = false): string {
+    if (!c) return _lastDefaultStroke
+    // Swap dark↔light default strokes
+    if (c === _darkStroke && _isLight) return _lastDefaultStroke
+    if (c === _lightStroke && !_isLight) return _lastDefaultStroke
     return c
 }
+
+// Default stroke colors stored on elements (data-level, not theme-level)
+const _darkStroke = '#e8e8f0'   // what elements store for dark mode
+const _lightStroke = '#1e1e2e'  // what elements store for light mode
 
 function applyPathCmds(ctx: OffscreenCanvasRenderingContext2D, cmds: PathCmd[]): void {
     if (!cmds) return
@@ -482,7 +490,7 @@ function drawArrowLabel(ctx: OffscreenCanvasRenderingContext2D, el: DrawingEleme
     const pw = metrics.width + 6
     const ph = fontSize + 4
     ctx.globalAlpha = 1
-    ctx.fillStyle = _lastIsLight ? '#e9e3d9' : '#151310'
+    ctx.fillStyle = _lastCanvasBg
     ctx.beginPath()
     ctx.roundRect(lx - pw / 2, ly - ph / 2, pw, ph, 3)
     ctx.fill()
@@ -499,6 +507,9 @@ let ctx: OffscreenCanvasRenderingContext2D | null = null
 let wasmReady = false
 let _lastIsLight = false
 let _lastSketchy = false
+let _lastCanvasBg = ''
+let _lastDefaultStroke = ''
+let _lastHighlightColor = ''
 
 self.onmessage = async (e: MessageEvent) => {
     const msg = e.data
@@ -542,6 +553,9 @@ self.onmessage = async (e: MessageEvent) => {
                 // Track render state for helpers
                 _lastIsLight = isLight
                 _lastSketchy = state.sketchy
+                _lastCanvasBg = state.canvasBg
+                _lastDefaultStroke = state.defaultStroke
+                _lastHighlightColor = state.highlightColor
 
                 // Draw all elements
                 const elements = [...state.elements]
@@ -561,9 +575,9 @@ self.onmessage = async (e: MessageEvent) => {
                     for (const el of elements) {
                         if (!highlightSet.has(el.id)) continue
                         ctx.save()
-                        ctx.strokeStyle = '#ef4444'
+                        ctx.strokeStyle = _lastHighlightColor
                         ctx.lineWidth = 3
-                        ctx.shadowColor = '#ef4444'
+                        ctx.shadowColor = _lastHighlightColor
                         ctx.shadowBlur = 12
                         ctx.globalAlpha = 0.5 + 0.3 * Math.sin(Date.now() / 300)
                         const pad = 6

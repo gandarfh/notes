@@ -159,6 +159,7 @@ export function useDrawing(
                     const cw = Math.round(canvas.clientWidth * dpr)
                     const ch = Math.round(canvas.clientHeight * dpr)
 
+                    const cs = getComputedStyle(document.documentElement)
                     const state: RenderState = {
                         elements: [...elementsRef.current],
                         viewport: vp,
@@ -171,6 +172,9 @@ export function useDrawing(
                         canvasHeight: ch,
                         dpr,
                         theme,
+                        canvasBg: cs.getPropertyValue('--color-app').trim(),
+                        defaultStroke: cs.getPropertyValue('--color-text-primary').trim(),
+                        highlightColor: cs.getPropertyValue('--color-error').trim(),
                     }
                     workerProxy.requestRender(state)
                 }

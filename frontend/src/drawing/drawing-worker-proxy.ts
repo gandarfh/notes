@@ -20,6 +20,9 @@ export interface RenderState {
     canvasHeight: number
     dpr: number
     theme: 'light' | 'dark'
+    canvasBg: string
+    defaultStroke: string
+    highlightColor: string
 }
 
 export class DrawingWorkerProxy {
