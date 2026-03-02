@@ -1,11 +1,32 @@
 import { type DrawingElement, type AnchorPoint, type AnchorSide, type Connection, GRID, isArrowType } from './types'
 import { computeOrthoRoute, enforceOrthogonality, type Rect } from './ortho'
+import { type DrawingEngine, SHAPE_IDS } from './drawing-wasm'
+
+const getEngine = (): DrawingEngine | null => (globalThis as any).__drawingEngine ?? null
 
 /** Get anchor points for a shape element */
 export function getAnchors(el: DrawingElement): AnchorPoint[] {
     if (el.type === 'line' || el.type === 'arrow' || el.type === 'ortho-arrow' ||
         el.type === 'freedraw' || el.type === 'text' || el.type === 'group') return []
 
+    // Delegate to Go/WASM for custom shapes
+    const engine = getEngine()
+    if (engine && SHAPE_IDS[el.type] !== undefined) {
+        try {
+            const wasmAnchors = engine.getAnchors(el.type, el.width, el.height)
+            if (wasmAnchors.length > 0) {
+                return wasmAnchors.map(a => ({
+                    elementId: el.id,
+                    side: a.side as AnchorSide,
+                    t: a.t,
+                    x: el.x + a.x,
+                    y: el.y + a.y,
+                }))
+            }
+        } catch { /* fall through */ }
+    }
+
+    // Fallback: generate 4-side anchors in TS
     const anchors: AnchorPoint[] = []
     const sides: { side: AnchorSide; x1: number; y1: number; x2: number; y2: number }[] = [
         { side: 'top', x1: el.x, y1: el.y, x2: el.x + el.width, y2: el.y },

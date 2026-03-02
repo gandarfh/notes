@@ -1,0 +1,462 @@
+package drawing
+
+import "math"
+
+// ── StrokePath represents a single sketchy stroke with its rendering properties ──
+
+// StrokePath is a single stroke path with rendering properties.
+// The frontend applies each StrokePath as a separate Canvas2D path
+// with the given opacity and stroke width.
+type StrokePath struct {
+	Cmds        []PathCmd `json:"cmds"`
+	Opacity     float64   `json:"opacity"`
+	StrokeWidth float64   `json:"strokeWidth"`
+	IsClip      bool      `json:"isClip,omitempty"`    // true = use as clip path (for fills)
+	IsFill      bool      `json:"isFill,omitempty"`    // true = use fillStyle instead of strokeStyle
+	FillColor   string    `json:"fillColor,omitempty"` // override fill color
+}
+
+// ── Seeded random — deterministic per element (matches TS sr() exactly) ──
+
+func sr(x, y float64, i int) float64 {
+	n := math.Sin(x*12.9898+y*78.233+float64(i)*4356.13) * 43758.5453
+	return n - math.Floor(n)
+}
+
+// ── Sketchy Line (2-pass Bézier wobble) ──
+
+// sketchLine generates a single pass of a sketchy line as PathCmds.
+// pass=0 is the main stroke, pass=1 is the lighter shadow/double.
+func sketchLine(x1, y1, x2, y2 float64, sw float64, seed float64, pass int, overshoot float64) StrokePath {
+	dx, dy := x2-x1, y2-y1
+	length := math.Hypot(dx, dy)
+	if length < 1 {
+		return StrokePath{Opacity: 0}
+	}
+	nx, ny := dx/length, dy/length
+	fp := float64(pass)
+
+	osStart := overshoot * (0.1 + sr(seed, fp, 1)*1.2)
+	osEnd := overshoot * (0.1 + sr(seed, fp, 2)*1.2)
+
+	perpAmount := sw * (0.2 + sr(seed, fp, 3)*0.5)
+	if sr(seed, fp, 4) > 0.5 {
+		perpAmount = -perpAmount
+	}
+	ox, oy := -ny*perpAmount, nx*perpAmount
+
+	sx := x1 - nx*osStart + ox
+	sy := y1 - ny*osStart + oy
+	ex := x2 + nx*osEnd + ox
+	ey := y2 + ny*osEnd + oy
+
+	t1 := 0.3 + (sr(seed, fp, 5)-0.5)*0.1
+	t2 := 0.7 + (sr(seed, fp, 6)-0.5)*0.1
+	wobbleAmount := length*0.01 + sw*0.8
+	c1x := sx + (ex-sx)*t1 + (sr(seed, fp, 7)-0.5)*wobbleAmount
+	c1y := sy + (ey-sy)*t1 + (sr(seed, fp, 8)-0.5)*wobbleAmount
+	c2x := sx + (ex-sx)*t2 + (sr(seed, fp, 9)-0.5)*wobbleAmount
+	c2y := sy + (ey-sy)*t2 + (sr(seed, fp, 10)-0.5)*wobbleAmount
+
+	var opacity, width float64
+	if pass == 0 {
+		opacity = 0.7 + sr(seed, fp, 11)*0.2
+		width = sw * (0.8 + sr(seed, fp, 13)*0.4)
+	} else {
+		opacity = 0.15 + sr(seed, fp, 12)*0.2
+		width = sw * (0.3 + sr(seed, fp, 14)*0.35)
+	}
+
+	return StrokePath{
+		Cmds: []PathCmd{
+			{Op: OpMoveTo, Args: []float64{sx, sy}},
+			{Op: OpCurveTo, Args: []float64{c1x, c1y, c2x, c2y, ex, ey}},
+		},
+		Opacity:     opacity,
+		StrokeWidth: width,
+	}
+}
+
+// sketchEdge generates both passes (main + shadow) for a sketchy line segment.
+func sketchEdge(x1, y1, x2, y2 float64, sw float64, seed float64, overshoot float64) []StrokePath {
+	return []StrokePath{
+		sketchLine(x1, y1, x2, y2, sw, seed, 0, overshoot),
+		sketchLine(x1, y1, x2, y2, sw, seed, 1, overshoot),
+	}
+}
+
+// ── Sketchy Shape Outlines ──
+
+// SketchOutline generates all stroke paths for a shape's sketchy outline.
+// Returns multiple StrokePaths that the frontend applies sequentially.
+func SketchOutline(shapeType string, w, h float64, seed int, sw float64) []StrokePath {
+	shape := DefaultRegistry.Get(shapeType)
+	if shape == nil {
+		return nil
+	}
+
+	fseed := float64(seed)
+
+	switch shapeType {
+	case "rectangle":
+		return sketchRectOutline(0, 0, w, h, sw, fseed)
+	case "ellipse":
+		return sketchEllipseOutline(w/2, h/2, w/2, h/2, sw, fseed)
+	case "diamond":
+		return sketchDiamondOutline(w/2, h/2, w, h, sw, fseed)
+	default:
+		// Custom shapes: decompose OutlinePath into edges and sketch each
+		return sketchFromPathCmds(shape.OutlinePath(w, h), sw, fseed)
+	}
+}
+
+// sketchRectOutline generates a sketchy rectangle (4 edges × 2 passes).
+func sketchRectOutline(x, y, w, h float64, sw float64, seed float64) []StrokePath {
+	corners := [][2]float64{{x, y}, {x + w, y}, {x + w, y + h}, {x, y + h}}
+	var paths []StrokePath
+	for e := 0; e < 4; e++ {
+		ax, ay := corners[e][0], corners[e][1]
+		bx, by := corners[(e+1)%4][0], corners[(e+1)%4][1]
+		edgeSeed := seed + float64(e)*137
+		paths = append(paths, sketchEdge(ax, ay, bx, by, sw, edgeSeed, 6)...)
+	}
+	return paths
+}
+
+// sketchEllipseOutline generates a sketchy ellipse (24-point wobble perimeter × 2 passes).
+func sketchEllipseOutline(cx, cy, rx, ry float64, sw float64, seed float64) []StrokePath {
+	var paths []StrokePath
+	for p := 0; p < 2; p++ {
+		fp := float64(p)
+		steps := 24
+		points := make([][2]float64, steps+1)
+		startOffset := (sr(seed, fp, 80) - 0.5) * 0.15
+		endOffset := 1.0 + (sr(seed, fp, 81)-0.5)*0.1
+
+		for i := 0; i <= steps; i++ {
+			t := float64(i) / float64(steps)
+			a := (startOffset + t*(endOffset-startOffset)) * math.Pi * 2
+			wobbleR := sw * (0.6 + sr(seed+fp*50, float64(i), 0)*0.8)
+			px := cx + (rx+(sr(seed+fp*50, float64(i), 2)-0.5)*wobbleR)*math.Cos(a)
+			py := cy + (ry+(sr(seed+fp*50, float64(i), 3)-0.5)*wobbleR)*math.Sin(a)
+			points[i] = [2]float64{px, py}
+		}
+
+		var opacity, width float64
+		if p == 0 {
+			opacity = 0.75
+			width = sw
+		} else {
+			opacity = 0.2
+			width = sw * (0.4 + sr(seed, fp, 90)*0.3)
+		}
+
+		cmds := []PathCmd{{Op: OpMoveTo, Args: []float64{points[0][0], points[0][1]}}}
+		for i := 1; i < len(points); i++ {
+			prev, cur := points[i-1], points[i]
+			cpx := (prev[0]+cur[0])/2 + (sr(seed, float64(i)+fp*100, 4)-0.5)*sw*0.6
+			cpy := (prev[1]+cur[1])/2 + (sr(seed, float64(i)+fp*100, 5)-0.5)*sw*0.6
+			cmds = append(cmds, PathCmd{Op: OpQuadTo, Args: []float64{cpx, cpy, cur[0], cur[1]}})
+		}
+
+		paths = append(paths, StrokePath{
+			Cmds:        cmds,
+			Opacity:     opacity,
+			StrokeWidth: width,
+		})
+	}
+	return paths
+}
+
+// sketchDiamondOutline generates a sketchy diamond (4 edges × 2 passes).
+func sketchDiamondOutline(cx, cy, w, h float64, sw float64, seed float64) []StrokePath {
+	pts := [][2]float64{
+		{cx, cy - h/2}, {cx + w/2, cy}, {cx, cy + h/2}, {cx - w/2, cy},
+	}
+	var paths []StrokePath
+	for e := 0; e < 4; e++ {
+		edgeSeed := seed + float64(e)*137
+		paths = append(paths, sketchEdge(
+			pts[e][0], pts[e][1], pts[(e+1)%4][0], pts[(e+1)%4][1],
+			sw, edgeSeed, 6,
+		)...)
+	}
+	return paths
+}
+
+// sketchFromPathCmds generates sketchy strokes from arbitrary PathCmds
+// by extracting line segments and adding wobble to each.
+func sketchFromPathCmds(cmds []PathCmd, sw float64, seed float64) []StrokePath {
+	if len(cmds) == 0 {
+		return nil
+	}
+	var paths []StrokePath
+	var curX, curY float64
+	edgeIdx := 0
+
+	for _, cmd := range cmds {
+		switch cmd.Op {
+		case OpMoveTo:
+			curX, curY = cmd.Args[0], cmd.Args[1]
+		case OpLineTo:
+			edgeSeed := seed + float64(edgeIdx)*137
+			paths = append(paths, sketchEdge(curX, curY, cmd.Args[0], cmd.Args[1], sw, edgeSeed, 6)...)
+			curX, curY = cmd.Args[0], cmd.Args[1]
+			edgeIdx++
+		case OpClose:
+			// closing edge will be handled by next MoveTo or end
+		}
+	}
+	return paths
+}
+
+// ── Fill (hachure or solid) ──
+
+// SketchFill generates fill strokes for a shape.
+// fillStyle: "hachure" (diagonal stripes) or "solid" (dense marker wash)
+// The frontend clips these strokes to the shape outline.
+func SketchFill(shapeType string, w, h float64, seed int, fillColor string, fillStyle string) []StrokePath {
+	fseed := float64(seed)
+
+	// Generate the clip path from the shape outline
+	shape := DefaultRegistry.Get(shapeType)
+	if shape == nil {
+		return nil
+	}
+	clipCmds := shape.OutlinePath(w, h)
+
+	// Clip path stroke (the frontend uses this as ctx.clip())
+	clipPath := StrokePath{
+		Cmds:   clipCmds,
+		IsClip: true,
+	}
+
+	paths := []StrokePath{clipPath}
+	cxc, cyc := w/2, h/2
+
+	if fillStyle == "solid" {
+		// Dense marker wash — tight spacing, low opacity, straight lines
+		baseAngle := 0.5 + (sr(fseed, fseed, 60)-0.5)*0.3
+		cos, sin := math.Cos(baseAngle), math.Sin(baseAngle)
+		diag := math.Hypot(w, h) + 30
+		spacing := 5 + sr(fseed, fseed, 61)*2
+		numStrokes := int(math.Ceil(diag / spacing))
+		bleed := 3 + sr(fseed, fseed, 62)*2
+
+		for i := 0; i < numStrokes; i++ {
+			t := float64(i) / float64(numStrokes)
+			offset := -diag/2 + t*diag
+			sx := cxc + cos*(-diag/2-bleed) + sin*offset
+			sy := cyc + sin*(-diag/2-bleed) - cos*offset
+			ex := cxc + cos*(diag/2+bleed) + sin*offset
+			ey := cyc + sin*(diag/2+bleed) - cos*offset
+
+			strokeW := 4 + sr(fseed, float64(i), 63)*3
+			op := 0.05 + sr(fseed, float64(i), 64)*0.06
+
+			paths = append(paths, StrokePath{
+				Cmds: []PathCmd{
+					{Op: OpMoveTo, Args: []float64{sx, sy}},
+					{Op: OpLineTo, Args: []float64{ex, ey}},
+				},
+				Opacity:     op,
+				StrokeWidth: strokeW,
+				FillColor:   fillColor,
+			})
+		}
+	} else {
+		// Hachure — diagonal stripes with quadratic wobble
+		baseAngle := 0.7 + (sr(fseed, fseed, 50)-0.5)*0.2
+		cos, sin := math.Cos(baseAngle), math.Sin(baseAngle)
+		diag := math.Hypot(w, h) + 20
+		spacing := 14 + sr(fseed, fseed, 51)*4
+		numStrokes := int(math.Ceil(diag / spacing))
+
+		for i := 0; i < numStrokes; i++ {
+			t := float64(i) / float64(numStrokes)
+			offset := -diag/2 + t*diag
+			sx := cxc + cos*(-diag/2) + sin*offset
+			sy := cyc + sin*(-diag/2) - cos*offset
+			ex := cxc + cos*(diag/2) + sin*offset
+			ey := cyc + sin*(diag/2) - cos*offset
+
+			strokeW := 4 + sr(fseed, float64(i), 52)*3
+			op := 0.2 + sr(fseed, float64(i), 53)*0.15
+			mx := (sx+ex)/2 + (sr(fseed, float64(i), 54)-0.5)*3
+			my := (sy+ey)/2 + (sr(fseed, float64(i), 55)-0.5)*3
+
+			paths = append(paths, StrokePath{
+				Cmds: []PathCmd{
+					{Op: OpMoveTo, Args: []float64{sx, sy}},
+					{Op: OpQuadTo, Args: []float64{mx, my, ex, ey}},
+				},
+				Opacity:     op,
+				StrokeWidth: strokeW,
+				FillColor:   fillColor,
+			})
+		}
+	}
+
+	return paths
+}
+
+// ── Sketchy Line Segments (for arrows) ──
+
+// SketchLinePaths generates sketchy StrokePaths for a polyline (list of points).
+// Each segment gets 2-pass Bézier wobble.
+func SketchLinePaths(points [][2]float64, seed int, sw float64) []StrokePath {
+	if len(points) < 2 {
+		return nil
+	}
+	var paths []StrokePath
+	fseed := float64(seed)
+	for i := 0; i < len(points)-1; i++ {
+		edgeSeed := fseed + float64(i)*100
+		paths = append(paths, sketchEdge(
+			points[i][0], points[i][1],
+			points[i+1][0], points[i+1][1],
+			sw, edgeSeed, 3,
+		)...)
+	}
+	return paths
+}
+
+// ── Arrow Heads ──
+
+// ArrowHeadPaths generates sketchy StrokePaths for an arrow head.
+// Style: "dot", "arrow", "triangle", "bar", "diamond"
+// tipX, tipY: tip position (local to arrow origin)
+// angle: direction the arrow points towards (radians)
+func ArrowHeadPaths(style string, tipX, tipY, angle, size float64, seed int, sw float64) []StrokePath {
+	fseed := float64(seed)
+	j := sw * 0.4
+	jt := func(i int) float64 { return (sr(fseed, float64(i), 20) - 0.5) * j }
+
+	switch style {
+	case "dot":
+		return arrowDot(tipX, tipY, sw, fseed)
+	case "arrow":
+		return arrowFilled(tipX, tipY, angle, size, fseed, jt)
+	case "triangle":
+		return arrowTriangle(tipX, tipY, angle, size, sw, fseed)
+	case "bar":
+		return arrowBar(tipX, tipY, angle, size, sw, fseed)
+	case "diamond":
+		return arrowDiamond(tipX, tipY, angle, size, sw, fseed)
+	default:
+		return nil
+	}
+}
+
+// arrowDot — sketchy filled circle at the tip
+func arrowDot(tipX, tipY, sw, seed float64) []StrokePath {
+	r := 2 + sw*1.5
+	var paths []StrokePath
+	for p := 0; p < 2; p++ {
+		fp := float64(p)
+		steps := 12
+		cmds := make([]PathCmd, 0, steps+2)
+		for i := 0; i <= steps; i++ {
+			a := (float64(i) / float64(steps)) * math.Pi * 2
+			jx := (sr(seed+fp*40, float64(i), 0) - 0.5) * sw * 0.6
+			jy := (sr(seed+fp*40, float64(i), 1) - 0.5) * sw * 0.6
+			px := tipX + r*math.Cos(a) + jx
+			py := tipY + r*math.Sin(a) + jy
+			if i == 0 {
+				cmds = append(cmds, PathCmd{Op: OpMoveTo, Args: []float64{px, py}})
+			} else {
+				cmds = append(cmds, PathCmd{Op: OpLineTo, Args: []float64{px, py}})
+			}
+		}
+		cmds = append(cmds, PathCmd{Op: OpClose})
+		op := 0.8
+		if p == 1 {
+			op = 0.25
+		}
+		paths = append(paths, StrokePath{
+			Cmds:    cmds,
+			Opacity: op,
+			IsFill:  true,
+		})
+	}
+	return paths
+}
+
+// arrowFilled — sketchy filled triangle arrow head
+func arrowFilled(tipX, tipY, angle, size, seed float64, jt func(int) float64) []StrokePath {
+	p1x := tipX - size*math.Cos(angle-math.Pi/6)
+	p1y := tipY - size*math.Sin(angle-math.Pi/6)
+	p2x := tipX - size*math.Cos(angle+math.Pi/6)
+	p2y := tipY - size*math.Sin(angle+math.Pi/6)
+
+	// Filled triangle
+	fillCmds := []PathCmd{
+		{Op: OpMoveTo, Args: []float64{tipX + jt(0), tipY + jt(1)}},
+		{Op: OpLineTo, Args: []float64{p1x + jt(2), p1y + jt(3)}},
+		{Op: OpLineTo, Args: []float64{p2x + jt(4), p2y + jt(5)}},
+		{Op: OpClose},
+	}
+	// Outline
+	outlineCmds := []PathCmd{
+		{Op: OpMoveTo, Args: []float64{tipX + jt(6), tipY + jt(7)}},
+		{Op: OpLineTo, Args: []float64{p1x + jt(8), p1y + jt(9)}},
+		{Op: OpLineTo, Args: []float64{p2x + jt(10), p2y + jt(11)}},
+		{Op: OpClose},
+	}
+	return []StrokePath{
+		{Cmds: fillCmds, Opacity: 0.7, IsFill: true},
+		{Cmds: outlineCmds, Opacity: 0.5, StrokeWidth: 1},
+	}
+}
+
+// arrowTriangle — sketchy outlined triangle (3 sketch edges)
+func arrowTriangle(tipX, tipY, angle, size, sw, seed float64) []StrokePath {
+	p1x := tipX - size*math.Cos(angle-math.Pi/6)
+	p1y := tipY - size*math.Sin(angle-math.Pi/6)
+	p2x := tipX - size*math.Cos(angle+math.Pi/6)
+	p2y := tipY - size*math.Sin(angle+math.Pi/6)
+
+	var paths []StrokePath
+	for p := 0; p < 2; p++ {
+		fp := float64(p)
+		paths = append(paths, sketchLine(tipX, tipY, p1x, p1y, sw*0.7, seed+fp*50, p, 2))
+		paths = append(paths, sketchLine(tipX, tipY, p2x, p2y, sw*0.7, seed+200+fp*50, p, 2))
+		paths = append(paths, sketchLine(p1x, p1y, p2x, p2y, sw*0.7, seed+400+fp*50, p, 2))
+	}
+	return paths
+}
+
+// arrowBar — sketchy perpendicular bar at the tip
+func arrowBar(tipX, tipY, angle, size, sw, seed float64) []StrokePath {
+	half := size * 0.6
+	bx1 := tipX + half*math.Cos(angle+math.Pi/2)
+	by1 := tipY + half*math.Sin(angle+math.Pi/2)
+	bx2 := tipX - half*math.Cos(angle+math.Pi/2)
+	by2 := tipY - half*math.Sin(angle+math.Pi/2)
+
+	var paths []StrokePath
+	for p := 0; p < 2; p++ {
+		paths = append(paths, sketchLine(bx1, by1, bx2, by2, sw, seed+float64(p)*50, p, 2))
+	}
+	return paths
+}
+
+// arrowDiamond — sketchy diamond shape at the tip (4 edges)
+func arrowDiamond(tipX, tipY, angle, size, sw, seed float64) []StrokePath {
+	half := size * 0.6
+	pts := [][2]float64{
+		{tipX + half*math.Cos(angle), tipY + half*math.Sin(angle)},
+		{tipX + half*math.Cos(angle+math.Pi/2), tipY + half*math.Sin(angle+math.Pi/2)},
+		{tipX - half*math.Cos(angle), tipY - half*math.Sin(angle)},
+		{tipX - half*math.Cos(angle-math.Pi/2), tipY - half*math.Sin(angle-math.Pi/2)},
+	}
+	var paths []StrokePath
+	for e := 0; e < 4; e++ {
+		paths = append(paths, sketchLine(
+			pts[e][0], pts[e][1],
+			pts[(e+1)%4][0], pts[(e+1)%4][1],
+			sw*0.7, seed+float64(e)*100, 0, 1,
+		))
+	}
+	return paths
+}

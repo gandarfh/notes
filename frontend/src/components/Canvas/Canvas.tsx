@@ -103,6 +103,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const connectorSvgRef = useRef<SVGSVGElement>(null)
     const drawingSvgRef = useRef<HTMLCanvasElement>(null)
+    const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
     const drawingLayerRef = useRef<HTMLDivElement>(null)
     const blockLayerRef = useRef<HTMLDivElement>(null)
     const drawingSubTool = useAppStore(s => s.drawingSubTool)
@@ -128,6 +129,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
 
     const { editorRequest, setEditorRequest, blockPreview, drawingCursor, renderDrawing, eventConsumedRef, styleSelection, updateSelectedStyle, clearDrawingSelection, reorderSelected, alignSelected, multiSelected } = useDrawing(
         drawingSvgRef,
+        overlayCanvasRef,
         containerRef,
         onBlockCreate,
     )
@@ -467,11 +469,19 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             {/* Connectors — screen space */}
             <svg ref={connectorSvgRef} className="absolute inset-0 w-full h-full pointer-events-none z-[2]" />
 
-            {/* Drawing canvas — direct child of container (canvas can't overflow like SVG).
-                Viewport transform is applied in the canvas context instead of CSS. */}
+            {/* Drawing canvas — transferred to Web Worker via OffscreenCanvas.
+                Worker handles all element rendering (WASM). */}
             <canvas
                 ref={drawingSvgRef}
                 className="drawing-canvas absolute inset-0 z-[1]"
+                style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
+            />
+
+            {/* Overlay canvas — stays on main thread for selection UI + handler overlays.
+                No WASM calls, just lightweight Canvas2D (handles, box select, anchors). */}
+            <canvas
+                ref={overlayCanvasRef}
+                className="drawing-overlay absolute inset-0 z-[1]"
                 style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
             />
 

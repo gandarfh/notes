@@ -1,4 +1,7 @@
 import { type DrawingElement, type ResizeHandle, isArrowType } from './types'
+import { type DrawingEngine, SHAPE_IDS } from './drawing-wasm'
+
+const getEngine = (): DrawingEngine | null => (globalThis as any).__drawingEngine ?? null
 
 /** Point-to-segment distance */
 export function segDist(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
@@ -39,13 +42,24 @@ export function isPointInElement(x: number, y: number, el: DrawingElement): bool
         const inInner = x > el.x + hit && x < el.x + el.width - hit && y > el.y + hit && y < el.y + el.height - hit
         return inOuter && !inInner
     }
-    // Shapes (rectangle, ellipse, diamond)
+
+    // Shapes — delegate to Go/WASM binary hit test
+    const engine = getEngine()
+    const shapeId = SHAPE_IDS[el.type]
+    if (engine && shapeId !== undefined) {
+        // Convert point to element-local coordinates
+        const localX = x - el.x
+        const localY = y - el.y
+        // Expand by margin for easier selection
+        if (localX < -m || localX > el.width + m || localY < -m || localY > el.height + m) return false
+        return engine.hitTestPointBin(shapeId, el.width, el.height, localX, localY)
+    }
+
+    // Fallback: bounding box
     const isFilled = el.backgroundColor && el.backgroundColor !== 'transparent'
     if (isFilled) {
-        // Filled shapes: hit anywhere inside
         return x >= el.x - m && x <= el.x + el.width + m && y >= el.y - m && y <= el.y + el.height + m
     }
-    // Transparent/no-fill shapes: only hit on the border stroke
     const sw = el.strokeWidth || 2
     const hit = m + sw
     const inOuter = x >= el.x - hit && x <= el.x + el.width + hit && y >= el.y - hit && y <= el.y + el.height + hit

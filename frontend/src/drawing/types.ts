@@ -35,7 +35,7 @@ export interface Connection {
 
 export interface DrawingElement {
     id: string
-    type: 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'ortho-arrow' | 'freedraw' | 'text' | 'diamond' | 'group'
+    type: 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'ortho-arrow' | 'freedraw' | 'text' | 'diamond' | 'group' | 'database' | 'vm' | 'terminal' | 'user' | 'cloud' | (string & {})
     x: number
     y: number
     width: number

@@ -20,7 +20,8 @@ function elementTypeCategory(type: string): ElementTypeCategory {
 import type { DrawingElement, DrawingSubTool } from '../drawing/types'
 import { getElementBounds } from '../drawing/types'
 import type { DrawingContext, InteractionHandler, Point, EditorRequest, BlockPreviewRect } from '../drawing/interfaces'
-import { drawElement, drawSelectionUI } from '../drawing/canvasRender'
+import { drawSelectionUI } from '../drawing/canvasRender'
+import { DrawingWorkerProxy, type RenderState } from '../drawing/drawing-worker-proxy'
 import { hitTest } from '../drawing/hitTest'
 import { SelectHandler } from '../drawing/handlers/select'
 import { ArrowHandler } from '../drawing/handlers/arrow'
@@ -37,6 +38,7 @@ import { genId } from '../drawing/types'
  */
 export function useDrawing(
     svgRef: React.RefObject<HTMLCanvasElement | null>,
+    overlayRef: React.RefObject<HTMLCanvasElement | null>,
     containerRef: React.RefObject<HTMLElement | null>,
     onBlockCreate: BlockCreationCallback,
 ) {
@@ -113,137 +115,120 @@ export function useDrawing(
     const getZoom = useCallback(() => useAppStore.getState().viewport.zoom, [])
 
     // ── Canvas2D Render State ──
-    // Each element's content is cached on an offscreen canvas.
-    // During drag, we just blit the cached canvas at the new position.
-    // Content re-renders only when element properties change.
-    const elCanvasMapRef = useRef<Map<string, HTMLCanvasElement>>(new Map())
-    const elHashMapRef = useRef<Map<string, number>>(new Map())
-    const lastBoardStyleRef = useRef('')
+    // Worker proxy — handles all element rendering in a Web Worker thread
+    const workerProxyRef = useRef<DrawingWorkerProxy | null>(null)
     // Live viewport ref — updated on every applyViewport call (store is only committed on mouseUp)
     const liveViewportRef = useRef(useAppStore.getState().viewport)
 
-    /** Fast numeric fingerprint of all rendering-relevant properties (excludes x, y) */
-    function fastHash(el: DrawingElement, extra: number): number {
-        let h = (el.width * 7 + el.height * 13 + el.strokeWidth * 17 + extra) | 0
-        h = (h * 31 + (el.opacity ?? 1) * 100 + (el.borderRadius ?? 0) * 11 + (el.fontSize ?? 14) * 19) | 0
-        h = (h * 31 + (el.fontWeight ?? 400) + (el.roundness ? 23 : 0)) | 0
-        h = (h * 31 + Math.round((el.labelT ?? 0.5) * 100)) | 0
-        const cc = (s: string | undefined) => { if (!s) return 0; let v = s.length; for (let i = 0; i < Math.min(s.length, 8); i++) v = (v * 31 + s.charCodeAt(i)) | 0; return v }
-        h = (h * 31 + cc(el.strokeColor) + cc(el.backgroundColor) * 3 + cc(el.textColor) * 5) | 0
-        h = (h * 31 + cc(el.fillStyle) + cc(el.strokeDasharray) + cc(el.text) * 7 + cc(el.label) * 11) | 0
-        h = (h * 31 + cc(el.fontFamily) + cc(el.textAlign) + cc(el.verticalAlign)) | 0
-        h = (h * 31 + cc(el.arrowEnd) + cc(el.arrowStart)) | 0
-        if (el.points && el.points.length > 0) {
-            h = (h * 31 + el.points.length * 1000) | 0
-            h = (h * 31 + (el.points[0][0] * 7 + el.points[0][1] * 13) | 0) | 0
-            const last = el.points[el.points.length - 1]
-            h = (h * 31 + (last[0] * 7 + last[1] * 13) | 0) | 0
-        }
-        return h
-    }
+    // Initialize worker when canvas is ready
+    useEffect(() => {
+        const canvas = svgRef.current
+        if (!canvas || !(canvas instanceof HTMLCanvasElement)) return
+        if (workerProxyRef.current) return // already initialized
 
-    // ── Render Canvas2D ──
+        try {
+            workerProxyRef.current = new DrawingWorkerProxy(canvas)
+        } catch (e) {
+            console.warn('OffscreenCanvas not supported, falling back to main thread rendering')
+        }
+
+        return () => {
+            workerProxyRef.current?.dispose()
+            workerProxyRef.current = null
+        }
+    }, [svgRef])
+
+    // ── Render ──
     const render = useCallback((viewport?: { x: number; y: number; zoom: number }) => {
         // Store the latest viewport for the RAF callback
         if (viewport) liveViewportRef.current = viewport
         if (rafRef.current !== null) return  // already scheduled
         rafRef.current = requestAnimationFrame(() => {
             rafRef.current = null
-            const canvas = svgRef.current as unknown as HTMLCanvasElement
-            if (!canvas || !(canvas instanceof HTMLCanvasElement)) return
-            const ctx = canvas.getContext('2d')
-            if (!ctx) return
 
             const sketchy = useAppStore.getState().boardStyle === 'sketchy'
-            const boardStyleKey = sketchy ? 's' : 'n'
-
-            // If board style changed, invalidate all element caches
-            if (lastBoardStyleRef.current !== boardStyleKey) {
-                lastBoardStyleRef.current = boardStyleKey
-                elHashMapRef.current.clear()
-                elCanvasMapRef.current.clear()
-            }
-
-            // Resize canvas to match layout size × devicePixelRatio
-            // Use clientWidth (not getBoundingClientRect) to avoid CSS transform interference
             const dpr = window.devicePixelRatio || 1
-            const cw = Math.round(canvas.clientWidth * dpr)
-            const ch = Math.round(canvas.clientHeight * dpr)
-            if (canvas.width !== cw || canvas.height !== ch) {
-                canvas.width = cw
-                canvas.height = ch
-            }
-
-            // Clear canvas
-            ctx.setTransform(1, 0, 0, 1, 0, 0)
-            ctx.clearRect(0, 0, cw, ch)
-
-            // Apply viewport transform: DPR → pan → zoom
-            // Uses live viewport ref (updated on every pan frame, not just store commits)
             const vp = liveViewportRef.current
-            ctx.setTransform(dpr * vp.zoom, 0, 0, dpr * vp.zoom, vp.x * dpr, vp.y * dpr)
+            const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' as const : 'dark' as const
 
-            // 1. Draw elements
-            const elements = [...elementsRef.current]
-            if (currentElementRef.current) elements.push(currentElementRef.current)
+            // ── 1. Worker: element rendering ──
+            const workerProxy = workerProxyRef.current
+            if (workerProxy) {
+                const canvas = svgRef.current
+                if (canvas) {
+                    const cw = Math.round(canvas.clientWidth * dpr)
+                    const ch = Math.round(canvas.clientHeight * dpr)
 
-            const selected = selectedElementRef.current
-            const multiSelected = selectedElementsRef.current
-
-            for (const el of elements) {
-                const isEditingThis = editorRequest?.elementId === el.id
-                drawElement(ctx, el, selected?.id === el.id || multiSelected.has(el.id), isEditingThis, sketchy)
-
-                // Draw red glow for elements pending deletion
-                if (highlightedElementsRef.current.has(el.id)) {
-                    ctx.save()
-                    ctx.strokeStyle = '#ef4444'
-                    ctx.lineWidth = 3
-                    ctx.shadowColor = '#ef4444'
-                    ctx.shadowBlur = 12
-                    ctx.globalAlpha = 0.5 + 0.3 * Math.sin(Date.now() / 300)
-                    const b = getElementBounds(el)
-                    const pad = 6
-                    ctx.beginPath()
-                    ctx.roundRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2, 8)
-                    ctx.stroke()
-                    ctx.restore()
-                }
-            }
-
-            // 2. Selection UI
-            if (selected && multiSelected.size <= 1) {
-                drawSelectionUI(ctx, selected)
-            }
-            if (multiSelected.size > 1) {
-                const selEls = elements.filter(e => multiSelected.has(e.id))
-                if (selEls.length > 0) {
-                    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-                    for (const el of selEls) {
-                        const b = getElementBounds(el)
-                        minX = Math.min(minX, b.x)
-                        minY = Math.min(minY, b.y)
-                        maxX = Math.max(maxX, b.x + b.w)
-                        maxY = Math.max(maxY, b.y + b.h)
+                    const state: RenderState = {
+                        elements: [...elementsRef.current],
+                        viewport: vp,
+                        selectedId: selectedElementRef.current?.id ?? null,
+                        multiSelectedIds: Array.from(selectedElementsRef.current),
+                        currentElement: currentElementRef.current,
+                        highlightedIds: Array.from(highlightedElementsRef.current),
+                        sketchy,
+                        canvasWidth: cw,
+                        canvasHeight: ch,
+                        dpr,
+                        theme,
                     }
-                    const pad = 6
-                    ctx.strokeStyle = '#6366f1'
-                    ctx.lineWidth = 1
-                    ctx.setLineDash([4, 3])
-                    ctx.beginPath()
-                    ctx.roundRect(minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2, 3)
-                    ctx.stroke()
-                    ctx.setLineDash([])
+                    workerProxy.requestRender(state)
                 }
             }
 
-            // 3. Handler overlay (anchors, box select, etc.)
-            const handler = activeHandlerRef.current
-            if (handler?.renderOverlay) {
-                handler.renderOverlay(buildContext(), ctx)
+            // ── 2. Overlay canvas: selection UI + handler overlay (main thread, no WASM) ──
+            const overlayCanvas = overlayRef.current
+            if (overlayCanvas && overlayCanvas instanceof HTMLCanvasElement) {
+                const oCw = Math.round(overlayCanvas.clientWidth * dpr)
+                const oCh = Math.round(overlayCanvas.clientHeight * dpr)
+                if (overlayCanvas.width !== oCw || overlayCanvas.height !== oCh) {
+                    overlayCanvas.width = oCw
+                    overlayCanvas.height = oCh
+                }
+                const oCtx = overlayCanvas.getContext('2d')
+                if (oCtx) {
+                    oCtx.setTransform(1, 0, 0, 1, 0, 0)
+                    oCtx.clearRect(0, 0, oCw, oCh)
+                    oCtx.setTransform(dpr * vp.zoom, 0, 0, dpr * vp.zoom, vp.x * dpr, vp.y * dpr)
+
+                    // Selection UI
+                    const selected = selectedElementRef.current
+                    const multiSelected = selectedElementsRef.current
+                    if (selected && multiSelected.size <= 1) {
+                        drawSelectionUI(oCtx, selected)
+                    }
+                    if (multiSelected.size > 1) {
+                        const elements = elementsRef.current
+                        const selEls = elements.filter(e => multiSelected.has(e.id))
+                        if (selEls.length > 0) {
+                            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+                            for (const el of selEls) {
+                                const b = getElementBounds(el)
+                                minX = Math.min(minX, b.x)
+                                minY = Math.min(minY, b.y)
+                                maxX = Math.max(maxX, b.x + b.w)
+                                maxY = Math.max(maxY, b.y + b.h)
+                            }
+                            const pad = 6
+                            oCtx.strokeStyle = '#6366f1'
+                            oCtx.lineWidth = 1
+                            oCtx.setLineDash([4, 3])
+                            oCtx.beginPath()
+                            oCtx.roundRect(minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2, 3)
+                            oCtx.stroke()
+                            oCtx.setLineDash([])
+                        }
+                    }
+
+                    // Handler overlay (anchors, box select, etc.)
+                    const handler = activeHandlerRef.current
+                    if (handler?.renderOverlay) {
+                        handler.renderOverlay(buildContext(), oCtx)
+                    }
+                }
             }
         })
-    }, [svgRef, editorRequest])
+    }, [svgRef, overlayRef, editorRequest])
 
     // ── Save (debounced) ──
     const saveNow = useCallback(() => {
@@ -386,8 +371,6 @@ export function useDrawing(
         currentElementRef.current = null
         selectedElementsRef.current.clear()
         // Clear canvas render cache for the new page
-        elCanvasMapRef.current.clear()
-        elHashMapRef.current.clear()
         render()
     }, [drawingData])
 

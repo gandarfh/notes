@@ -1,605 +1,67 @@
 package mcpserver
 
 import (
-	"math"
-	"sort"
+	"notes/pkg/drawing"
 )
 
 // ═══════════════════════════════════════════════════════════════
-// Orthogonal Arrow Routing with Obstacle Avoidance
-// Ported from frontend/src/drawing/ortho.ts (Dijkstra-based)
+// Orthogonal Arrow Routing — thin wrapper over pkg/drawing
 // ═══════════════════════════════════════════════════════════════
 
-const routeMargin = 60.0
-const minArrowDist = 60.0 // minimum distance between arrow endpoints
-const arrowGap = 15.0     // gap between parallel arrows
+const routeMargin = drawing.RouteMargin
+const arrowGap = drawing.ArrowGap
+const minArrowDist = 60.0
 
+// point is kept for backward compatibility with tools_drawing.go routeCandidate.
 type point struct{ x, y float64 }
 
-// rect is defined in layout.go — reused here
-
-func pt(x, y float64) point { return point{x, y} }
-
-func manhattan(a, b point) float64 {
-	return math.Abs(a.x-b.x) + math.Abs(a.y-b.y)
-}
-
-func rectContains(r rect, p point, margin float64) bool {
-	return p.x >= r.x-margin && p.x <= r.x+r.w+margin &&
-		p.y >= r.y-margin && p.y <= r.y+r.h+margin
-}
-
-// edgeCrossesRect checks if an axis-aligned segment crosses through a rect interior.
-func edgeCrossesRect(a, b point, r rect) bool {
-	if math.Abs(a.y-b.y) < 0.5 {
-		// Horizontal segment
-		y := a.y
-		if y <= r.y || y >= r.y+r.h {
-			return false
-		}
-		minX := math.Min(a.x, b.x)
-		maxX := math.Max(a.x, b.x)
-		return minX < r.x+r.w && maxX > r.x
-	}
-	if math.Abs(a.x-b.x) < 0.5 {
-		// Vertical segment
-		x := a.x
-		if x <= r.x || x >= r.x+r.w {
-			return false
-		}
-		minY := math.Min(a.y, b.y)
-		maxY := math.Max(a.y, b.y)
-		return minY < r.y+r.h && maxY > r.y
-	}
-	return false
-}
-
-// ── Priority Queue (min-heap by distance) ──────────────────
-
-type gNode struct {
-	pt   point
-	dist float64
-	prev *gNode
-	dir  byte // 'h' or 'v' or 0
-}
-
-type pqItem struct {
-	node *gNode
-}
-
-type priorityQueue []*pqItem
-
-func (pq *priorityQueue) push(item *pqItem) {
-	*pq = append(*pq, item)
-	pq.up(len(*pq) - 1)
-}
-
-func (pq *priorityQueue) pop() *pqItem {
-	old := *pq
-	n := len(old)
-	if n == 0 {
-		return nil
-	}
-	item := old[0]
-	old[0] = old[n-1]
-	*pq = old[:n-1]
-	if len(*pq) > 0 {
-		pq.down(0)
-	}
-	return item
-}
-
-func (pq *priorityQueue) up(i int) {
-	for i > 0 {
-		p := (i - 1) / 2
-		if (*pq)[i].node.dist >= (*pq)[p].node.dist {
-			break
-		}
-		(*pq)[i], (*pq)[p] = (*pq)[p], (*pq)[i]
-		i = p
-	}
-}
-
-func (pq *priorityQueue) down(i int) {
-	n := len(*pq)
-	for {
-		s, l, r := i, 2*i+1, 2*i+2
-		if l < n && (*pq)[l].node.dist < (*pq)[s].node.dist {
-			s = l
-		}
-		if r < n && (*pq)[r].node.dist < (*pq)[s].node.dist {
-			s = r
-		}
-		if s == i {
-			break
-		}
-		(*pq)[i], (*pq)[s] = (*pq)[s], (*pq)[i]
-		i = s
-	}
-}
-
-// ── Key helper ─────────────────────────────────────────────
-
-func ptKey(p point) int64 {
-	// Combine rounded x,y into a single int64 key
-	rx := int64(math.Round(p.x * 100))
-	ry := int64(math.Round(p.y * 100))
-	return rx*10000000 + ry
-}
-
-// ── Dijkstra on sparse point graph ─────────────────────────
-
-type edge struct {
-	to  point
-	w   float64
-	dir byte // 'h' or 'v'
-}
-
-func buildGraphAndRoute(spots []point, origin, dest point, shapeRects, arrowRects []rect) []point {
-	// Index spots by x and y for fast neighbor lookup
-	byX := map[int64][]point{}
-	byY := map[int64][]point{}
-	for _, s := range spots {
-		kx := int64(math.Round(s.x * 100))
-		ky := int64(math.Round(s.y * 100))
-		byX[kx] = append(byX[kx], s)
-		byY[ky] = append(byY[ky], s)
-	}
-
-	// Sort columns/rows
-	for _, arr := range byX {
-		sort.Slice(arr, func(i, j int) bool { return arr[i].y < arr[j].y })
-	}
-	for _, arr := range byY {
-		sort.Slice(arr, func(i, j int) bool { return arr[i].x < arr[j].x })
-	}
-
-	blocked := func(a, b point) bool {
-		for _, r := range shapeRects {
-			if edgeCrossesRect(a, b, r) {
-				return true
-			}
-		}
-		return false
-	}
-
-	// Arrow crossing penalty (soft obstacle)
-	arrowPenalty := func(a, b point) float64 {
-		penalty := 0.0
-		for _, r := range arrowRects {
-			if edgeCrossesRect(a, b, r) {
-				penalty += 150.0 // moderate penalty per arrow crossed
-			}
-		}
-		return penalty
-	}
-
-	// Build adjacency
-	adj := map[int64][]edge{}
-	for _, s := range spots {
-		k := ptKey(s)
-		if _, ok := adj[k]; !ok {
-			adj[k] = []edge{}
-		}
-	}
-
-	for _, arr := range byX {
-		for i := 0; i < len(arr)-1; i++ {
-			a, b := arr[i], arr[i+1]
-			if blocked(a, b) {
-				continue
-			}
-			w := math.Abs(b.y-a.y) + arrowPenalty(a, b)
-			adj[ptKey(a)] = append(adj[ptKey(a)], edge{b, w, 'v'})
-			adj[ptKey(b)] = append(adj[ptKey(b)], edge{a, w, 'v'})
-		}
-	}
-	for _, arr := range byY {
-		for i := 0; i < len(arr)-1; i++ {
-			a, b := arr[i], arr[i+1]
-			if blocked(a, b) {
-				continue
-			}
-			w := math.Abs(b.x-a.x) + arrowPenalty(a, b)
-			adj[ptKey(a)] = append(adj[ptKey(a)], edge{b, w, 'h'})
-			adj[ptKey(b)] = append(adj[ptKey(b)], edge{a, w, 'h'})
-		}
-	}
-
-	// Dijkstra with bend penalty
-	nodes := map[int64]*gNode{}
-	for _, s := range spots {
-		nodes[ptKey(s)] = &gNode{pt: s, dist: math.Inf(1)}
-	}
-
-	originNode := nodes[ptKey(origin)]
-	destNode := nodes[ptKey(dest)]
-	if originNode == nil || destNode == nil {
-		// L-shaped fallback (never diagonal)
-		return lShapeFallback(origin, dest)
-	}
-
-	originNode.dist = 0
-	visited := map[int64]bool{}
-	heap := &priorityQueue{}
-	heap.push(&pqItem{originNode})
-
-	destKey := ptKey(dest)
-
-	for len(*heap) > 0 {
-		cur := heap.pop().node
-		ck := ptKey(cur.pt)
-		if visited[ck] {
-			continue
-		}
-		visited[ck] = true
-		if ck == destKey {
-			break
-		}
-
-		for _, e := range adj[ck] {
-			ek := ptKey(e.to)
-			if visited[ek] {
-				continue
-			}
-			neighbor := nodes[ek]
-			if neighbor == nil {
-				continue
-			}
-			// Bend penalty
-			bendPenalty := 0.0
-			if cur.dir != 0 && cur.dir != e.dir {
-				bendPenalty = (e.w + 1) * (e.w + 1)
-			}
-			newDist := cur.dist + e.w + bendPenalty
-			if newDist < neighbor.dist {
-				neighbor.dist = newDist
-				neighbor.prev = cur
-				neighbor.dir = e.dir
-				heap.push(&pqItem{neighbor})
-			}
-		}
-	}
-
-	// Reconstruct path
-	var path []point
-	for n := destNode; n != nil; n = n.prev {
-		path = append([]point{n.pt}, path...)
-	}
-	if len(path) >= 2 {
-		return path
-	}
-	// L-shaped fallback (never diagonal)
-	return lShapeFallback(origin, dest)
-}
-
-// lShapeFallback creates an L-shaped path between two points, ensuring
-// no duplicate points (which would cause diagonal artifacts after simplification).
-func lShapeFallback(origin, dest point) []point {
-	if math.Abs(origin.x-dest.x) < 0.5 {
-		// Same X — straight vertical line
-		return []point{origin, dest}
-	}
-	if math.Abs(origin.y-dest.y) < 0.5 {
-		// Same Y — straight horizontal line
-		return []point{origin, dest}
-	}
-	// L-shape: go horizontal then vertical
-	return []point{origin, pt(dest.x, origin.y), dest}
-}
-
-// ── Main routing function ──────────────────────────────────
-
-// computeOrthoRoute computes obstacle-aware orthogonal path.
-// All output points are relative to arrow origin (0,0).
-// obstacles is a list of element bounding boxes in world coords.
-// srcX,srcY is the world position of the arrow start.
+// computeOrthoRoute delegates to pkg/drawing.ComputeOrthoRoute.
 func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect *rect, shapeObstacles, arrowObstacles []rect) [][]float64 {
-	margin := routeMargin
-
-	// If no rects provided, use simple L/Z routing
-	if srcRect == nil && dstRect == nil {
-		return simpleOrthoRoute(dx, dy, srcSide, dstSide)
+	opts := drawing.RouteOpts{
+		StartSide: srcSide,
+		EndSide:   dstSide,
 	}
-
-	origin := pt(0, 0)
-	dest := pt(dx, dy)
-
-	// Antenna points (extrude from edge)
-	sdx, sdy := sideDirF(srcSide)
-	ddx, ddy := sideDirF(dstSide)
-	antenna1 := pt(sdx*margin, sdy*margin)
-	antenna2 := pt(dx+ddx*margin, dy+ddy*margin)
-
-	// Build inflated obstacle rects (only from shapes — NOT arrows)
-	var obstacles []rect
 	if srcRect != nil {
-		obstacles = append(obstacles, rect{
-			srcRect.x - margin, srcRect.y - margin,
-			srcRect.w + margin*2, srcRect.h + margin*2,
-		})
+		r := drawing.Rect{X: srcRect.x, Y: srcRect.y, W: srcRect.w, H: srcRect.h}
+		opts.StartRect = &r
 	}
 	if dstRect != nil {
-		obstacles = append(obstacles, rect{
-			dstRect.x - margin, dstRect.y - margin,
-			dstRect.w + margin*2, dstRect.h + margin*2,
-		})
+		r := drawing.Rect{X: dstRect.x, Y: dstRect.y, W: dstRect.w, H: dstRect.h}
+		opts.EndRect = &r
 	}
-
-	// Inflate shape obstacles for grid generation
-	for _, obs := range shapeObstacles {
-		obstacles = append(obstacles, rect{
-			obs.x - margin, obs.y - margin,
-			obs.w + margin*2, obs.h + margin*2,
-		})
+	for _, o := range shapeObstacles {
+		opts.ShapeObstacles = append(opts.ShapeObstacles, drawing.Rect{X: o.x, Y: o.y, W: o.w, H: o.h})
 	}
-	// NOTE: Arrow obstacles are NOT inflated and NOT used for grid generation.
-	// They are passed separately to Dijkstra as soft penalties.
-
-	// Build rulers from obstacle edges + antenna points
-	var vRulers, hRulers []float64
-	for _, obs := range obstacles {
-		vRulers = append(vRulers, obs.x, obs.x+obs.w)
-		hRulers = append(hRulers, obs.y, obs.y+obs.h)
+	for _, o := range arrowObstacles {
+		opts.ArrowObstacles = append(opts.ArrowObstacles, drawing.Rect{X: o.x, Y: o.y, W: o.w, H: o.h})
 	}
-
-	isVertStart := srcSide == "top" || srcSide == "bottom"
-	isVertEnd := dstSide == "top" || dstSide == "bottom"
-	if isVertStart {
-		vRulers = append(vRulers, antenna1.x)
-	} else {
-		hRulers = append(hRulers, antenna1.y)
-	}
-	if isVertEnd {
-		vRulers = append(vRulers, antenna2.x)
-	} else {
-		hRulers = append(hRulers, antenna2.y)
-	}
-
-	vr := uniqSortF(vRulers)
-	hr := uniqSortF(hRulers)
-
-	// Global bounds
-	allX := append([]float64{origin.x, dest.x, antenna1.x, antenna2.x}, vr...)
-	allY := append([]float64{origin.y, dest.y, antenna1.y, antenna2.y}, hr...)
-	boundsL := minF(allX...) - margin
-	boundsT := minF(allY...) - margin
-	boundsR := maxF(allX...) + margin
-	boundsB := maxF(allY...) + margin
-
-	cellXs := append([]float64{boundsL}, append(vr, boundsR)...)
-	cellYs := append([]float64{boundsT}, append(hr, boundsB)...)
-
-	// Generate spots from grid intersections + midpoints
-	var rawSpots []point
-	for _, x := range cellXs {
-		for _, y := range cellYs {
-			rawSpots = append(rawSpots, pt(x, y))
-		}
-	}
-	for i := 0; i < len(cellXs)-1; i++ {
-		mx := (cellXs[i] + cellXs[i+1]) / 2
-		for _, y := range cellYs {
-			rawSpots = append(rawSpots, pt(mx, y))
-		}
-		for j := 0; j < len(cellYs)-1; j++ {
-			my := (cellYs[j] + cellYs[j+1]) / 2
-			rawSpots = append(rawSpots, pt(mx, my))
-		}
-	}
-	for j := 0; j < len(cellYs)-1; j++ {
-		my := (cellYs[j] + cellYs[j+1]) / 2
-		for _, x := range cellXs {
-			rawSpots = append(rawSpots, pt(x, my))
-		}
-	}
-
-	rawSpots = append(rawSpots, antenna1, antenna2)
-
-	// Original (non-inflated) obstacle rects for collision filtering
-	var originalObs []rect
-	if srcRect != nil {
-		originalObs = append(originalObs, *srcRect)
-	}
-	if dstRect != nil {
-		originalObs = append(originalObs, *dstRect)
-	}
-
-	// All rects for spot filtering (src, dst, plus all other shape obstacles)
-	allOriginalRects := append([]rect{}, originalObs...)
-	allOriginalRects = append(allOriginalRects, shapeObstacles...)
-
-	// Filter out spots inside any shape rect, but ALWAYS keep antenna points
-	ant1Key := ptKey(antenna1)
-	ant2Key := ptKey(antenna2)
-	var spots []point
-	for _, p := range rawSpots {
-		pk := ptKey(p)
-		if pk == ant1Key || pk == ant2Key {
-			spots = append(spots, p)
-			continue
-		}
-		inside := false
-		for _, obs := range allOriginalRects {
-			if rectContains(obs, p, 1) {
-				inside = true
-				break
-			}
-		}
-		if !inside {
-			spots = append(spots, p)
-		}
-	}
-
-	// Deduplicate
-	seen := map[int64]bool{}
-	var uniqueSpots []point
-	for _, s := range spots {
-		k := ptKey(s)
-		if !seen[k] {
-			seen[k] = true
-			uniqueSpots = append(uniqueSpots, s)
-		}
-	}
-
-	// Run Dijkstra: shapes hard-block edges, arrows add soft penalty
-	blockRects := append(originalObs, shapeObstacles...)
-	path := buildGraphAndRoute(uniqueSpots, antenna1, antenna2, blockRects, arrowObstacles)
-
-	// Compose: origin → antenna path → destination
-	fullPath := append([]point{origin}, append(path, dest)...)
-
-	// Deduplicate consecutive points BEFORE simplification (prevents diagonals)
-	fullPath = dedupPoints(fullPath)
-
-	// Simplify collinear
-	simplified := []point{fullPath[0]}
-	for i := 1; i < len(fullPath)-1; i++ {
-		prev, cur, next := fullPath[i-1], fullPath[i], fullPath[i+1]
-		sameX := math.Abs(prev.x-cur.x) < 0.5 && math.Abs(cur.x-next.x) < 0.5
-		sameY := math.Abs(prev.y-cur.y) < 0.5 && math.Abs(cur.y-next.y) < 0.5
-		if !sameX && !sameY {
-			simplified = append(simplified, cur)
-		}
-	}
-	simplified = append(simplified, fullPath[len(fullPath)-1])
-
-	// Convert to [][]float64
-	result := make([][]float64, 0, len(simplified))
-	for _, p := range simplified {
-		result = append(result, []float64{p.x, p.y})
-	}
-
-	// Final dedup consecutive (after float conversion)
-	clean := [][]float64{result[0]}
-	for i := 1; i < len(result); i++ {
-		if math.Abs(result[i][0]-clean[len(clean)-1][0]) > 0.5 ||
-			math.Abs(result[i][1]-clean[len(clean)-1][1]) > 0.5 {
-			clean = append(clean, result[i])
-		}
-	}
-
-	if len(clean) >= 2 {
-		return clean
-	}
-	return simpleOrthoRoute(dx, dy, srcSide, dstSide)
+	return drawing.ComputeOrthoRoute(dx, dy, opts)
 }
 
-// dedupPoints removes consecutive duplicate/near-duplicate points.
-func dedupPoints(pts []point) []point {
-	if len(pts) == 0 {
-		return pts
-	}
-	result := []point{pts[0]}
-	for i := 1; i < len(pts); i++ {
-		if math.Abs(pts[i].x-result[len(result)-1].x) > 0.5 ||
-			math.Abs(pts[i].y-result[len(result)-1].y) > 0.5 {
-			result = append(result, pts[i])
-		}
-	}
-	return result
-}
-
-// simpleOrthoRoute is the fallback L/Z-shaped routing without obstacle avoidance.
+// simpleOrthoRoute delegates to pkg/drawing.SimpleOrthoRoute.
 func simpleOrthoRoute(dx, dy float64, srcSide, dstSide string) [][]float64 {
-	isVertSrc := srcSide == "top" || srcSide == "bottom"
-	isVertDst := dstSide == "top" || dstSide == "bottom"
-
-	sdx, sdy := sideDirF(srcSide)
-	ddx, ddy := sideDirF(dstSide)
-	a1x := sdx * routeMargin
-	a1y := sdy * routeMargin
-	a2x := dx + ddx*routeMargin
-	a2y := dy + ddy*routeMargin
-
-	var points [][]float64
-	if isVertSrc && isVertDst {
-		midY := (a1y + a2y) / 2
-		points = [][]float64{{0, 0}, {0, a1y}, {0, midY}, {dx, midY}, {dx, a2y}, {dx, dy}}
-	} else if !isVertSrc && !isVertDst {
-		midX := (a1x + a2x) / 2
-		points = [][]float64{{0, 0}, {a1x, 0}, {midX, 0}, {midX, dy}, {a2x, dy}, {dx, dy}}
-	} else if isVertSrc {
-		points = [][]float64{{0, 0}, {0, a1y}, {0, dy}, {dx, dy}}
-	} else {
-		points = [][]float64{{0, 0}, {a1x, 0}, {dx, 0}, {dx, dy}}
-	}
-	return simplifyOrtho(points)
+	return drawing.SimpleOrthoRoute(dx, dy, srcSide, dstSide)
 }
 
+// sideDirF delegates to pkg/drawing.SideDir.
 func sideDirF(side string) (float64, float64) {
-	switch side {
-	case "top":
-		return 0, -1
-	case "bottom":
-		return 0, 1
-	case "left":
-		return -1, 0
-	case "right":
-		return 1, 0
-	}
-	return 0, 1
+	return drawing.SideDir(side)
 }
 
-// simplifyOrtho removes collinear waypoints from an ortho path.
+// simplifyOrtho delegates to pkg/drawing.SimplifyOrtho.
 func simplifyOrtho(pts [][]float64) [][]float64 {
-	if len(pts) < 3 {
-		return pts
-	}
-	result := [][]float64{pts[0]}
-	for i := 1; i < len(pts)-1; i++ {
-		prev, cur, next := pts[i-1], pts[i], pts[i+1]
-		sameX := math.Abs(prev[0]-cur[0]) < 0.5 && math.Abs(cur[0]-next[0]) < 0.5
-		sameY := math.Abs(prev[1]-cur[1]) < 0.5 && math.Abs(cur[1]-next[1]) < 0.5
-		if !sameX && !sameY {
-			result = append(result, cur)
-		}
-	}
-	result = append(result, pts[len(pts)-1])
-	return result
+	return drawing.SimplifyOrtho(pts)
 }
 
-// ── Helper utilities ───────────────────────────────────────
-
-func uniqSortF(arr []float64) []float64 {
-	seen := map[int64]bool{}
-	var out []float64
-	for _, v := range arr {
-		k := int64(math.Round(v * 100))
-		if !seen[k] {
-			seen[k] = true
-			out = append(out, v)
-		}
-	}
-	sort.Float64s(out)
-	return out
+// binarySubdivisionT delegates to pkg/drawing.BinarySubdivisionT.
+func binarySubdivisionT(index int) float64 {
+	return drawing.BinarySubdivisionT(index)
 }
 
-func minF(vals ...float64) float64 {
-	m := vals[0]
-	for _, v := range vals[1:] {
-		if v < m {
-			m = v
-		}
-	}
-	return m
-}
-
-func maxF(vals ...float64) float64 {
-	m := vals[0]
-	for _, v := range vals[1:] {
-		if v > m {
-			m = v
-		}
-	}
-	return m
-}
-
-// ── Connection slot distribution ───────────────────────────
+// ── MCP-specific helpers (stay here — they use drawingElement) ──
 
 // connectSlot computes the `t` parameter for a new arrow connecting
-// to the given element on the given side. Uses binary subdivision to
-// evenly distribute connection points: 0.5, 0.25, 0.75, 0.125, 0.875...
+// to the given element on the given side.
 func connectSlot(elements []drawingElement, elementID, side string) float64 {
 	count := 0
 	for _, el := range elements {
@@ -619,33 +81,6 @@ func connectSlot(elements []drawingElement, elementID, side string) float64 {
 	return binarySubdivisionT(count)
 }
 
-// binarySubdivisionT returns the t-value for the nth connection slot.
-// Pattern: 0.5, 0.25, 0.75, 0.125, 0.875, 0.375, 0.625...
-// This maximizes spacing between successive connection points.
-func binarySubdivisionT(index int) float64 {
-	// Find which level of the binary tree this index falls in
-	k := 0
-	threshold := 1 // 2^0 = 1 item at level 0
-	remaining := index
-	for remaining >= threshold {
-		remaining -= threshold
-		k++
-		threshold *= 2
-	}
-	// Position within level k: (2*remaining+1) / 2^(k+1)
-	denom := 1 << uint(k+1)
-	num := 2*remaining + 1
-	t := float64(num) / float64(denom)
-	// Clamp to [0.1, 0.9] to avoid placing arrows at corners
-	if t < 0.1 {
-		t = 0.1
-	}
-	if t > 0.9 {
-		t = 0.9
-	}
-	return t
-}
-
 func isArrow(el drawingElement) bool {
 	t, _ := el["type"].(string)
 	return t == "ortho-arrow" || t == "arrow"
@@ -660,17 +95,12 @@ func isGroup(el drawingElement) bool {
 	return g
 }
 
-// ── Obstacle collection ────────────────────────────────────
-
 // collectObstacleRects returns bounding boxes for all non-arrow elements,
 // converting from world coordinates to arrow-local coordinates.
 func collectObstacleRects(elements []drawingElement, excludeIDs map[string]bool, originX, originY float64) []rect {
 	var rects []rect
 	for _, el := range elements {
-		if isArrow(el) {
-			continue
-		}
-		if isGroup(el) {
+		if isArrow(el) || isGroup(el) {
 			continue
 		}
 		id, _ := el["id"].(string)
@@ -681,7 +111,6 @@ func collectObstacleRects(elements []drawingElement, excludeIDs map[string]bool,
 		y, _ := el["y"].(float64)
 		w, _ := el["width"].(float64)
 		h, _ := el["height"].(float64)
-		// Convert to arrow-local coordinates
 		rects = append(rects, rect{x - originX, y - originY, w, h})
 	}
 	return rects
@@ -691,10 +120,7 @@ func collectObstacleRects(elements []drawingElement, excludeIDs map[string]bool,
 func collectWorldObstacleRects(elements []drawingElement, excludeIDs map[string]bool) []rect {
 	var rects []rect
 	for _, el := range elements {
-		if isArrow(el) {
-			continue
-		}
-		if isGroup(el) {
+		if isArrow(el) || isGroup(el) {
 			continue
 		}
 		id, _ := el["id"].(string)
@@ -710,8 +136,7 @@ func collectWorldObstacleRects(elements []drawingElement, excludeIDs map[string]
 	return rects
 }
 
-// ── Element bounding box ───────────────────────────────────
-
+// elementRect finds the bounding box of an element by ID.
 func elementRect(elements []drawingElement, id string) *rect {
 	for _, el := range elements {
 		elID, _ := el["id"].(string)
@@ -726,11 +151,7 @@ func elementRect(elements []drawingElement, id string) *rect {
 	return nil
 }
 
-// ── Arrow-as-obstacle collection ───────────────────────────
-
-// collectArrowObstacleRects extracts thin rectangles from existing arrow paths
-// so that new arrows route around them. Each arrow segment becomes a thin rect
-// of arrowGap width, preventing parallel arrow overlap.
+// collectArrowObstacleRects extracts thin rectangles from existing arrow paths.
 func collectArrowObstacleRects(elements []drawingElement, excludeIDs map[string]bool, originX, originY float64) []rect {
 	var rects []rect
 	for _, el := range elements {
@@ -748,38 +169,35 @@ func collectArrowObstacleRects(elements []drawingElement, excludeIDs map[string]
 			continue
 		}
 
-		// Extract points
-		pts := make([]point, 0, len(rawPts))
+		type pt struct{ x, y float64 }
+		pts := make([]pt, 0, len(rawPts))
 		for _, rp := range rawPts {
 			switch v := rp.(type) {
 			case []any:
 				if len(v) >= 2 {
 					px, _ := v[0].(float64)
 					py, _ := v[1].(float64)
-					pts = append(pts, pt(px+ax-originX, py+ay-originY))
+					pts = append(pts, pt{px + ax - originX, py + ay - originY})
 				}
 			case []float64:
 				if len(v) >= 2 {
-					pts = append(pts, pt(v[0]+ax-originX, v[1]+ay-originY))
+					pts = append(pts, pt{v[0] + ax - originX, v[1] + ay - originY})
 				}
 			}
 		}
 
-		// Create thin rects from each segment
 		for i := 0; i < len(pts)-1; i++ {
 			p1, p2 := pts[i], pts[i+1]
-			segLen := math.Abs(p2.x-p1.x) + math.Abs(p2.y-p1.y)
+			segLen := abs(p2.x-p1.x) + abs(p2.y-p1.y)
 			if segLen < 5 {
-				continue // skip very short segments
+				continue
 			}
-			if math.Abs(p1.y-p2.y) < 1 {
-				// Horizontal segment
-				minX := math.Min(p1.x, p2.x)
-				rects = append(rects, rect{minX, p1.y - arrowGap/2, math.Abs(p2.x - p1.x), arrowGap})
-			} else if math.Abs(p1.x-p2.x) < 1 {
-				// Vertical segment
-				minY := math.Min(p1.y, p2.y)
-				rects = append(rects, rect{p1.x - arrowGap/2, minY, arrowGap, math.Abs(p2.y - p1.y)})
+			if abs(p1.y-p2.y) < 1 {
+				minX := min(p1.x, p2.x)
+				rects = append(rects, rect{minX, p1.y - arrowGap/2, abs(p2.x - p1.x), arrowGap})
+			} else if abs(p1.x-p2.x) < 1 {
+				minY := min(p1.y, p2.y)
+				rects = append(rects, rect{p1.x - arrowGap/2, minY, arrowGap, abs(p2.y - p1.y)})
 			}
 		}
 	}
