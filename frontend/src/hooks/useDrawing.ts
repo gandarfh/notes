@@ -165,7 +165,7 @@ export function useDrawing(
 
                     const cs = getComputedStyle(document.documentElement)
                     const state: RenderState = {
-                        elements: [...elementsRef.current],
+                        elements: elementsRef.current,
                         viewport: vp,
                         selectedId: selectedElementRef.current?.id ?? null,
                         multiSelectedIds: Array.from(selectedElementsRef.current),
@@ -379,6 +379,8 @@ export function useDrawing(
         selectedElementRef.current = null
         currentElementRef.current = null
         selectedElementsRef.current.clear()
+        // Invalidate proxy cache — force full sync for new page
+        workerProxyRef.current?.invalidate()
         // Clear canvas render cache for the new page
         render()
     }, [drawingData])

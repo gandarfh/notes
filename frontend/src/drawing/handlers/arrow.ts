@@ -26,11 +26,24 @@ function findElById(elements: DrawingElement[], id?: string): DrawingElement | u
     return id ? elements.find(e => e.id === id) : undefined
 }
 
-/** Collect non-arrow shape bounding boxes as obstacles (arrow-local coords) */
-function collectObstacles(elements: DrawingElement[], arrowX: number, arrowY: number, excludeIds: Set<string | undefined>): Rect[] {
-    return elements
-        .filter(e => !isArrowType(e) && e.type !== 'group' && !excludeIds.has(e.id))
-        .map(e => ({ x: e.x - arrowX, y: e.y - arrowY, w: e.width, h: e.height }))
+/** Collect non-arrow shape bounding boxes as obstacles (arrow-local coords).
+ *  Only includes shapes near the arrow route area to keep obstacle count low. */
+function collectObstacles(elements: DrawingElement[], arrowX: number, arrowY: number, excludeIds: Set<string | undefined>, dx = 0, dy = 0): Rect[] {
+    // Compute route bounding box in world coords with generous margin
+    const margin = 200
+    const minWx = arrowX + Math.min(0, dx) - margin
+    const maxWx = arrowX + Math.max(0, dx) + margin
+    const minWy = arrowY + Math.min(0, dy) - margin
+    const maxWy = arrowY + Math.max(0, dy) + margin
+
+    const obstacles: Rect[] = []
+    for (const e of elements) {
+        if (isArrowType(e) || e.type === 'group' || excludeIds.has(e.id)) continue
+        // Skip shapes outside the route corridor
+        if (e.x + e.width < minWx || e.x > maxWx || e.y + e.height < minWy || e.y > maxWy) continue
+        obstacles.push({ x: e.x - arrowX, y: e.y - arrowY, w: e.width, h: e.height })
+    }
+    return obstacles
 }
 
 export class ArrowHandler implements InteractionHandler {
@@ -102,7 +115,7 @@ export class ArrowHandler implements InteractionHandler {
 
             // Collect obstacles (all shapes except src/dst)
             const excludeIds = new Set([ctx.currentElement.startConnection?.elementId, endConn?.elementId])
-            const obstacles = collectObstacles(ctx.elements, ctx.currentElement.x, ctx.currentElement.y, excludeIds)
+            const obstacles = collectObstacles(ctx.elements, ctx.currentElement.x, ctx.currentElement.y, excludeIds, dx, dy)
 
             ctx.currentElement.points = computeOrthoRoute(dx, dy, sSide, eSide, sRect, eRect, obstacles)
 
@@ -158,7 +171,7 @@ export class ArrowHandler implements InteractionHandler {
                 this.lastRouteTime = now
                 // Collect obstacles (all shapes except src/dst)
                 const excludeIds = new Set([ctx.currentElement.startConnection?.elementId, nearAnchor?.elementId])
-                const obstacles = collectObstacles(ctx.elements, ctx.currentElement.x, ctx.currentElement.y, excludeIds)
+                const obstacles = collectObstacles(ctx.elements, ctx.currentElement.x, ctx.currentElement.y, excludeIds, dx, dy)
 
                 ctx.currentElement.points = computeOrthoRoute(dx, dy, sSide, eSide, sRect, eRect, obstacles)
             }

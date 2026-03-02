@@ -41,7 +41,13 @@ interface DrawingElement {
 }
 
 interface RenderState {
-    elements: DrawingElement[]
+    // Full element list (only sent on fullSync)
+    elements?: DrawingElement[]
+    // Diff-based updates (sent on partial renders)
+    dirtyElements?: DrawingElement[]
+    removedIds?: string[]
+    // Force full redraw (page switch, theme change, zoom change)
+    fullSync: boolean
     viewport: { x: number; y: number; zoom: number }
     selectedId: string | null
     multiSelectedIds: string[]
@@ -502,6 +508,34 @@ function drawArrowLabel(ctx: OffscreenCanvasRenderingContext2D, el: DrawingEleme
     ctx.fillText(el.label, lx, ly)
 }
 
+// ── Viewport Culling ──
+
+function getElementAABB(el: DrawingElement): { x1: number; y1: number; x2: number; y2: number } {
+    if (el.points && el.points.length > 0) {
+        // Arrow/line/freedraw: compute bounds from points
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+        for (const p of el.points) {
+            const px = el.x + p[0], py = el.y + p[1]
+            if (px < minX) minX = px
+            if (py < minY) minY = py
+            if (px > maxX) maxX = px
+            if (py > maxY) maxY = py
+        }
+        return { x1: minX, y1: minY, x2: maxX, y2: maxY }
+    }
+    return { x1: el.x, y1: el.y, x2: el.x + el.width, y2: el.y + el.height }
+}
+
+function isVisible(
+    el: DrawingElement,
+    viewL: number, viewT: number, viewR: number, viewB: number,
+    margin: number,
+): boolean {
+    const b = getElementAABB(el)
+    return b.x2 + margin >= viewL && b.x1 - margin <= viewR &&
+        b.y2 + margin >= viewT && b.y1 - margin <= viewB
+}
+
 // ── Worker Message Handler ──
 
 let canvas: OffscreenCanvas | null = null
@@ -513,6 +547,16 @@ let _lastCanvasBg = ''
 let _lastDefaultStroke = ''
 let _lastHighlightColor = ''
 let _editingElementId: string | null = null
+
+// ── Static Cache Layer ──
+let staticCanvas: OffscreenCanvas | null = null
+let staticCtx: OffscreenCanvasRenderingContext2D | null = null
+let cachedElementMap: Map<string, DrawingElement> = new Map()
+let staticDirty = true // force full redraw on first render
+let lastVp = { x: 0, y: 0, zoom: 0 }
+let lastCw = 0, lastCh = 0
+let lastTheme = ''
+let lastSketchy = false
 
 self.onmessage = async (e: MessageEvent) => {
     const msg = e.data
@@ -536,22 +580,8 @@ self.onmessage = async (e: MessageEvent) => {
                 const isLight = state.theme === 'light'
                 const cw = state.canvasWidth
                 const ch = state.canvasHeight
-
-                // Create/resize internal OffscreenCanvas as needed
-                if (!canvas || canvas.width !== cw || canvas.height !== ch) {
-                    canvas = new OffscreenCanvas(cw, ch)
-                    ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D | null
-                }
-                if (!ctx) return
-
-                // Clear
-                ctx.setTransform(1, 0, 0, 1, 0, 0)
-                ctx.clearRect(0, 0, cw, ch)
-
-                // Viewport transform
                 const vp = state.viewport
                 const dpr = state.dpr
-                ctx.setTransform(dpr * vp.zoom, 0, 0, dpr * vp.zoom, vp.x * dpr, vp.y * dpr)
 
                 // Track render state for helpers
                 _lastIsLight = isLight
@@ -561,23 +591,115 @@ self.onmessage = async (e: MessageEvent) => {
                 _lastHighlightColor = state.highlightColor
                 _editingElementId = state.editingElementId
 
-                // Draw all elements
-                const elements = [...state.elements]
-                if (state.currentElement) elements.push(state.currentElement)
+                // Detect global changes that require full static cache rebuild
+                const globalChanged = state.fullSync ||
+                    cw !== lastCw || ch !== lastCh ||
+                    vp.x !== lastVp.x || vp.y !== lastVp.y || vp.zoom !== lastVp.zoom ||
+                    state.theme !== lastTheme || state.sketchy !== lastSketchy
 
-                for (const el of elements) {
-                    try {
-                        drawElement(ctx, el, isLight)
-                    } catch {
-                        // Skip element on error
+                lastVp = { ...vp }; lastCw = cw; lastCh = ch
+                lastTheme = state.theme; lastSketchy = state.sketchy
+
+                // Create/resize canvases as needed
+                if (!canvas || canvas.width !== cw || canvas.height !== ch) {
+                    canvas = new OffscreenCanvas(cw, ch)
+                    ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D | null
+                    staticDirty = true
+                }
+                if (!staticCanvas || staticCanvas.width !== cw || staticCanvas.height !== ch) {
+                    staticCanvas = new OffscreenCanvas(cw, ch)
+                    staticCtx = staticCanvas.getContext('2d') as OffscreenCanvasRenderingContext2D | null
+                    staticDirty = true
+                }
+                if (!ctx || !staticCtx) return
+
+                // Compute visible world-space rectangle for culling
+                const invZoom = 1 / vp.zoom
+                const viewL = -vp.x * invZoom
+                const viewT = -vp.y * invZoom
+                const viewR = viewL + (cw / dpr) * invZoom
+                const viewB = viewT + (ch / dpr) * invZoom
+                const MARGIN = 100
+
+                // Apply state updates to element map
+                if (state.fullSync && state.elements) {
+                    cachedElementMap.clear()
+                    for (const el of state.elements) {
+                        cachedElementMap.set(el.id, el)
                     }
+                    staticDirty = true
+                } else {
+                    // Apply diffs
+                    if (state.removedIds) {
+                        for (const id of state.removedIds) {
+                            cachedElementMap.delete(id)
+                        }
+                        staticDirty = true
+                    }
+                    if (state.dirtyElements) {
+                        for (const el of state.dirtyElements) {
+                            cachedElementMap.set(el.id, el)
+                        }
+                    }
+                }
+
+                const allElements = Array.from(cachedElementMap.values())
+                const dirtyIds = state.dirtyElements
+                    ? new Set(state.dirtyElements.map(e => e.id))
+                    : new Set<string>()
+
+                // ── Rebuild static cache if needed ──
+                if (globalChanged || staticDirty) {
+                    staticCtx.setTransform(1, 0, 0, 1, 0, 0)
+                    staticCtx.clearRect(0, 0, cw, ch)
+                    staticCtx.setTransform(dpr * vp.zoom, 0, 0, dpr * vp.zoom, vp.x * dpr, vp.y * dpr)
+
+                    for (const el of allElements) {
+                        try {
+                            if (!isVisible(el, viewL, viewT, viewR, viewB, MARGIN)) continue
+                            drawElement(staticCtx, el, isLight)
+                        } catch { /* skip */ }
+                    }
+                    staticDirty = false
+                    dirtyIds.clear() // all elements are now in static cache
+                } else if (dirtyIds.size > 0) {
+                    // Partial update: redraw only dirty elements into static cache
+                    // Full redraw of static cache is simpler and more correct than
+                    // trying to erase individual elements (overlapping elements, anti-aliasing)
+                    staticCtx.setTransform(1, 0, 0, 1, 0, 0)
+                    staticCtx.clearRect(0, 0, cw, ch)
+                    staticCtx.setTransform(dpr * vp.zoom, 0, 0, dpr * vp.zoom, vp.x * dpr, vp.y * dpr)
+
+                    for (const el of allElements) {
+                        try {
+                            if (!isVisible(el, viewL, viewT, viewR, viewB, MARGIN)) continue
+                            drawElement(staticCtx, el, isLight)
+                        } catch { /* skip */ }
+                    }
+                }
+
+                // ── Compose final frame ──
+                ctx.setTransform(1, 0, 0, 1, 0, 0)
+                ctx.clearRect(0, 0, cw, ch)
+
+                // Blit static cache
+                ctx.drawImage(staticCanvas, 0, 0)
+
+                // Draw current in-progress element (not in cache)
+                if (state.currentElement) {
+                    ctx.setTransform(dpr * vp.zoom, 0, 0, dpr * vp.zoom, vp.x * dpr, vp.y * dpr)
+                    try {
+                        drawElement(ctx, state.currentElement, isLight)
+                    } catch { /* skip */ }
                 }
 
                 // Draw highlight glow for pending-delete elements
                 if (state.highlightedIds.length > 0) {
+                    ctx.setTransform(dpr * vp.zoom, 0, 0, dpr * vp.zoom, vp.x * dpr, vp.y * dpr)
                     const highlightSet = new Set(state.highlightedIds)
-                    for (const el of elements) {
+                    for (const el of allElements) {
                         if (!highlightSet.has(el.id)) continue
+                        if (!isVisible(el, viewL, viewT, viewR, viewB, MARGIN)) continue
                         ctx.save()
                         ctx.strokeStyle = _lastHighlightColor
                         ctx.lineWidth = 3

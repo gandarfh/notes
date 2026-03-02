@@ -85,10 +85,10 @@ export function findNearestAnchor(elements: DrawingElement[], x: number, y: numb
 }
 
 /** Update arrows connected to a moved element.
- *  Always does a full path rebuild via computeOrthoRoute with all shapes as obstacles.
+ *  Rebuilds path via computeOrthoRoute with nearby shapes as obstacles.
  */
 export function updateConnectedArrows(elements: DrawingElement[], movedElementId: string) {
-    // Collect all non-arrow shape rects once (reused for every arrow)
+    // Shapes list for lookups (computed once, filtering done per-arrow)
     const shapeElements = elements.filter(e => !isArrowType(e) && e.type !== 'group')
 
     for (const el of elements) {
@@ -123,11 +123,20 @@ export function updateConnectedArrows(elements: DrawingElement[], movedElementId
                 ? (() => { const s = shapeElements.find(e => e.id === el.endConnection!.elementId); return s ? { x: s.x - absStart.x, y: s.y - absStart.y, w: s.width, h: s.height } : undefined })()
                 : undefined
 
-            // Collect all other shapes as obstacles (arrow-local coords)
+            // Collect nearby shapes as obstacles (spatial filter by route corridor)
             const excludeIds = new Set([el.startConnection?.elementId, el.endConnection?.elementId].filter(Boolean))
-            const obstacleRects: Rect[] = shapeElements
-                .filter(e => !excludeIds.has(e.id))
-                .map(e => ({ x: e.x - absStart.x, y: e.y - absStart.y, w: e.width, h: e.height }))
+            const margin = 200
+            const minWx = absStart.x + Math.min(0, dx) - margin
+            const maxWx = absStart.x + Math.max(0, dx) + margin
+            const minWy = absStart.y + Math.min(0, dy) - margin
+            const maxWy = absStart.y + Math.max(0, dy) + margin
+
+            const obstacleRects: Rect[] = []
+            for (const e of shapeElements) {
+                if (excludeIds.has(e.id)) continue
+                if (e.x + e.width < minWx || e.x > maxWx || e.y + e.height < minWy || e.y > maxWy) continue
+                obstacleRects.push({ x: e.x - absStart.x, y: e.y - absStart.y, w: e.width, h: e.height })
+            }
 
             el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, el.endConnection?.side, sR, eR, obstacleRects)
             enforceOrthogonality(el)

@@ -4,6 +4,9 @@
  * Creates a Web Worker that renders elements to an internal OffscreenCanvas.
  * Worker sends ImageBitmap frames back, which this proxy blits to the DOM canvas.
  * DOM canvas is NEVER transferred — safe for HMR/React StrictMode re-runs.
+ *
+ * Uses diff-based state transfer: only changed/removed elements are sent
+ * to the worker, avoiding structured clone of the entire element array.
  */
 
 import type { DrawingElement } from './types'
@@ -26,6 +29,28 @@ export interface RenderState {
     editingElementId: string | null
 }
 
+// Fast FNV-1a hash for element change detection
+function fnv1a(str: string): number {
+    let h = 0x811c9dc5
+    for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i)
+        h = Math.imul(h, 0x01000193)
+    }
+    return h >>> 0
+}
+
+function hashElement(el: DrawingElement): number {
+    // Hash the mutable fields that affect rendering
+    // This is cheaper than JSON.stringify of the whole object
+    let s = `${el.x},${el.y},${el.width},${el.height},${el.strokeColor},${el.strokeWidth},${el.backgroundColor ?? ''},${el.fillStyle ?? ''},${el.strokeDasharray ?? ''},${el.opacity ?? 1},${el.borderRadius ?? 0},${el.text ?? ''},${el.label ?? ''},${el.labelT ?? 0.5},${el.fontSize ?? 0},${el.fontWeight ?? 0},${el.textColor ?? ''},${el.textAlign ?? ''},${el.verticalAlign ?? ''},${el.arrowEnd ?? ''},${el.arrowStart ?? ''}`
+    if (el.points) {
+        for (const p of el.points) s += `,${p[0]},${p[1]}`
+    }
+    if (el.startConnection) s += `,sc:${el.startConnection.elementId},${el.startConnection.side},${el.startConnection.t}`
+    if (el.endConnection) s += `,ec:${el.endConnection.elementId},${el.endConnection.side},${el.endConnection.t}`
+    return fnv1a(s)
+}
+
 export class DrawingWorkerProxy {
     private worker: Worker
     private ready = false
@@ -33,6 +58,12 @@ export class DrawingWorkerProxy {
     private rendering = false
     private canvas: HTMLCanvasElement
     private ctx: CanvasRenderingContext2D
+
+    // Diff tracking
+    private sentHashes: Map<string, number> = new Map()
+    private needsFullSync = true
+    private lastTheme = ''
+    private lastSketchy = false
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas
@@ -112,10 +143,101 @@ export class DrawingWorkerProxy {
 
     private doRender(state: RenderState): void {
         this.rendering = true
-        this.worker.postMessage({ type: 'render', state })
+
+        // Detect global changes that require full sync
+        const globalChanged = this.needsFullSync ||
+            state.theme !== this.lastTheme ||
+            state.sketchy !== this.lastSketchy
+        this.lastTheme = state.theme
+        this.lastSketchy = state.sketchy
+
+        if (globalChanged) {
+            // Full sync: send all elements
+            this.needsFullSync = false
+            this.sentHashes.clear()
+            for (const el of state.elements) {
+                this.sentHashes.set(el.id, hashElement(el))
+            }
+            this.worker.postMessage({
+                type: 'render',
+                state: {
+                    fullSync: true,
+                    elements: state.elements,
+                    viewport: state.viewport,
+                    selectedId: state.selectedId,
+                    multiSelectedIds: state.multiSelectedIds,
+                    currentElement: state.currentElement,
+                    highlightedIds: state.highlightedIds,
+                    sketchy: state.sketchy,
+                    canvasWidth: state.canvasWidth,
+                    canvasHeight: state.canvasHeight,
+                    dpr: state.dpr,
+                    theme: state.theme,
+                    canvasBg: state.canvasBg,
+                    defaultStroke: state.defaultStroke,
+                    highlightColor: state.highlightColor,
+                    editingElementId: state.editingElementId,
+                },
+            })
+        } else {
+            // Diff: compute changed and removed elements
+            const currentIds = new Set<string>()
+            const dirtyElements: DrawingElement[] = []
+
+            for (const el of state.elements) {
+                currentIds.add(el.id)
+                const hash = hashElement(el)
+                const prev = this.sentHashes.get(el.id)
+                if (prev === undefined || prev !== hash) {
+                    dirtyElements.push(el)
+                    this.sentHashes.set(el.id, hash)
+                }
+            }
+
+            // Find removed elements
+            const removedIds: string[] = []
+            for (const id of this.sentHashes.keys()) {
+                if (!currentIds.has(id)) {
+                    removedIds.push(id)
+                }
+            }
+            for (const id of removedIds) {
+                this.sentHashes.delete(id)
+            }
+
+            this.worker.postMessage({
+                type: 'render',
+                state: {
+                    fullSync: false,
+                    dirtyElements: dirtyElements.length > 0 ? dirtyElements : undefined,
+                    removedIds: removedIds.length > 0 ? removedIds : undefined,
+                    viewport: state.viewport,
+                    selectedId: state.selectedId,
+                    multiSelectedIds: state.multiSelectedIds,
+                    currentElement: state.currentElement,
+                    highlightedIds: state.highlightedIds,
+                    sketchy: state.sketchy,
+                    canvasWidth: state.canvasWidth,
+                    canvasHeight: state.canvasHeight,
+                    dpr: state.dpr,
+                    theme: state.theme,
+                    canvasBg: state.canvasBg,
+                    defaultStroke: state.defaultStroke,
+                    highlightColor: state.highlightColor,
+                    editingElementId: state.editingElementId,
+                },
+            })
+        }
+    }
+
+    /** Force full sync on next render (e.g. page switch) */
+    invalidate(): void {
+        this.needsFullSync = true
+        this.sentHashes.clear()
     }
 
     dispose(): void {
         this.worker.terminate()
     }
 }
+
