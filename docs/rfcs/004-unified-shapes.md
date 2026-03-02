@@ -1,6 +1,6 @@
 # RFC 004 — Unified Shape Definition
 
-**Status**: Draft  
+**Status**: Implemented  
 **Date**: 2026-03-01  
 **Author**: João + Antigravity  
 

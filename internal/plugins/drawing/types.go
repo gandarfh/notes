@@ -92,3 +92,17 @@ const (
 	ResizeAspect                   // Maintain aspect ratio (database icon, image)
 	ResizeFixed                    // Fixed size (emoji, small icons)
 )
+
+// ── Stroke paths ───────────────────────────────────────────
+
+// StrokePath is a single stroke path with rendering properties.
+// The frontend applies each StrokePath as a separate Canvas2D path
+// with the given opacity and stroke width.
+type StrokePath struct {
+	Cmds        []PathCmd `json:"cmds"`
+	Opacity     float64   `json:"opacity"`
+	StrokeWidth float64   `json:"strokeWidth"`
+	IsClip      bool      `json:"isClip,omitempty"`    // true = use as clip path (for fills)
+	IsFill      bool      `json:"isFill,omitempty"`    // true = use fillStyle instead of strokeStyle
+	FillColor   string    `json:"fillColor,omitempty"` // override fill color
+}

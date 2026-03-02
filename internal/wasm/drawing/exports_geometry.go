@@ -120,26 +120,7 @@ func nearestAnchorBin() {
 		return
 	}
 
-	anchors := shape.Anchors(sw, sh)
-	if len(anchors) == 0 {
-		w := newWriter()
-		w.F64(-1)
-		return
-	}
-
-	bestDist := 1e18
-	bestIdx := 0
-	for i, a := range anchors {
-		dx := a.X - px
-		dy := a.Y - py
-		d := dx*dx + dy*dy
-		if d < bestDist {
-			bestDist = d
-			bestIdx = i
-		}
-	}
-
-	best := anchors[bestIdx]
+	best := shape.NearestAnchor(sw, sh, px, py)
 	w := newWriter()
 	w.SideId(string(best.Side))
 	w.F64(best.T)

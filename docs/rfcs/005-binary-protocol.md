@@ -1,6 +1,6 @@
 # RFC 005 — Binary Protocol Abstraction
 
-**Status**: Draft  
+**Status**: Implemented  
 **Date**: 2026-03-01  
 **Author**: João + Antigravity  
 
