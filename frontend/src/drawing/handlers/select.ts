@@ -395,18 +395,41 @@ export class SelectHandler implements InteractionHandler {
             return
         }
 
-        // Group drag release → snap all
+        // Group drag release → snap shapes first, then update connected arrows
         if (this.s.isGroupDragging) {
             this.s.isGroupDragging = false
             this.s.groupDragStart = null
+
+            // Pass 1: snap all non-arrow elements to grid
             for (const id of ctx.selectedElements) {
                 const el = ctx.elements.find(e => e.id === id)
-                if (el) {
+                if (el && !isArrowType(el)) {
                     el.x = ctx.snap(el.x)
                     el.y = ctx.snap(el.y)
-                    updateConnectedArrows(ctx.elements, el.id)
                 }
             }
+
+            // Pass 2: recalculate connected arrows (shapes are already in final positions)
+            const updatedArrows = new Set<string>()
+            for (const id of ctx.selectedElements) {
+                if (isArrowType(ctx.elements.find(e => e.id === id)!)) continue
+                for (const el of ctx.elements) {
+                    if (isArrowType(el) && (el.startConnection?.elementId === id || el.endConnection?.elementId === id)) {
+                        updatedArrows.add(el.id)
+                    }
+                }
+                updateConnectedArrows(ctx.elements, id)
+            }
+
+            // Pass 3: snap unconnected arrows that weren't recalculated
+            for (const id of ctx.selectedElements) {
+                const el = ctx.elements.find(e => e.id === id)
+                if (el && isArrowType(el) && !updatedArrows.has(el.id)) {
+                    el.x = ctx.snap(el.x)
+                    el.y = ctx.snap(el.y)
+                }
+            }
+
             this.s.groupOrigPositions.clear()
             ctx.render(); ctx.save()
             return
