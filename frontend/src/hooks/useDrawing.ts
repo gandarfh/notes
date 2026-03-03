@@ -65,6 +65,9 @@ export function useDrawing(
      */
     const eventConsumedRef = useRef(false)
 
+    // Ref for immediate worker sync — avoids stale closure in RAF callback
+    const editingElementIdRef = useRef<string | null>(null)
+
     // ── React state for overlays ──
     const [editorRequest, setEditorRequest] = useState<EditorRequest | null>(null)
     const [blockPreview, setBlockPreview] = useState<BlockPreviewRect | null>(null)
@@ -179,7 +182,7 @@ export function useDrawing(
                         canvasBg: cs.getPropertyValue('--color-app').trim(),
                         defaultStroke: cs.getPropertyValue('--color-text-primary').trim(),
                         highlightColor: cs.getPropertyValue('--color-error').trim(),
-                        editingElementId: editorRequest?.elementId ?? null,
+                        editingElementId: editingElementIdRef.current,
                     }
                     workerProxy.requestRender(state)
                 }
@@ -237,7 +240,7 @@ export function useDrawing(
                 }
             }
         })
-    }, [svgRef, overlayRef, editorRequest])
+    }, [svgRef, overlayRef])
 
     // ── Save (debounced) ──
     const saveNow = useCallback(() => {
@@ -255,6 +258,12 @@ export function useDrawing(
             saveTimeoutRef.current = null
         }, 300)
     }, [saveNow])
+
+    const closeEditor = useCallback(() => {
+        editingElementIdRef.current = null
+        setEditorRequest(null)
+        render()
+    }, [render])
 
     // ── Build DrawingContext ──
     const buildContext = useCallback((): DrawingContext => ({
@@ -287,7 +296,11 @@ export function useDrawing(
         render,
         save,
         saveNow,
-        showEditor: (request: EditorRequest) => setEditorRequest(request),
+        showEditor: (request: EditorRequest) => {
+            editingElementIdRef.current = request.elementId ?? null
+            setEditorRequest(request)
+            render()
+        },
         isEditing: editorRequest !== null,
         isSketchy: useAppStore.getState().boardStyle === 'sketchy',
         getScreenCoords,
@@ -302,7 +315,7 @@ export function useDrawing(
             const cat = elementTypeCategory(type)
             useAppStore.getState().setStyleDefaults(cat, patch)
         },
-    }), [snap, render, save, getScreenCoords, getZoom, editorRequest])
+    }), [snap, render, save, getScreenCoords, getZoom, editorRequest, saveNow])
 
     // ── Sync subtool from store ──
     const drawingSubTool = useAppStore(s => s.drawingSubTool)
@@ -752,6 +765,7 @@ export function useDrawing(
     return {
         editorRequest,
         setEditorRequest,
+        closeEditor,
         blockPreview,
         drawingCursor,
         flushSave,

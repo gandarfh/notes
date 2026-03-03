@@ -93,9 +93,12 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
         if (e.key === 'Escape') { e.preventDefault(); cancel() }
     }
 
+    const insideShape = !!(isCenter && request.shapeWidth && request.shapeHeight)
+
     const textStyle: React.CSSProperties = {
-        minWidth: 20,
-        maxWidth: request.shapeWidth || 600,
+        display: 'inline-block',
+        minWidth: Math.max(60, fontSize * 4),
+        maxWidth: insideShape ? request.shapeWidth : undefined,
         color: textColor,
         fontSize,
         fontFamily,
@@ -104,8 +107,8 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
         textAlign: isCenter ? 'center' : 'left',
         outline: 'none',
         background: request.background || 'transparent',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
+        whiteSpace: insideShape ? 'pre-wrap' : 'pre',
+        wordBreak: insideShape ? 'break-word' : 'keep-all',
         caretColor: '#818cf8',
         padding: '2px 4px',
         margin: '-2px -4px',
@@ -154,6 +157,7 @@ export function InlineEditor({ request, onClose }: InlineEditorProps) {
                 left: worldX,
                 top: isCenter ? worldY : worldY - fontSize * 0.85,
                 transform: isCenter ? 'translate(-50%, -50%)' : undefined,
+                width: 'max-content',
                 pointerEvents: 'auto',
                 zIndex: 9999,
             }}

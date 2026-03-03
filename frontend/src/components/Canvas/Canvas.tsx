@@ -127,7 +127,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
         if (block) useAppStore.getState().selectBlock(block.id)
     }, [])
 
-    const { editorRequest, setEditorRequest, blockPreview, drawingCursor, renderDrawing, eventConsumedRef, styleSelection, updateSelectedStyle, clearDrawingSelection, reorderSelected, alignSelected, multiSelected } = useDrawing(
+    const { editorRequest, closeEditor, blockPreview, drawingCursor, renderDrawing, eventConsumedRef, styleSelection, updateSelectedStyle, clearDrawingSelection, reorderSelected, alignSelected, multiSelected } = useDrawing(
         drawingSvgRef,
         overlayCanvasRef,
         containerRef,
@@ -495,7 +495,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
                 {editorRequest && (
                     <InlineEditor
                         request={editorRequest}
-                        onClose={() => setEditorRequest(null)}
+                        onClose={closeEditor}
                     />
                 )}
             </div>

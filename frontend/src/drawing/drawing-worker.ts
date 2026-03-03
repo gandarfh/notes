@@ -314,6 +314,39 @@ function isArrowType(el: DrawingElement): boolean {
     return el.type === 'arrow' || el.type === 'ortho-arrow' || el.type === 'line'
 }
 
+/** Wrap a single line of text to fit within maxWidth, splitting by words then by characters. */
+function wrapLine(ctx: OffscreenCanvasRenderingContext2D, line: string, maxWidth: number): string[] {
+    if (maxWidth <= 0 || ctx.measureText(line).width <= maxWidth) return [line]
+
+    const words = line.split(' ')
+    const result: string[] = []
+    let cur = ''
+
+    for (const word of words) {
+        const test = cur ? cur + ' ' + word : word
+        if (ctx.measureText(test).width > maxWidth && cur) {
+            result.push(cur)
+            cur = word
+        } else {
+            cur = test
+        }
+    }
+    if (cur) result.push(cur)
+
+    // Break any remaining too-long segments by character
+    const final: string[] = []
+    for (const seg of result) {
+        if (ctx.measureText(seg).width <= maxWidth) { final.push(seg); continue }
+        let c = ''
+        for (const ch of seg) {
+            const t = c + ch
+            if (ctx.measureText(t).width > maxWidth && c) { final.push(c); c = ch } else { c = t }
+        }
+        if (c) final.push(c)
+    }
+    return final
+}
+
 // ── Draw Element (runs in worker, calls WASM freely) ──
 
 function drawElement(ctx: OffscreenCanvasRenderingContext2D, el: DrawingElement, isLight: boolean): void {
@@ -445,13 +478,21 @@ function drawElement(ctx: OffscreenCanvasRenderingContext2D, el: DrawingElement,
     // Text inside shapes (skip if inline editor is open for this element)
     if (el.text && !isArrowType(el) && el.type !== 'text' && el.type !== 'freedraw' && el.type !== 'group' && _editingElementId !== el.id) {
         const cx = el.x + el.width / 2, cy = el.y + el.height / 2
-        const lines = el.text.split('\n')
-        const lineH = textSize * 1.2
-        const totalH = lines.length * lineH
         ctx.fillStyle = textFill
         ctx.font = `${fw} ${textSize}px ${font}`
         ctx.textAlign = (el.textAlign as CanvasTextAlign) || 'center'
         ctx.textBaseline = 'middle'
+
+        // Word-wrap text to fit within shape width
+        const maxTextW = el.width - 16
+        const rawLines = el.text.split('\n')
+        const lines: string[] = []
+        for (const raw of rawLines) {
+            lines.push(...wrapLine(ctx, raw, maxTextW))
+        }
+
+        const lineH = textSize * 1.2
+        const totalH = lines.length * lineH
         const valign = el.verticalAlign || 'middle'
         const baseY = valign === 'top' ? el.y + textSize : valign === 'bottom' ? el.y + el.height - totalH + lineH / 2 : cy - totalH / 2 + lineH / 2
         const tx = el.textAlign === 'start' ? el.x + 8 : el.textAlign === 'end' ? el.x + el.width - 8 : cx
@@ -492,8 +533,9 @@ function drawArrowLabel(ctx: OffscreenCanvasRenderingContext2D, el: DrawingEleme
         targetDist -= seg.len
     }
 
-    const fontSize = Math.max(10, Math.min(14, (el.fontSize || 12)))
-    ctx.font = `500 ${fontSize}px 'Architects Daughter'`
+    const baseFontSize = el.fontSize || 14
+    const fontSize = _lastSketchy ? Math.round(baseFontSize * 1.3) : baseFontSize
+    ctx.font = `${el.fontWeight || 400} ${fontSize}px 'Architects Daughter'`
     const metrics = ctx.measureText(el.label)
     const pw = metrics.width + 6
     const ph = fontSize + 4
@@ -557,6 +599,7 @@ let lastVp = { x: 0, y: 0, zoom: 0 }
 let lastCw = 0, lastCh = 0
 let lastTheme = ''
 let lastSketchy = false
+let lastEditingElementId: string | null = null
 
 self.onmessage = async (e: MessageEvent) => {
     const msg = e.data
@@ -590,6 +633,12 @@ self.onmessage = async (e: MessageEvent) => {
                 _lastDefaultStroke = state.defaultStroke
                 _lastHighlightColor = state.highlightColor
                 _editingElementId = state.editingElementId
+
+                // Invalidate static cache when editing element changes (text must hide/show)
+                if (state.editingElementId !== lastEditingElementId) {
+                    staticDirty = true
+                    lastEditingElementId = state.editingElementId
+                }
 
                 // Detect global changes that require full static cache rebuild
                 const globalChanged = state.fullSync ||
