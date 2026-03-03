@@ -10,6 +10,8 @@ import (
 	"notes/internal/domain"
 	"notes/internal/secret"
 	"notes/internal/storage"
+
+	"github.com/google/uuid"
 )
 
 // ─────────────────────────────────────────────────────────────
@@ -69,6 +71,7 @@ func (s *DatabaseService) ListConnections() ([]domain.DatabaseConnection, error)
 
 func (s *DatabaseService) CreateConnection(input CreateDBConnInput) (*domain.DatabaseConnection, error) {
 	conn := &domain.DatabaseConnection{
+		ID:       uuid.New().String(),
 		Name:     input.Name,
 		Driver:   domain.DatabaseDriver(input.Driver),
 		Host:     input.Host,

@@ -3,6 +3,7 @@ package storage
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"notes/internal/domain"
@@ -203,7 +204,7 @@ func (s *LocalDatabaseStore) ListDatabases() ([]domain.LocalDatabase, error) {
 // GetDatabaseStats returns row count and last update time for a database.
 func (s *LocalDatabaseStore) GetDatabaseStats(databaseID string) (int, time.Time, error) {
 	var count int
-	var lastUpdated sql.NullTime
+	var lastUpdated sql.NullString
 
 	err := s.db.conn.QueryRow(
 		`SELECT COUNT(*), MAX(updated_at) FROM local_db_rows WHERE database_id = ?`, databaseID,
@@ -214,7 +215,23 @@ func (s *LocalDatabaseStore) GetDatabaseStats(databaseID string) (int, time.Time
 
 	t := time.Time{}
 	if lastUpdated.Valid {
-		t = lastUpdated.Time
+		s := lastUpdated.String
+		// Strip monotonic clock reading (e.g. " m=+0.001234")
+		if idx := strings.Index(s, " m="); idx > 0 {
+			s = s[:idx]
+		}
+		formats := []string{
+			"2006-01-02 15:04:05.999999 -0700 -07",
+			"2006-01-02 15:04:05.999999999-07:00",
+			"2006-01-02 15:04:05",
+			time.RFC3339Nano,
+		}
+		for _, f := range formats {
+			if parsed, err := time.Parse(f, s); err == nil {
+				t = parsed
+				break
+			}
+		}
 	}
 	return count, t, nil
 }

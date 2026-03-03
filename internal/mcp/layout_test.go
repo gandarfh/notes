@@ -63,7 +63,7 @@ func TestArrangeGroup(t *testing.T) {
 	}
 
 	// No overlaps
-	for i := 0; i < len(arranged); i++ {
+	for i := range len(arranged) {
 		for j := i + 1; j < len(arranged); j++ {
 			a := rect{arranged[i].X, arranged[i].Y, arranged[i].Width, arranged[i].Height}
 			b := rect{arranged[j].X, arranged[j].Y, arranged[j].Width, arranged[j].Height}
@@ -72,6 +72,52 @@ func TestArrangeGroup(t *testing.T) {
 					i, j, a.x, a.y, b.x, b.y)
 			}
 		}
+	}
+}
+
+func TestArrangeGroup_RowWrapping(t *testing.T) {
+	le := NewLayoutEngine()
+	// 4 blocks of 600px width each. MaxRowW=1800, so after 2 blocks (~1260px with padding)
+	// the 3rd block would exceed 1800, so it should wrap to the next row.
+	blocks := []domain.Block{
+		{ID: "1", Width: 600, Height: 200},
+		{ID: "2", Width: 600, Height: 200},
+		{ID: "3", Width: 600, Height: 300}, // taller block
+		{ID: "4", Width: 600, Height: 200},
+	}
+
+	arranged := le.ArrangeGroup(blocks, 0, 0)
+
+	// First row: block 1 and 2 side by side
+	if arranged[0].Y != arranged[1].Y {
+		t.Error("blocks 1 and 2 should be on the same row")
+	}
+
+	// At least one block should have a different Y (wrapped row)
+	hasWrap := false
+	for i := 1; i < len(arranged); i++ {
+		if arranged[i].Y > arranged[0].Y {
+			hasWrap = true
+			break
+		}
+	}
+	if !hasWrap {
+		t.Error("expected row wrapping for wide blocks")
+	}
+}
+
+func TestNextPosition_SnapsToGrid(t *testing.T) {
+	le := NewLayoutEngine()
+	existing := []domain.Block{
+		{X: 0, Y: 0, Width: 100, Height: 100},
+	}
+	x, y := le.NextPosition(existing, 100, 100)
+
+	// Position should be snapped to grid (multiples of GridSize=30)
+	xMod := int(x) % int(GridSize)
+	yMod := int(y) % int(GridSize)
+	if xMod != 0 || yMod != 0 {
+		t.Errorf("position (%.0f, %.0f) not snapped to grid (%v)", x, y, GridSize)
 	}
 }
 

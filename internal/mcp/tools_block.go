@@ -517,35 +517,11 @@ func splitIDs(s string) []string {
 		return nil
 	}
 	var ids []string
-	for _, part := range splitString(s, ',') {
-		trimmed := trimSpace(part)
+	for _, part := range strings.Split(s, ",") {
+		trimmed := strings.TrimSpace(part)
 		if trimmed != "" {
 			ids = append(ids, trimmed)
 		}
 	}
 	return ids
-}
-
-func splitString(s string, sep byte) []string {
-	var result []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == sep {
-			result = append(result, s[start:i])
-			start = i + 1
-		}
-	}
-	result = append(result, s[start:])
-	return result
-}
-
-func trimSpace(s string) string {
-	start, end := 0, len(s)
-	for start < end && s[start] == ' ' {
-		start++
-	}
-	for end > start && s[end-1] == ' ' {
-		end--
-	}
-	return s[start:end]
 }

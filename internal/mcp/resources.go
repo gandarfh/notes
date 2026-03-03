@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -96,22 +97,13 @@ func extractPageIDFromURI(uri string) string {
 	// notes://page/abc-123/blocks -> abc-123
 	const prefix = "notes://page/"
 	const suffix = "/blocks"
-	if len(uri) > len(prefix)+len(suffix) {
+	if len(uri) > len(prefix)+len(suffix) && strings.HasPrefix(uri, prefix) {
 		middle := uri[len(prefix):]
-		if idx := indexOf(middle, '/'); idx > 0 {
+		if idx := strings.IndexByte(middle, '/'); idx > 0 {
 			return middle[:idx]
 		}
 	}
 	return ""
-}
-
-func indexOf(s string, c byte) int {
-	for i := 0; i < len(s); i++ {
-		if s[i] == c {
-			return i
-		}
-	}
-	return -1
 }
 
 const workflowGuideContent = `# Notes MCP — Workflow Guide

@@ -1,4 +1,4 @@
-.PHONY: dev build install uninstall clean
+.PHONY: dev build install uninstall clean test
 
 # Run in development mode with hot reload
 dev:
@@ -21,6 +21,10 @@ install: build
 uninstall:
 	rm -f $(HOME)/.local/bin/notes
 	@echo "Removed $(HOME)/.local/bin/notes"
+
+# Run Go tests with coverage table
+test:
+	@./scripts/test-coverage.sh
 
 # Clean build artifacts
 clean:

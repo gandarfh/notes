@@ -8,7 +8,6 @@ import (
 // Orthogonal Arrow Routing — thin wrapper over pkg/drawing
 // ═══════════════════════════════════════════════════════════════
 
-const routeMargin = drawing.RouteMargin
 const arrowGap = drawing.ArrowGap
 const minArrowDist = 60.0
 
@@ -36,21 +35,6 @@ func computeOrthoRoute(dx, dy float64, srcSide, dstSide string, srcRect, dstRect
 		opts.ArrowObstacles = append(opts.ArrowObstacles, drawing.Rect{X: o.x, Y: o.y, W: o.w, H: o.h})
 	}
 	return drawing.ComputeOrthoRoute(dx, dy, opts)
-}
-
-// simpleOrthoRoute delegates to pkg/drawing.SimpleOrthoRoute.
-func simpleOrthoRoute(dx, dy float64, srcSide, dstSide string) [][]float64 {
-	return drawing.SimpleOrthoRoute(dx, dy, srcSide, dstSide)
-}
-
-// sideDirF delegates to pkg/drawing.SideDir.
-func sideDirF(side string) (float64, float64) {
-	return drawing.SideDir(side)
-}
-
-// simplifyOrtho delegates to pkg/drawing.SimplifyOrtho.
-func simplifyOrtho(pts [][]float64) [][]float64 {
-	return drawing.SimplifyOrtho(pts)
 }
 
 // binarySubdivisionT delegates to pkg/drawing.BinarySubdivisionT.
@@ -112,26 +96,6 @@ func collectObstacleRects(elements []drawingElement, excludeIDs map[string]bool,
 		w, _ := el["width"].(float64)
 		h, _ := el["height"].(float64)
 		rects = append(rects, rect{x - originX, y - originY, w, h})
-	}
-	return rects
-}
-
-// collectWorldObstacleRects returns bounding boxes in world coordinates.
-func collectWorldObstacleRects(elements []drawingElement, excludeIDs map[string]bool) []rect {
-	var rects []rect
-	for _, el := range elements {
-		if isArrow(el) || isGroup(el) {
-			continue
-		}
-		id, _ := el["id"].(string)
-		if excludeIDs[id] {
-			continue
-		}
-		x, _ := el["x"].(float64)
-		y, _ := el["y"].(float64)
-		w, _ := el["width"].(float64)
-		h, _ := el["height"].(float64)
-		rects = append(rects, rect{x, y, w, h})
 	}
 	return rects
 }
