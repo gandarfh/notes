@@ -75,6 +75,57 @@ export function isArrowType(el: DrawingElement): boolean {
     return el.type === 'arrow' || el.type === 'ortho-arrow'
 }
 
+// ── Style helpers (extracted for testability) ────────────
+
+import type { ElementTypeCategory } from '../store/types'
+
+/** Map any element type string to its style default category */
+export function elementTypeCategory(type: string): ElementTypeCategory {
+    switch (type) {
+        case 'rectangle': return 'rectangle'
+        case 'ellipse': return 'ellipse'
+        case 'diamond': return 'diamond'
+        case 'arrow': case 'ortho-arrow': case 'line': return 'arrow'
+        case 'text': return 'text'
+        case 'freedraw': return 'freedraw'
+        default: return 'rectangle'
+    }
+}
+
+/** Get the common value of a property across multiple elements (undefined if they differ) */
+export function getCommon<K extends keyof DrawingElement>(els: DrawingElement[], key: K): DrawingElement[K] | undefined {
+    if (els.length === 0) return undefined
+    const val = els[0][key]
+    return els.every(e => e[key] === val) ? val : undefined
+}
+
+/** Determine which StylePanel sections should be visible for a set of elements */
+export function stylePanelSections(elements: DrawingElement[]) {
+    const types = new Set(elements.map(e => e.type))
+    return {
+        hasShapes: types.has('rectangle') || types.has('ellipse') || types.has('diamond'),
+        hasRect: types.has('rectangle'),
+        hasArrows: types.has('arrow') || types.has('ortho-arrow'),
+        hasText: types.has('text') || elements.some(e => e.text || e.label),
+        onlyText: types.size === 1 && types.has('text'),
+    }
+}
+
+/** Apply a style patch to selected elements, returning affected type set */
+export function applyStylePatch(
+    elements: DrawingElement[],
+    selectedIds: Set<string>,
+    patch: Partial<DrawingElement>,
+): { affectedTypes: Set<string> } {
+    const affectedTypes = new Set<string>()
+    for (const el of elements) {
+        if (!selectedIds.has(el.id)) continue
+        Object.assign(el, patch)
+        affectedTypes.add(el.type)
+    }
+    return { affectedTypes }
+}
+
 // ── Text measurement (main thread only) ─────────────────
 
 let _measureCtx: CanvasRenderingContext2D | null = null

@@ -2,23 +2,13 @@ import { GRID_SIZE } from '../constants'
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useAppStore } from '../store'
 import { setDrawingKeyHandler } from '../input'
-import type { ElementTypeCategory, ElementStyleDefaults } from '../store/types'
+import type { ElementStyleDefaults } from '../store/types'
 import { pluginBus } from '../plugins/sdk/runtime/eventBus'
 
-// Map any element type string to its style default category
-function elementTypeCategory(type: string): ElementTypeCategory {
-    switch (type) {
-        case 'rectangle': return 'rectangle'
-        case 'ellipse': return 'ellipse'
-        case 'diamond': return 'diamond'
-        case 'arrow': case 'ortho-arrow': case 'line': return 'arrow'
-        case 'text': return 'text'
-        case 'freedraw': return 'freedraw'
-        default: return 'rectangle'
-    }
-}
 import type { DrawingElement, DrawingSubTool } from '../drawing/types'
+import { elementTypeCategory } from '../drawing/types'
 import { getElementBounds } from '../drawing/types'
+import { alignElements, reorderElements } from '../drawing/layout'
 import type { DrawingContext, InteractionHandler, Point, EditorRequest, BlockPreviewRect } from '../drawing/interfaces'
 import { drawSelectionUI } from '../drawing/canvasRender'
 import { DrawingWorkerProxy, type RenderState } from '../drawing/drawing-worker-proxy'
@@ -665,40 +655,7 @@ export function useDrawing(
             : selectedElementRef.current ? new Set([selectedElementRef.current.id]) : new Set<string>()
         if (ids.size === 0) return
 
-        const arr = elementsRef.current
-        const selected = arr.filter(e => ids.has(e.id))
-        const rest = arr.filter(e => !ids.has(e.id))
-
-        switch (action) {
-            case 'toBack':
-                elementsRef.current = [...selected, ...rest]
-                break
-            case 'toFront':
-                elementsRef.current = [...rest, ...selected]
-                break
-            case 'backward': {
-                // Move each selected element one step back
-                for (const el of selected) {
-                    const idx = elementsRef.current.indexOf(el)
-                    if (idx > 0 && !ids.has(elementsRef.current[idx - 1].id)) {
-                        ;[elementsRef.current[idx - 1], elementsRef.current[idx]] =
-                            [elementsRef.current[idx], elementsRef.current[idx - 1]]
-                    }
-                }
-                break
-            }
-            case 'forward': {
-                // Move each selected element one step forward (iterate reverse)
-                for (let i = selected.length - 1; i >= 0; i--) {
-                    const idx = elementsRef.current.indexOf(selected[i])
-                    if (idx < elementsRef.current.length - 1 && !ids.has(elementsRef.current[idx + 1].id)) {
-                        ;[elementsRef.current[idx], elementsRef.current[idx + 1]] =
-                            [elementsRef.current[idx + 1], elementsRef.current[idx]]
-                    }
-                }
-                break
-            }
-        }
+        elementsRef.current = reorderElements(elementsRef.current, ids, action)
         render(); save()
     }, [render, save])
 
@@ -709,70 +666,7 @@ export function useDrawing(
         const selected = elementsRef.current.filter(e => ids.has(e.id))
         if (selected.length < 2) return
 
-        // Compute bounds
-        const bounds = selected.map(e => {
-            const b = getElementBounds(e)
-            return { el: e, x: b.x, y: b.y, w: b.w, h: b.h, cx: b.x + b.w / 2, cy: b.y + b.h / 2 }
-        })
-
-        switch (action) {
-            case 'align-left': {
-                const minX = Math.min(...bounds.map(b => b.x))
-                bounds.forEach(b => { b.el.x += minX - b.x })
-                break
-            }
-            case 'align-center-h': {
-                const avg = bounds.reduce((s, b) => s + b.cx, 0) / bounds.length
-                bounds.forEach(b => { b.el.x += avg - b.cx })
-                break
-            }
-            case 'align-right': {
-                const maxR = Math.max(...bounds.map(b => b.x + b.w))
-                bounds.forEach(b => { b.el.x += maxR - (b.x + b.w) })
-                break
-            }
-            case 'align-top': {
-                const minY = Math.min(...bounds.map(b => b.y))
-                bounds.forEach(b => { b.el.y += minY - b.y })
-                break
-            }
-            case 'align-center-v': {
-                const avg = bounds.reduce((s, b) => s + b.cy, 0) / bounds.length
-                bounds.forEach(b => { b.el.y += avg - b.cy })
-                break
-            }
-            case 'align-bottom': {
-                const maxB = Math.max(...bounds.map(b => b.y + b.h))
-                bounds.forEach(b => { b.el.y += maxB - (b.y + b.h) })
-                break
-            }
-            case 'distribute-h': {
-                if (bounds.length < 3) break
-                bounds.sort((a, b) => a.x - b.x)
-                const totalWidth = bounds.reduce((s, b) => s + b.w, 0)
-                const containerW = bounds[bounds.length - 1].x + bounds[bounds.length - 1].w - bounds[0].x
-                const gap = (containerW - totalWidth) / (bounds.length - 1)
-                let cx = bounds[0].x + bounds[0].w
-                for (let i = 1; i < bounds.length - 1; i++) {
-                    bounds[i].el.x = cx + gap
-                    cx = bounds[i].el.x + bounds[i].w
-                }
-                break
-            }
-            case 'distribute-v': {
-                if (bounds.length < 3) break
-                bounds.sort((a, b) => a.y - b.y)
-                const totalHeight = bounds.reduce((s, b) => s + b.h, 0)
-                const containerH = bounds[bounds.length - 1].y + bounds[bounds.length - 1].h - bounds[0].y
-                const gap = (containerH - totalHeight) / (bounds.length - 1)
-                let cy = bounds[0].y + bounds[0].h
-                for (let i = 1; i < bounds.length - 1; i++) {
-                    bounds[i].el.y = cy + gap
-                    cy = bounds[i].el.y + bounds[i].h
-                }
-                break
-            }
-        }
+        alignElements(selected, action)
         render(); save()
         setStyleSelection(elementsRef.current.filter(e => ids.has(e.id)))
     }, [render, save])

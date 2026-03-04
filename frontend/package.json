@@ -7,15 +7,19 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "lint:plugins": "bash scripts/lint-plugin-imports.sh"
+    "lint:plugins": "bash scripts/lint-plugin-imports.sh",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/dompurify": "^3.0.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
+    "@vitest/browser-playwright": "^4.0.18",
+    "@vitest/coverage-v8": "^4.0.18",
     "typescript": "^4.5.4",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.4",

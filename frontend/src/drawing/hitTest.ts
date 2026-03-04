@@ -4,7 +4,7 @@ import { type DrawingEngine, SHAPE_IDS } from './drawing-wasm'
 const getEngine = (): DrawingEngine | null => (globalThis as any).__drawingEngine ?? null
 
 /** Point-to-segment distance */
-function segDist(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+export function segDist(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
     const dx = bx - ax, dy = by - ay, lenSq = dx * dx + dy * dy
     if (lenSq === 0) return Math.hypot(px - ax, py - ay)
     const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq))

@@ -28,7 +28,7 @@ function findElById(elements: DrawingElement[], id?: string): DrawingElement | u
 
 /** Collect non-arrow shape bounding boxes as obstacles (arrow-local coords).
  *  Only includes shapes near the arrow route area to keep obstacle count low. */
-function collectObstacles(elements: DrawingElement[], arrowX: number, arrowY: number, excludeIds: Set<string | undefined>, dx = 0, dy = 0): Rect[] {
+export function collectObstacles(elements: DrawingElement[], arrowX: number, arrowY: number, excludeIds: Set<string | undefined>, dx = 0, dy = 0): Rect[] {
     // Compute route bounding box in world coords with generous margin
     const margin = 200
     const minWx = arrowX + Math.min(0, dx) - margin

@@ -1,7 +1,7 @@
 import './stylepanel.css'
 import React from 'react'
 import type { DrawingElement } from '../../drawing/types'
-import { isArrowType } from '../../drawing/types'
+import { isArrowType, getCommon } from '../../drawing/types'
 import { remapForTheme } from '../../drawing/canvasRender'
 import { ColorPicker } from './ColorPicker'
 import { useAppStore } from '../../store'
@@ -46,12 +46,6 @@ interface Props {
     onReorder?: (action: ReorderAction) => void
     onAlign?: (action: AlignAction) => void
     multiSelected?: boolean
-}
-
-function getCommon<K extends keyof DrawingElement>(els: DrawingElement[], key: K): DrawingElement[K] | undefined {
-    if (els.length === 0) return undefined
-    const val = els[0][key]
-    return els.every(e => e[key] === val) ? val : undefined
 }
 
 const I = ({ children, ...p }: { children: React.ReactNode } & React.SVGProps<SVGSVGElement>) => (

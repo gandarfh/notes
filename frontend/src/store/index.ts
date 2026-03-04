@@ -3,7 +3,7 @@ import { api, onEvent } from '../bridge/wails'
 import type { Block } from '../bridge/wails'
 import type { AppState } from './types'
 import { useUndoTree } from './useUndoTree'
-import { captureSnapshot } from './helpers'
+import { captureSnapshot, mergeBlocks } from './helpers'
 import { createNotebookSlice } from './notebookSlice'
 import { createCanvasSlice, createBlockSlice } from './canvasSlice'
 import { createDrawingSlice } from './drawingSlice'
@@ -24,26 +24,7 @@ async function reloadWithUndo(get: () => AppState, pageId: string, label: string
         const selectedId = get().selectedBlockId
         const editingId = get().editingBlockId
 
-        // Smart merge: preserve position/size of blocks the user is actively
-        // interacting with (selected/editing/fullscreen). Other blocks accept
-        // MCP changes including position updates. New blocks added, deleted removed.
-        const merged = new Map<string, Block>()
-        for (const [id, newBlock] of incoming) {
-            const existing = current.get(id)
-            if (existing && (id === selectedId || id === editingId)) {
-                // User is interacting with this block — keep current position/size
-                merged.set(id, {
-                    ...newBlock,
-                    x: existing.x,
-                    y: existing.y,
-                    width: existing.width,
-                    height: existing.height,
-                })
-            } else {
-                // Not interacting — accept full DB state (including MCP moves)
-                merged.set(id, newBlock)
-            }
-        }
+        const merged = mergeBlocks(incoming, current, new Set([selectedId, editingId]))
 
         set({
             blocks: merged,

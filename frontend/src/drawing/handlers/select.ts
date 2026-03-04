@@ -101,13 +101,13 @@ function snapArrowPreservingConnections(ctx: DrawingContext, el: DrawingElement)
 
 // ── Deep clone helper ─────────────────────────────────────
 
-function cloneElement(el: DrawingElement): DrawingElement {
+export function cloneElement(el: DrawingElement): DrawingElement {
     return JSON.parse(JSON.stringify(el))
 }
 
 // ── Box intersection check ────────────────────────────────
 
-function boxIntersects(el: DrawingElement, x1: number, y1: number, x2: number, y2: number): boolean {
+export function boxIntersects(el: DrawingElement, x1: number, y1: number, x2: number, y2: number): boolean {
     const bx = Math.min(x1, x2), by = Math.min(y1, y2)
     const bw = Math.abs(x2 - x1), bh = Math.abs(y2 - y1)
 

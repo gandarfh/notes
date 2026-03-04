@@ -33,3 +33,29 @@ export function restoreSnapshot(
         editingBlockId: null,
     })
 }
+
+/** Smart merge: preserve position/size of blocks the user is actively
+ *  interacting with (selected/editing). Other blocks accept incoming state.
+ *  New blocks added, deleted blocks removed. */
+export function mergeBlocks(
+    incoming: Map<string, Block>,
+    current: Map<string, Block>,
+    activeIds: Set<string | null>,
+): Map<string, Block> {
+    const merged = new Map<string, Block>()
+    for (const [id, newBlock] of incoming) {
+        const existing = current.get(id)
+        if (existing && activeIds.has(id)) {
+            merged.set(id, {
+                ...newBlock,
+                x: existing.x,
+                y: existing.y,
+                width: existing.width,
+                height: existing.height,
+            })
+        } else {
+            merged.set(id, newBlock)
+        }
+    }
+    return merged
+}
