@@ -126,6 +126,8 @@ export function useDrawing(
     const workerProxyRef = useRef<DrawingWorkerProxy | null>(null)
     // Live viewport ref — updated on every applyViewport call (store is only committed on mouseUp)
     const liveViewportRef = useRef(useAppStore.getState().viewport)
+    // Viewport at which the canvas was last rendered (for CSS compensation of Worker latency)
+    const renderedViewportRef = useRef(useAppStore.getState().viewport)
 
     // Initialize worker when canvas is ready
     useEffect(() => {
@@ -134,7 +136,22 @@ export function useDrawing(
         if (workerProxyRef.current) return // already initialized
 
         try {
-            workerProxyRef.current = new DrawingWorkerProxy(canvas)
+            const proxy = new DrawingWorkerProxy(canvas)
+            proxy.onFrame = (vp) => {
+                renderedViewportRef.current = vp
+                // Recalculate CSS compensation immediately so stale offset doesn't persist.
+                // Only compensate pure pan (zoom unchanged) — zoom compensation would
+                // misalign rasterized content without also scaling.
+                const v = liveViewportRef.current
+                const zoomUnchanged = Math.abs(v.zoom - vp.zoom) < 0.001
+                const dx = v.x - vp.x
+                const dy = v.y - vp.y
+                const needsCompensation = zoomUnchanged && (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5)
+                const transform = needsCompensation ? `translate3d(${dx}px, ${dy}px, 0)` : ''
+                if (svgRef.current) (svgRef.current as HTMLCanvasElement).style.transform = transform
+                if (overlayRef.current) (overlayRef.current as HTMLCanvasElement).style.transform = transform
+            }
+            workerProxyRef.current = proxy
         } catch (e) {
             console.warn('OffscreenCanvas not supported, falling back to main thread rendering')
         }
@@ -785,5 +802,7 @@ export function useDrawing(
         alignSelected,
         /** True when multiple elements are selected (box select) */
         multiSelected,
+        /** Viewport at which the canvas was last rendered (for CSS compensation) */
+        renderedViewportRef,
     }
 }

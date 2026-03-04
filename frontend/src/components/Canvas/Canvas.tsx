@@ -127,7 +127,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
         if (block) useAppStore.getState().selectBlock(block.id)
     }, [])
 
-    const { editorRequest, closeEditor, blockPreview, drawingCursor, renderDrawing, eventConsumedRef, styleSelection, updateSelectedStyle, clearDrawingSelection, reorderSelected, alignSelected, multiSelected } = useDrawing(
+    const { editorRequest, closeEditor, blockPreview, drawingCursor, renderDrawing, eventConsumedRef, styleSelection, updateSelectedStyle, clearDrawingSelection, reorderSelected, alignSelected, multiSelected, renderedViewportRef } = useDrawing(
         drawingSvgRef,
         overlayCanvasRef,
         containerRef,
@@ -188,10 +188,27 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             }
         }
 
-        // Canvas re-render needed — canvas is not CSS-transformed, viewport is in the context
+        // CSS compensation: shift stale canvas image to match block layer position
+        // until the Worker delivers a fresh frame. Only applies during pure pan
+        // (zoom unchanged) — during zoom, translate-only compensation would misalign
+        // the rasterized content, causing visible flicker.
+        const rv = renderedViewportRef.current
+        const zoomUnchanged = Math.abs(v.zoom - rv.zoom) < 0.001
+        const dx = v.x - rv.x
+        const dy = v.y - rv.y
+        const needsCompensation = zoomUnchanged && (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5)
+        const canvasTransform = needsCompensation ? `translate3d(${dx}px, ${dy}px, 0)` : ''
+        if (drawingSvgRef.current) {
+            drawingSvgRef.current.style.transform = canvasTransform
+        }
+        if (overlayCanvasRef.current) {
+            overlayCanvasRef.current.style.transform = canvasTransform
+        }
+
+        // Canvas re-render needed — Worker applies viewport via Canvas2D context
         renderDrawing(v)
         w.__perfEnd?.('applyViewport')
-    }, [renderDrawing])
+    }, [renderDrawing, renderedViewportRef])
 
     // Keep viewportRef in sync with store (for external viewport changes like double-click zoom)
     useEffect(() => {
@@ -474,7 +491,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             <canvas
                 ref={drawingSvgRef}
                 className="drawing-canvas absolute inset-0 z-[1]"
-                style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
+                style={{ width: '100%', height: '100%', pointerEvents: 'none', willChange: 'transform', transformOrigin: '0 0' }}
             />
 
             {/* Overlay canvas — stays on main thread for selection UI + handler overlays.
@@ -482,7 +499,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             <canvas
                 ref={overlayCanvasRef}
                 className="drawing-overlay absolute inset-0 z-[1]"
-                style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
+                style={{ width: '100%', height: '100%', pointerEvents: 'none', willChange: 'transform', transformOrigin: '0 0' }}
             />
 
             {/* Drawing overlay layer — INSIDE viewport transform (for inline editor) */}

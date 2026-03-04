@@ -65,6 +65,11 @@ export class DrawingWorkerProxy {
     private lastTheme = ''
     private lastSketchy = false
 
+    // Viewport tracking for CSS pan compensation
+    private lastSentViewport = { x: 0, y: 0, zoom: 1 }
+    renderedViewport = { x: 0, y: 0, zoom: 1 }
+    onFrame?: (viewport: { x: number; y: number; zoom: number }) => void
+
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas
         const ctx = canvas.getContext('2d')
@@ -91,6 +96,7 @@ export class DrawingWorkerProxy {
                 case 'frame': {
                     // Blit ImageBitmap from worker to DOM canvas
                     this.rendering = false
+                    this.renderedViewport = { ...this.lastSentViewport }
                     const bitmap = e.data.bitmap as ImageBitmap
                     const c = this.canvas
                     // Resize canvas if needed to match bitmap
@@ -102,6 +108,7 @@ export class DrawingWorkerProxy {
                     this.ctx.clearRect(0, 0, c.width, c.height)
                     this.ctx.drawImage(bitmap, 0, 0)
                     bitmap.close()
+                    this.onFrame?.(this.renderedViewport)
                     // If a new render was queued while worker was busy, send it
                     if (this.pendingRender) {
                         this.doRender(this.pendingRender)
@@ -143,6 +150,7 @@ export class DrawingWorkerProxy {
 
     private doRender(state: RenderState): void {
         this.rendering = true
+        this.lastSentViewport = { ...state.viewport }
 
         // Detect global changes that require full sync
         const globalChanged = this.needsFullSync ||
