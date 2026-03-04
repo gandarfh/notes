@@ -75,6 +75,34 @@ export function isArrowType(el: DrawingElement): boolean {
     return el.type === 'arrow' || el.type === 'ortho-arrow'
 }
 
+// ── Text measurement (main thread only) ─────────────────
+
+let _measureCtx: CanvasRenderingContext2D | null = null
+function getMeasureCtx(): CanvasRenderingContext2D {
+    if (!_measureCtx) {
+        const c = document.createElement('canvas')
+        _measureCtx = c.getContext('2d')!
+    }
+    return _measureCtx
+}
+
+/** Measure text element dimensions using Canvas measureText (pixel-accurate) */
+export function measureTextElement(el: DrawingElement): { w: number; h: number } {
+    const lines = (el.text || '').split('\n')
+    const isSketchy = (typeof localStorage !== 'undefined' && localStorage.getItem('boardStyle') === 'sketchy')
+    const baseFontSize = el.fontSize || 14
+    const fontSize = isSketchy ? Math.round(baseFontSize * 1.3) : (el.fontSize ?? 16)
+    const lineH = fontSize * 1.3
+    const ctx = getMeasureCtx()
+    ctx.font = `${el.fontWeight || 400} ${fontSize}px 'Architects Daughter'`
+    let maxW = 0
+    for (const line of lines) {
+        const w = ctx.measureText(line).width
+        if (w > maxW) maxW = w
+    }
+    return { w: maxW, h: lineH * lines.length }
+}
+
 /** Compute the actual bounding box of an element, accounting for arrow points */
 export function getElementBounds(el: DrawingElement): { x: number; y: number; w: number; h: number } {
     if (el.points && el.points.length > 0) {

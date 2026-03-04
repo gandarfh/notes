@@ -4,7 +4,7 @@
  * Lightweight Canvas2D functions for selection UI, anchors, and box selection.
  * NO WASM calls — all element rendering is in the Web Worker (drawing-worker.ts).
  */
-import { type DrawingElement, type AnchorPoint, ANCHOR_RADIUS, HANDLE_SIZE, getElementBounds } from './types'
+import { type DrawingElement, type AnchorPoint, ANCHOR_RADIUS, HANDLE_SIZE, getElementBounds, measureTextElement } from './types'
 
 // ── Theme helpers (lightweight, no WASM) ──
 
@@ -118,11 +118,7 @@ export function drawSelectionUI(ctx: CanvasRenderingContext2D, el: DrawingElemen
             ctx.stroke()
         }
     } else if (el.type === 'text') {
-        const lines = (el.text || '').split('\n')
-        const maxLineLen = Math.max(...lines.map(l => l.length))
-        const tw = maxLineLen * (el.fontSize ?? 16) * 0.6
-        const lineH = (el.fontSize ?? 16) * 1.3
-        const th = lineH * lines.length
+        const { w: tw, h: th } = measureTextElement(el)
         ctx.strokeStyle = ACCENT
         ctx.lineWidth = 1
         ctx.setLineDash([4, 2])

@@ -1,4 +1,4 @@
-import { type DrawingElement, type ResizeHandle, isArrowType } from './types'
+import { type DrawingElement, type ResizeHandle, isArrowType, measureTextElement } from './types'
 import { type DrawingEngine, SHAPE_IDS } from './drawing-wasm'
 
 const getEngine = (): DrawingEngine | null => (globalThis as any).__drawingEngine ?? null
@@ -14,8 +14,8 @@ function segDist(px: number, py: number, ax: number, ay: number, bx: number, by:
 export function isPointInElement(x: number, y: number, el: DrawingElement): boolean {
     const m = 8
     if (el.type === 'text') {
-        const tw = (el.text?.length ?? 0) * (el.fontSize ?? 16) * 0.6
-        return x >= el.x - m && x <= el.x + tw + m && y >= el.y - (el.fontSize ?? 16) && y <= el.y + m
+        const { w: tw, h: th } = measureTextElement(el)
+        return x >= el.x - m && x <= el.x + tw + m && y >= el.y - (el.fontSize ?? 16) && y <= el.y - (el.fontSize ?? 16) + th + m
     }
     if (el.type === 'freedraw' && el.points) {
         for (const p of el.points) {

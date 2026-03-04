@@ -431,10 +431,10 @@ function drawElement(ctx: OffscreenCanvasRenderingContext2D, el: DrawingElement,
             if (_editingElementId === el.id) break
             const lines = (el.text || '').split('\n')
             ctx.fillStyle = textFill
-            ctx.font = `${fw} ${el.fontSize ?? 16}px ${font}`
+            ctx.font = `${fw} ${textSize}px ${font}`
             ctx.textBaseline = 'alphabetic'
             ctx.textAlign = (el.textAlign as CanvasTextAlign) || 'start'
-            const lineH = (el.fontSize ?? 16) * 1.3
+            const lineH = textSize * 1.3
             for (let i = 0; i < lines.length; i++) {
                 ctx.fillText(lines[i], el.x, el.y + lineH * i)
             }
