@@ -97,15 +97,19 @@ export function updateConnectedArrows(elements: DrawingElement[], movedElementId
         const startMoved = el.startConnection?.elementId === movedElementId
         const endMoved = el.endConnection?.elementId === movedElementId
         if (!startMoved && !endMoved) continue
-        if (!el.points || el.points.length < 2) continue
 
         // Resolve current anchor positions
         const startPt = el.startConnection ? resolveAnchor(elements, el.startConnection) : null
         const endPt = el.endConnection ? resolveAnchor(elements, el.endConnection) : null
 
-        // Determine absolute start/end positions
-        const absStart = startPt ?? { x: el.x + el.points[0][0], y: el.y + el.points[0][1] }
-        const absEnd = endPt ?? { x: el.x + el.points[el.points.length - 1][0], y: el.y + el.points[el.points.length - 1][1] }
+        // Determine absolute start/end positions — recover from corrupted/empty points
+        const hasValidPoints = el.points && el.points.length >= 2
+        const absStart = startPt ?? (hasValidPoints
+            ? { x: el.x + el.points![0][0], y: el.y + el.points![0][1] }
+            : { x: el.x, y: el.y })
+        const absEnd = endPt ?? (hasValidPoints
+            ? { x: el.x + el.points![el.points!.length - 1][0], y: el.y + el.points![el.points!.length - 1][1] }
+            : { x: el.x + el.width, y: el.y + el.height })
 
         // Update arrow origin to new start
         el.x = absStart.x
@@ -142,8 +146,12 @@ export function updateConnectedArrows(elements: DrawingElement[], movedElementId
             enforceOrthogonality(el)
         } else {
             // Simple arrow — just update endpoints
-            el.points[0] = [0, 0]
-            el.points[el.points.length - 1] = [absEnd.x - absStart.x, absEnd.y - absStart.y]
+            if (!el.points || el.points.length < 2) {
+                el.points = [[0, 0], [absEnd.x - absStart.x, absEnd.y - absStart.y]]
+            } else {
+                el.points[0] = [0, 0]
+                el.points[el.points.length - 1] = [absEnd.x - absStart.x, absEnd.y - absStart.y]
+            }
         }
 
         // Compute width/height from actual path bounds (not just last point)

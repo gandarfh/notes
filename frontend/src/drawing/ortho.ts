@@ -30,10 +30,12 @@ export function computeOrthoRoute(
     const engine = getEngine()
     if (engine) {
         try {
-            return engine.computeOrthoRouteBin(dx, dy, {
+            const result = engine.computeOrthoRouteBin(dx, dy, {
                 startSide, endSide, startRect, endRect,
                 shapeObstacles: allObstacles,
             })
+            if (result.length >= 2) return result
+            // WASM returned degenerate route — fall through to L-shape fallback
         } catch { /* fall through to fallback */ }
     }
 
