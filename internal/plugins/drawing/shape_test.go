@@ -91,10 +91,9 @@ func TestShapeRegistry_ListAndTypes(t *testing.T) {
 	reg := &ShapeRegistry{}
 	reg.Register(&RectangleShape{})
 	reg.Register(&EllipseShape{})
-	reg.Register(&CloudShape{})
 
-	if len(reg.List()) != 3 {
-		t.Errorf("List len = %d, want 3", len(reg.List()))
+	if len(reg.List()) != 2 {
+		t.Errorf("List len = %d, want 2", len(reg.List()))
 	}
 
 	types := reg.Types()
@@ -102,13 +101,13 @@ func TestShapeRegistry_ListAndTypes(t *testing.T) {
 	for _, tp := range types {
 		found[tp] = true
 	}
-	if !found["rectangle"] || !found["ellipse"] || !found["cloud"] {
+	if !found["rectangle"] || !found["ellipse"] {
 		t.Errorf("Types = %v, missing expected entries", types)
 	}
 }
 
 func TestDefaultRegistry_HasAllShapes(t *testing.T) {
-	for _, tp := range []string{"rectangle", "ellipse", "diamond", "cloud"} {
+	for _, tp := range []string{"rectangle", "ellipse", "diamond"} {
 		if DefaultRegistry.Get(tp) == nil {
 			t.Errorf("DefaultRegistry missing %q", tp)
 		}
@@ -127,7 +126,6 @@ func TestShapes_GeometryFactory(t *testing.T) {
 		{&RectangleShape{}, "*drawing.RectGeometry"},
 		{&EllipseShape{}, "*drawing.EllipseGeometry"},
 		{&DiamondShape{}, "*drawing.DiamondGeometry"},
-		{&CloudShape{}, "*drawing.EllipseGeometry"}, // cloud reuses ellipse
 	}
 	for _, tc := range tests {
 		t.Run(tc.shape.Type(), func(t *testing.T) {
@@ -137,25 +135,6 @@ func TestShapes_GeometryFactory(t *testing.T) {
 				t.Fatal("Geometry returned nil")
 			}
 		})
-	}
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Cloud OutlinePath — all CurveTo (regression guard)
-// ═══════════════════════════════════════════════════════════════
-
-func TestCloudShape_OutlinePath_HasCurves(t *testing.T) {
-	s := &CloudShape{}
-	outline := s.OutlinePath(140, 90)
-	hasCurve := false
-	for _, cmd := range outline {
-		if cmd.Op == OpCurveTo {
-			hasCurve = true
-			break
-		}
-	}
-	if !hasCurve {
-		t.Error("cloud outline should have CurveTo commands")
 	}
 }
 
@@ -200,18 +179,8 @@ func TestDiamondShape_SketchOutline_Structure(t *testing.T) {
 	}
 }
 
-func TestCloudShape_SketchOutline_EmptyBecauseNoCurveSupport(t *testing.T) {
-	s := &CloudShape{}
-	paths := s.SketchOutline(140, 90, 42, 2)
-	// sketchFromPathCmds ignores CurveTo → cloud sketch is empty
-	// This documents the behavior (potential bug #9)
-	if len(paths) != 0 {
-		t.Errorf("expected 0 paths (CurveTo not sketched), got %d", len(paths))
-	}
-}
-
 func TestSketchFill_Hachure_ClipAndFillStructure(t *testing.T) {
-	shapes := []ShapeDef{&RectangleShape{}, &EllipseShape{}, &DiamondShape{}, &CloudShape{}}
+	shapes := []ShapeDef{&RectangleShape{}, &EllipseShape{}, &DiamondShape{}}
 	for _, s := range shapes {
 		t.Run(s.Type(), func(t *testing.T) {
 			w, h := s.DefaultSize()

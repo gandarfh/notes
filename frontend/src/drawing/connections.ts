@@ -1,4 +1,4 @@
-import { type DrawingElement, type AnchorPoint, type AnchorSide, type Connection, GRID, isArrowType } from './types'
+import { type DrawingElement, type AnchorPoint, type AnchorSide, type Connection, isArrowType } from './types'
 import { computeOrthoRoute, enforceOrthogonality, type Rect } from './ortho'
 import { type DrawingEngine, SHAPE_IDS } from './drawing-wasm'
 
@@ -9,45 +9,21 @@ export function getAnchors(el: DrawingElement): AnchorPoint[] {
     if (el.type === 'line' || el.type === 'arrow' || el.type === 'ortho-arrow' ||
         el.type === 'freedraw' || el.type === 'text' || el.type === 'group') return []
 
-    // Delegate to Go/WASM for custom shapes
     const engine = getEngine()
     if (engine && SHAPE_IDS[el.type] !== undefined) {
         try {
             const wasmAnchors = engine.getAnchors(el.type, el.width, el.height)
-            if (wasmAnchors.length > 0) {
-                return wasmAnchors.map(a => ({
-                    elementId: el.id,
-                    side: a.side as AnchorSide,
-                    t: a.t,
-                    x: el.x + a.x,
-                    y: el.y + a.y,
-                }))
-            }
-        } catch { /* fall through */ }
+            return wasmAnchors.map(a => ({
+                elementId: el.id,
+                side: a.side as AnchorSide,
+                t: a.t,
+                x: el.x + a.x,
+                y: el.y + a.y,
+            }))
+        } catch { /* WASM error */ }
     }
 
-    // Fallback: generate 4-side anchors in TS
-    const anchors: AnchorPoint[] = []
-    const sides: { side: AnchorSide; x1: number; y1: number; x2: number; y2: number }[] = [
-        { side: 'top', x1: el.x, y1: el.y, x2: el.x + el.width, y2: el.y },
-        { side: 'bottom', x1: el.x, y1: el.y + el.height, x2: el.x + el.width, y2: el.y + el.height },
-        { side: 'left', x1: el.x, y1: el.y, x2: el.x, y2: el.y + el.height },
-        { side: 'right', x1: el.x + el.width, y1: el.y, x2: el.x + el.width, y2: el.y + el.height },
-    ]
-
-    for (const s of sides) {
-        const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1)
-        const count = Math.max(1, Math.floor(len / GRID))
-        for (let i = 0; i <= count; i++) {
-            const t = count === 0 ? 0.5 : i / count
-            anchors.push({
-                elementId: el.id, side: s.side, t,
-                x: s.x1 + (s.x2 - s.x1) * t,
-                y: s.y1 + (s.y2 - s.y1) * t,
-            })
-        }
-    }
-    return anchors
+    return []
 }
 
 /** Resolve a connection to world coordinates */

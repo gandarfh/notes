@@ -17,7 +17,7 @@ func (s *Server) registerDrawingTools() {
 	s.mcp.AddTool(mcp.NewTool("add_drawing_element",
 		mcp.WithDescription("Add a shape or text element to the drawing layer. SAFE COLORS (theme-aware): Vivid: Red (#e03131), Orange (#f08c00), Green (#2f9e44), Blue (#1971c2), Purple (#9c36b5). Pastel: LightRed (#ffc9c9), LightYellow (#ffec99), LightGreen (#b2f2bb), LightBlue (#a5d8ff), LightPurple (#eebefa). Gray: Dark (#1e1e2e), MidDark (#545475), Mid (#828298), Light (#bfbfcf), Near-white (#e8e8f0). Special: transparent, DarkBg (#343446). Use #e8e8f0 for strokeColor to ensure visibility. Colors outside this palette will be ignored. SPACING: keep at least 80px gap between elements so arrows remain readable."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
-		mcp.WithString("type", mcp.Description("Element type: rectangle, ellipse, diamond, text. For group containers (bounded contexts), use add_drawing_group instead. Custom shapes: database, vm, terminal, user, cloud."), mcp.Required()),
+		mcp.WithString("type", mcp.Description("Element type: rectangle, ellipse, diamond, text. For group containers (bounded contexts), use add_drawing_group instead."), mcp.Required()),
 		mcp.WithNumber("x", mcp.Description("X position"), mcp.Required()),
 		mcp.WithNumber("y", mcp.Description("Y position"), mcp.Required()),
 		mcp.WithNumber("width", mcp.Description("Width"), mcp.Required()),

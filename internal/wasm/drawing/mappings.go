@@ -10,7 +10,6 @@ import "notes/internal/plugins/drawing"
 
 var shapeTypeNames = []string{
 	"rectangle", "ellipse", "diamond",
-	"database", "vm", "terminal", "user", "cloud",
 }
 
 func shapeTypeName(id int) string {
