@@ -536,18 +536,27 @@ function drawArrowLabel(ctx: OffscreenCanvasRenderingContext2D, el: DrawingEleme
     const baseFontSize = el.fontSize || 14
     const fontSize = _lastSketchy ? Math.round(baseFontSize * 1.3) : baseFontSize
     ctx.font = `${el.fontWeight || 400} ${fontSize}px 'Architects Daughter'`
-    const metrics = ctx.measureText(el.label)
-    const pw = metrics.width + 6
-    const ph = fontSize + 4
+    const lines = el.label.split('\n')
+    const lineHeight = fontSize * 1.2
+    let maxWidth = 0
+    for (const line of lines) {
+        const w = ctx.measureText(line).width
+        if (w > maxWidth) maxWidth = w
+    }
+    const pw = maxWidth + 6
+    const ph = lineHeight * lines.length + 4
+    const topY = ly - ph / 2
     ctx.globalAlpha = 1
     ctx.fillStyle = _lastCanvasBg
     ctx.beginPath()
-    ctx.roundRect(lx - pw / 2, ly - ph / 2, pw, ph, 3)
+    ctx.roundRect(lx - pw / 2, topY, pw, ph, 3)
     ctx.fill()
     ctx.fillStyle = color
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(el.label, lx, ly)
+    for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], lx, topY + 2 + lineHeight * (i + 0.5))
+    }
 }
 
 // ── Viewport Culling ──
