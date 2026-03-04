@@ -33,6 +33,7 @@ type App struct {
 	// Services (business logic layer)
 	notebooks *service.NotebookService
 	blocks    *service.BlockService
+	drawing   *service.DrawingService
 	etl       *service.ETLService
 	localdb   *service.LocalDBService
 	database  *service.DatabaseService
@@ -108,6 +109,7 @@ func (a *App) Startup(ctx context.Context) {
 	a.database = service.NewDatabaseService(dbConnStore, secretStore, blocksStore)
 	a.etl = service.NewETLService(etlStore, localDBStore, a)
 	a.notebooks = service.NewNotebookService(notebooksStore, a.blocks, connsStore, dataDir, a)
+	a.drawing = service.NewDrawingService(a.notebooks)
 	a.window = service.NewWindowSettingsService(db)
 
 	// Restore saved window size
@@ -147,6 +149,7 @@ func (a *App) Startup(ctx context.Context) {
 		Emitter:   a,
 		Notebooks: a.notebooks,
 		Blocks:    a.blocks,
+		Drawing:   a.drawing,
 		LocalDB:   a.localdb,
 		ETL:       a.etl,
 		Database:  a.database,

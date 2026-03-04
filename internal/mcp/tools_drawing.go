@@ -5,39 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"notes/internal/domain"
 	"notes/internal/plugins/drawing"
+	"notes/internal/service"
 	"strings"
-	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
-
-// ── Valid drawing colors ────────────────────────────────────
-// Must match the palette defined in frontend ColorPicker.tsx + StylePanel.tsx BG_COLORS.
-var validDrawingColors = map[string]bool{
-	// Grayscale
-	"#1e1e2e": true, "#545475": true, "#828298": true, "#bfbfcf": true, "#e8e8f0": true,
-	// Vivid
-	"#e03131": true, "#f08c00": true, "#2f9e44": true, "#1971c2": true, "#9c36b5": true,
-	// Pastel
-	"#ffc9c9": true, "#ffec99": true, "#b2f2bb": true, "#a5d8ff": true, "#eebefa": true,
-	// Special
-	"transparent": true, "#343446": true,
-	// Stroke defaults
-	"#e0e0e0": true, "#ffffff": true, "#000000": true,
-}
-
-// sanitizeColor returns the color if it's in the palette, otherwise returns the fallback.
-func sanitizeColor(color, fallback string) string {
-	if color == "" {
-		return fallback
-	}
-	normalized := strings.ToLower(strings.TrimSpace(color))
-	if validDrawingColors[normalized] {
-		return color
-	}
-	return fallback
-}
 
 func (s *Server) registerDrawingTools() {
 	s.mcp.AddTool(mcp.NewTool("add_drawing_element",
@@ -249,133 +223,6 @@ type StrictBatchPatch struct {
 	IsGroup         *bool          `json:"isGroup,omitempty"`
 }
 
-type drawingElement map[string]any
-
-func (s *Server) getDrawingElements(pageID string) ([]drawingElement, error) {
-	state, err := s.notebooks.GetPageState(pageID)
-	if err != nil {
-		return nil, err
-	}
-	if state.Page.DrawingData == "" || state.Page.DrawingData == "[]" {
-		return nil, nil
-	}
-	var elements []drawingElement
-	if err := parseJSON(state.Page.DrawingData, &elements); err != nil {
-		return nil, fmt.Errorf("parse drawing data: %w", err)
-	}
-	return elements, nil
-}
-
-func (s *Server) saveDrawingElements(pageID string, elements []drawingElement) error {
-	data, err := json.Marshal(elements)
-	if err != nil {
-		return err
-	}
-	return s.notebooks.UpdateDrawingData(pageID, string(data))
-}
-
-func findElement(elements []drawingElement, id string) (int, drawingElement) {
-	for i, el := range elements {
-		if elID, _ := el["id"].(string); elID == id {
-			return i, el
-		}
-	}
-	return -1, nil
-}
-
-func genDrawingID() string {
-	return fmt.Sprintf("el_%d_%d", time.Now().UnixMilli(), drawingIDCounter.Add(1))
-}
-
-// atomic counter for generating unique drawing IDs
-var drawingIDCounter atomicCounter
-
-type atomicCounter struct {
-	v int64
-}
-
-func (c *atomicCounter) Add(delta int64) int64 {
-	c.v += delta
-	return c.v
-}
-
-// arrowEndpoints computes the best connection sides and anchor points for an arrow
-// between two elements. Returns source/target world coordinates and sides.
-type arrowInfo struct {
-	srcX, srcY float64
-	dstX, dstY float64
-	srcSide    string
-	dstSide    string
-}
-
-func computeArrowInfo(elements []drawingElement, fromID, toID string) arrowInfo {
-	var srcX, srcY, srcW, srcH float64
-	var dstX, dstY, dstW, dstH float64
-	for _, el := range elements {
-		elID, _ := el["id"].(string)
-		ex, _ := el["x"].(float64)
-		ey, _ := el["y"].(float64)
-		ew, _ := el["width"].(float64)
-		eh, _ := el["height"].(float64)
-		if elID == fromID {
-			srcX, srcY, srcW, srcH = ex, ey, ew, eh
-		}
-		if elID == toID {
-			dstX, dstY, dstW, dstH = ex, ey, ew, eh
-		}
-	}
-
-	srcCX, srcCY := srcX+srcW/2, srcY+srcH/2
-	dstCX, dstCY := dstX+dstW/2, dstY+dstH/2
-	dx := dstCX - srcCX
-	dy := dstCY - srcCY
-
-	var info arrowInfo
-	// Choose best sides based on relative position
-	if abs(dy) > abs(dx) {
-		// Vertical — use bottom→top or top→bottom
-		if dy > 0 {
-			info.srcSide = "bottom"
-			info.dstSide = "top"
-			info.srcX = srcX + srcW/2
-			info.srcY = srcY + srcH
-			info.dstX = dstX + dstW/2
-			info.dstY = dstY
-		} else {
-			info.srcSide = "top"
-			info.dstSide = "bottom"
-			info.srcX = srcX + srcW/2
-			info.srcY = srcY
-			info.dstX = dstX + dstW/2
-			info.dstY = dstY + dstH
-		}
-	} else {
-		// Horizontal — use right→left or left→right
-		if dx > 0 {
-			info.srcSide = "right"
-			info.dstSide = "left"
-			info.srcX = srcX + srcW
-			info.srcY = srcY + srcH/2
-			info.dstX = dstX
-			info.dstY = dstY + dstH/2
-		} else {
-			info.srcSide = "left"
-			info.dstSide = "right"
-			info.srcX = srcX
-			info.srcY = srcY + srcH/2
-			info.dstX = dstX + dstW
-			info.dstY = dstY + dstH/2
-		}
-	}
-	return info
-}
-
-func abs(x float64) float64 {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
 
 // ── Handlers ────────────────────────────────────────────────
 
@@ -386,29 +233,35 @@ func (s *Server) handleAddDrawingGroup(ctx context.Context, req mcp.CallToolRequ
 		return nil, err
 	}
 
-	elements, _ := s.getDrawingElements(pageID)
-
 	stroke := "#828298"
 	if sc, ok := args["strokeColor"].(string); ok {
-		stroke = sanitizeColor(sc, "#828298")
+		stroke = service.SanitizeColor(sc, "#828298")
 	}
 
-	el := drawingElement{
-		"id":              genDrawingID(),
-		"type":            "group",
-		"x":               args["x"],
-		"y":               args["y"],
-		"width":           args["width"],
-		"height":          args["height"],
-		"strokeColor":     stroke,
-		"strokeWidth":     float64(2),
-		"backgroundColor": "transparent",
-		"text":            args["label"],
+	label, _ := args["label"].(string)
+	x, _ := args["x"].(float64)
+	y, _ := args["y"].(float64)
+	w, _ := args["width"].(float64)
+	h, _ := args["height"].(float64)
+
+	el := domain.DrawingElement{
+		ID:              s.drawing.GenID(),
+		Type:            domain.DrawingTypeGroup,
+		X:               x,
+		Y:               y,
+		Width:           w,
+		Height:          h,
+		StrokeColor:     stroke,
+		StrokeWidth:     2,
+		BackgroundColor: "transparent",
+		Text:            &label,
 	}
 
 	// Insert at beginning so it renders behind other elements
-	elements = append([]drawingElement{el}, elements...)
-	if err := s.saveDrawingElements(pageID, elements); err != nil {
+	err = s.drawing.WithElements(ctx, pageID, func(elements []domain.DrawingElement) ([]domain.DrawingElement, error) {
+		return append([]domain.DrawingElement{el}, elements...), nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -422,32 +275,35 @@ func (s *Server) handleAddDrawingElement(ctx context.Context, req mcp.CallToolRe
 		return nil, err
 	}
 
-	elements, _ := s.getDrawingElements(pageID)
+	elType, _ := args["type"].(string)
+	x, _ := args["x"].(float64)
+	y, _ := args["y"].(float64)
+	w, _ := args["width"].(float64)
+	h, _ := args["height"].(float64)
 
-	// Build element matching frontend DrawingElement interface
-	el := drawingElement{
-		"id":              genDrawingID(),
-		"type":            args["type"],
-		"x":               args["x"],
-		"y":               args["y"],
-		"width":           args["width"],
-		"height":          args["height"],
-		"strokeColor":     "#e8e8f0",
-		"strokeWidth":     float64(2),
-		"backgroundColor": "transparent",
+	el := domain.DrawingElement{
+		ID:              s.drawing.GenID(),
+		Type:            domain.DrawingElementType(elType),
+		X:               x,
+		Y:               y,
+		Width:           w,
+		Height:          h,
+		StrokeColor:     "#e8e8f0",
+		StrokeWidth:     2,
+		BackgroundColor: "transparent",
 	}
 	if text, ok := args["text"].(string); ok {
-		el["text"] = text
+		el.Text = &text
 	}
 	if fill, ok := args["fillColor"].(string); ok {
-		el["backgroundColor"] = sanitizeColor(fill, "transparent")
+		bg := service.SanitizeColor(fill, "transparent")
+		el.BackgroundColor = bg
 	}
 	if stroke, ok := args["strokeColor"].(string); ok {
-		el["strokeColor"] = sanitizeColor(stroke, "#e8e8f0")
+		el.StrokeColor = service.SanitizeColor(stroke, "#e8e8f0")
 	}
 
-	elements = append(elements, el)
-	if err := s.saveDrawingElements(pageID, elements); err != nil {
+	if err := s.drawing.AddElement(ctx, pageID, el); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -461,194 +317,171 @@ func (s *Server) handleAddDrawingArrow(ctx context.Context, req mcp.CallToolRequ
 		return nil, err
 	}
 
-	elements, _ := s.getDrawingElements(pageID)
-
 	fromID, _ := args["fromId"].(string)
 	toID, _ := args["toId"].(string)
 
-	// Compute best sides based on relative position
-	info := computeArrowInfo(elements, fromID, toID)
+	var resultArrow domain.DrawingElement
+	err = s.drawing.WithElements(ctx, pageID, func(elements []domain.DrawingElement) ([]domain.DrawingElement, error) {
+		// Compute best sides based on relative position
+		info := computeArrowInfo(elements, fromID, toID)
 
-	// Distribute t-parameter to avoid overlapping arrows on same side
-	srcT := connectSlot(elements, fromID, info.srcSide)
-	dstT := connectSlot(elements, toID, info.dstSide)
+		// Distribute t-parameter to avoid overlapping arrows on same side
+		srcT := connectSlot(elements, fromID, info.srcSide)
+		dstT := connectSlot(elements, toID, info.dstSide)
 
-	// Recompute anchor positions using distributed t
-	srcR := elementRect(elements, fromID)
-	dstR := elementRect(elements, toID)
-	if srcR != nil {
-		info.srcX, info.srcY = anchorPoint(*srcR, info.srcSide, srcT)
-	}
-	if dstR != nil {
-		info.dstX, info.dstY = anchorPoint(*dstR, info.dstSide, dstT)
-	}
-
-	dx := info.dstX - info.srcX
-	dy := info.dstY - info.srcY
-
-	// Enforce minimum arrow distance — if elements too close, push anchors apart
-	arrowDist := math.Sqrt(dx*dx + dy*dy)
-	if arrowDist > 0 && arrowDist < minArrowDist {
-		scale := minArrowDist / arrowDist
-		midX := info.srcX + dx/2
-		midY := info.srcY + dy/2
-		info.srcX = midX - (dx/2)*scale
-		info.srcY = midY - (dy/2)*scale
-		info.dstX = midX + (dx/2)*scale
-		info.dstY = midY + (dy/2)*scale
-		dx = info.dstX - info.srcX
-		dy = info.dstY - info.srcY
-	}
-
-	// Collect obstacle rects (all shapes except source/target), in arrow-local coords
-	excludeIDs := map[string]bool{fromID: true, toID: true}
-
-	// ── Multi-candidate routing ──
-	// Try the primary side combination first. If the path is unreasonably long
-	// (>3x manhattan distance), try alternative side combinations and pick shortest.
-
-	type routeCandidate struct {
-		srcSide, dstSide string
-		srcT, dstT       float64
-		srcAnchor        point
-		dstAnchor        point
-		points           [][]float64
-		pathLen          float64
-		bendCount        int
-		score            float64 // pathLen + bendCount*5 (tie-breaker only)
-	}
-
-	// Helper: compute a full route for given sides
-	tryRoute := func(sSide, dSide string) *routeCandidate {
-		sT := connectSlot(elements, fromID, sSide)
-		dT := connectSlot(elements, toID, dSide)
-		var sAnchor, dAnchor point
+		// Recompute anchor positions using distributed t
+		srcR := elementRect(elements, fromID)
+		dstR := elementRect(elements, toID)
 		if srcR != nil {
-			sAnchor.x, sAnchor.y = anchorPoint(*srcR, sSide, sT)
+			info.srcX, info.srcY = anchorPoint(*srcR, info.srcSide, srcT)
 		}
 		if dstR != nil {
-			dAnchor.x, dAnchor.y = anchorPoint(*dstR, dSide, dT)
+			info.dstX, info.dstY = anchorPoint(*dstR, info.dstSide, dstT)
 		}
-		cdx := dAnchor.x - sAnchor.x
-		cdy := dAnchor.y - sAnchor.y
 
-		// Collect shape obstacles + arrow obstacles separately
-		shapeObs := collectObstacleRects(elements, excludeIDs, sAnchor.x, sAnchor.y)
-		arrowObs := collectArrowObstacleRects(elements, excludeIDs, sAnchor.x, sAnchor.y)
+		dx := info.dstX - info.srcX
+		dy := info.dstY - info.srcY
 
-		var lsr, ldr *rect
-		if srcR != nil {
-			r := rect{srcR.x - sAnchor.x, srcR.y - sAnchor.y, srcR.w, srcR.h}
-			lsr = &r
+		// Enforce minimum arrow distance — if elements too close, push anchors apart
+		arrowDist := math.Sqrt(dx*dx + dy*dy)
+		if arrowDist > 0 && arrowDist < minArrowDist {
+			scale := minArrowDist / arrowDist
+			midX := info.srcX + dx/2
+			midY := info.srcY + dy/2
+			info.srcX = midX - (dx/2)*scale
+			info.srcY = midY - (dy/2)*scale
+			info.dstX = midX + (dx/2)*scale
+			info.dstY = midY + (dy/2)*scale
 		}
-		if dstR != nil {
-			r := rect{dstR.x - sAnchor.x, dstR.y - sAnchor.y, dstR.w, dstR.h}
-			ldr = &r
-		}
-		pts := computeOrthoRoute(cdx, cdy, sSide, dSide, lsr, ldr, shapeObs, arrowObs)
 
-		// Compute total path length, bend count, and obstacle crossings
-		totalLen := 0.0
-		bends := 0
-		crossings := 0
-		for i := 1; i < len(pts); i++ {
-			totalLen += math.Abs(pts[i][0]-pts[i-1][0]) + math.Abs(pts[i][1]-pts[i-1][1])
-			if i >= 2 {
-				dx1 := pts[i-1][0] - pts[i-2][0]
-				dy1 := pts[i-1][1] - pts[i-2][1]
-				dx2 := pts[i][0] - pts[i-1][0]
-				dy2 := pts[i][1] - pts[i-1][1]
-				if (dx1 != 0 && dy2 != 0) || (dy1 != 0 && dx2 != 0) {
-					bends++
+		// Collect obstacle rects (all shapes except source/target), in arrow-local coords
+		excludeIDs := map[string]bool{fromID: true, toID: true}
+
+		// ── Multi-candidate routing ──
+		type routeCandidate struct {
+			srcSide, dstSide string
+			srcT, dstT       float64
+			srcAnchor        point
+			dstAnchor        point
+			points           [][]float64
+			score            float64
+		}
+
+		tryRoute := func(sSide, dSide string) *routeCandidate {
+			sT := connectSlot(elements, fromID, sSide)
+			dT := connectSlot(elements, toID, dSide)
+			var sAnchor, dAnchor point
+			if srcR != nil {
+				sAnchor.x, sAnchor.y = anchorPoint(*srcR, sSide, sT)
+			}
+			if dstR != nil {
+				dAnchor.x, dAnchor.y = anchorPoint(*dstR, dSide, dT)
+			}
+			cdx := dAnchor.x - sAnchor.x
+			cdy := dAnchor.y - sAnchor.y
+
+			shapeObs := collectObstacleRects(elements, excludeIDs, sAnchor.x, sAnchor.y)
+			arrowObs := collectArrowObstacleRects(elements, excludeIDs, sAnchor.x, sAnchor.y)
+
+			var lsr, ldr *rect
+			if srcR != nil {
+				r := rect{srcR.x - sAnchor.x, srcR.y - sAnchor.y, srcR.w, srcR.h}
+				lsr = &r
+			}
+			if dstR != nil {
+				r := rect{dstR.x - sAnchor.x, dstR.y - sAnchor.y, dstR.w, dstR.h}
+				ldr = &r
+			}
+			pts := computeOrthoRoute(cdx, cdy, sSide, dSide, lsr, ldr, shapeObs, arrowObs)
+
+			totalLen := 0.0
+			bends := 0
+			crossings := 0
+			for i := 1; i < len(pts); i++ {
+				totalLen += math.Abs(pts[i][0]-pts[i-1][0]) + math.Abs(pts[i][1]-pts[i-1][1])
+				if i >= 2 {
+					dx1 := pts[i-1][0] - pts[i-2][0]
+					dy1 := pts[i-1][1] - pts[i-2][1]
+					dx2 := pts[i][0] - pts[i-1][0]
+					dy2 := pts[i][1] - pts[i-1][1]
+					if (dx1 != 0 && dy2 != 0) || (dy1 != 0 && dx2 != 0) {
+						bends++
+					}
+				}
+				for _, obs := range shapeObs {
+					a := drawing.Vec2{X: pts[i-1][0], Y: pts[i-1][1]}
+					b := drawing.Vec2{X: pts[i][0], Y: pts[i][1]}
+					if drawing.EdgeCrossesRect(a, b, drawing.Rect{X: obs.x, Y: obs.y, W: obs.w, H: obs.h}) {
+						crossings++
+					}
 				}
 			}
-			// Check if this segment crosses any obstacle shape
-			for _, obs := range shapeObs {
-				a := drawing.Vec2{X: pts[i-1][0], Y: pts[i-1][1]}
-				b := drawing.Vec2{X: pts[i][0], Y: pts[i][1]}
-				if drawing.EdgeCrossesRect(a, b, drawing.Rect{X: obs.x, Y: obs.y, W: obs.w, H: obs.h}) {
-					crossings++
-				}
+			score := totalLen + float64(bends)*5 + float64(crossings)*10000
+			return &routeCandidate{sSide, dSide, sT, dT, point{sAnchor.x, sAnchor.y}, point{dAnchor.x, dAnchor.y}, pts, score}
+		}
+
+		best := tryRoute(info.srcSide, info.dstSide)
+		allCombos := [][2]string{
+			{"bottom", "top"}, {"top", "bottom"},
+			{"right", "left"}, {"left", "right"},
+			{"bottom", "bottom"}, {"top", "top"},
+			{"right", "right"}, {"left", "left"},
+		}
+		for _, combo := range allCombos {
+			if combo[0] == info.srcSide && combo[1] == info.dstSide {
+				continue
+			}
+			candidate := tryRoute(combo[0], combo[1])
+			if candidate.score < best.score {
+				best = candidate
 			}
 		}
-		score := totalLen + float64(bends)*5 + float64(crossings)*10000
-		return &routeCandidate{sSide, dSide, sT, dT, point{sAnchor.x, sAnchor.y}, point{dAnchor.x, dAnchor.y}, pts, totalLen, bends, score}
-	}
 
-	// Always try the primary route + all common alternatives
-	// This ensures the best visual path is always found
-	best := tryRoute(info.srcSide, info.dstSide)
+		// Use the best route
+		points := best.points
 
-	allCombos := [][2]string{
-		{"bottom", "top"},
-		{"top", "bottom"},
-		{"right", "left"},
-		{"left", "right"},
-		{"bottom", "bottom"},
-		{"top", "top"},
-		{"right", "right"},
-		{"left", "left"},
-	}
-	for _, combo := range allCombos {
-		if combo[0] == info.srcSide && combo[1] == info.dstSide {
-			continue // skip primary, already tried
+		// Compute bounding box
+		w, h := 0.0, 0.0
+		for _, p := range points {
+			if math.Abs(p[0]) > w {
+				w = math.Abs(p[0])
+			}
+			if math.Abs(p[1]) > h {
+				h = math.Abs(p[1])
+			}
 		}
-		candidate := tryRoute(combo[0], combo[1])
-		if candidate.score < best.score {
-			best = candidate
+
+		arrowEnd := "arrow"
+		arrowStart := "none"
+		arrow := domain.DrawingElement{
+			ID:              s.drawing.GenID(),
+			Type:            domain.DrawingTypeOrtho,
+			X:               best.srcAnchor.x,
+			Y:               best.srcAnchor.y,
+			Width:           w,
+			Height:          h,
+			StrokeColor:     "#e8e8f0",
+			StrokeWidth:     2,
+			BackgroundColor: "transparent",
+			ArrowEnd:        &arrowEnd,
+			ArrowStart:      &arrowStart,
+			Points:          points,
+			StartConnection: &domain.DrawingConnection{ElementID: fromID, Side: best.srcSide, T: best.srcT},
+			EndConnection:   &domain.DrawingConnection{ElementID: toID, Side: best.dstSide, T: best.dstT},
 		}
-	}
-
-	// Use the best route
-	info.srcSide = best.srcSide
-	info.dstSide = best.dstSide
-	srcT = best.srcT
-	dstT = best.dstT
-	info.srcX = best.srcAnchor.x
-	info.srcY = best.srcAnchor.y
-	info.dstX = best.dstAnchor.x
-	info.dstY = best.dstAnchor.y
-	dx = info.dstX - info.srcX
-	dy = info.dstY - info.srcY
-	points := best.points
-
-	// Compute bounding box
-	w, h := 0.0, 0.0
-	for _, p := range points {
-		if abs(p[0]) > w {
-			w = abs(p[0])
+		if label, ok := args["label"].(string); ok {
+			arrow.Label = &label
 		}
-		if abs(p[1]) > h {
-			h = abs(p[1])
-		}
-	}
 
-	arrow := drawingElement{
-		"id":              genDrawingID(),
-		"type":            "ortho-arrow",
-		"x":               info.srcX,
-		"y":               info.srcY,
-		"width":           w,
-		"height":          h,
-		"strokeColor":     "#e8e8f0",
-		"strokeWidth":     float64(2),
-		"backgroundColor": "transparent",
-		"arrowEnd":        "arrow",
-		"arrowStart":      "none",
-		"points":          points,
-		"startConnection": map[string]any{"elementId": fromID, "side": info.srcSide, "t": srcT},
-		"endConnection":   map[string]any{"elementId": toID, "side": info.dstSide, "t": dstT},
-	}
-	if label, ok := args["label"].(string); ok {
-		arrow["label"] = label
-	}
-
-	elements = append(elements, arrow)
-	if err := s.saveDrawingElements(pageID, elements); err != nil {
+		resultArrow = arrow
+		return append(elements, arrow), nil
+	})
+	if err != nil {
 		return nil, err
 	}
+
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
-	return jsonResult(arrow)
+	return jsonResult(resultArrow)
 }
 
 // anchorPoint computes the world position on an element edge given side and t (0..1).
@@ -684,45 +517,35 @@ func (s *Server) handleUpdateDrawingElement(ctx context.Context, req mcp.CallToo
 		return nil, fmt.Errorf("invalid patch JSON contract (check allowed fields, do not pass 'id'): %w", err)
 	}
 
-	elements, err := s.getDrawingElements(pageID)
-	if err != nil {
-		return nil, err
-	}
-
-	idx, el := findElement(elements, elementID)
-	if idx == -1 {
-		return nil, fmt.Errorf("element %s not found", elementID)
-	}
-
-	var patch map[string]any
+	// Parse into domain patch, handling fillColor→backgroundColor and color sanitization
+	var patch domain.DrawingPatch
 	if err := parseJSON(patchStr, &patch); err != nil {
 		return nil, fmt.Errorf("parse patch JSON: %w", err)
 	}
-	for k, v := range patch {
-		switch k {
-		case "fillColor":
-			if cs, ok := v.(string); ok {
-				el["backgroundColor"] = sanitizeColor(cs, "transparent")
-			}
-		case "backgroundColor":
-			if cs, ok := v.(string); ok {
-				el[k] = sanitizeColor(cs, "transparent")
-			}
-		case "strokeColor":
-			if cs, ok := v.(string); ok {
-				el[k] = sanitizeColor(cs, "#e8e8f0")
-			}
-		case "textColor":
-			if cs, ok := v.(string); ok {
-				el[k] = sanitizeColor(cs, "#e8e8f0")
-			}
-		default:
-			el[k] = v
-		}
-	}
-	elements[idx] = el
 
-	if err := s.saveDrawingElements(pageID, elements); err != nil {
+	// Handle fillColor → backgroundColor mapping (not in domain.DrawingPatch)
+	var rawPatch map[string]any
+	parseJSON(patchStr, &rawPatch)
+	if fc, ok := rawPatch["fillColor"].(string); ok {
+		bg := service.SanitizeColor(fc, "transparent")
+		patch.BackgroundColor = &bg
+	}
+
+	// Sanitize color fields
+	if patch.BackgroundColor != nil {
+		bg := service.SanitizeColor(*patch.BackgroundColor, "transparent")
+		patch.BackgroundColor = &bg
+	}
+	if patch.StrokeColor != nil {
+		sc := service.SanitizeColor(*patch.StrokeColor, "#e8e8f0")
+		patch.StrokeColor = &sc
+	}
+	if patch.TextColor != nil {
+		tc := service.SanitizeColor(*patch.TextColor, "#e8e8f0")
+		patch.TextColor = &tc
+	}
+
+	if err := s.drawing.UpdateElement(ctx, pageID, elementID, patch); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -737,21 +560,10 @@ func (s *Server) handleMoveDrawingElement(ctx context.Context, req mcp.CallToolR
 	}
 
 	elementID, _ := args["elementId"].(string)
-	elements, err := s.getDrawingElements(pageID)
-	if err != nil {
-		return nil, err
-	}
+	x, _ := args["x"].(float64)
+	y, _ := args["y"].(float64)
 
-	idx, el := findElement(elements, elementID)
-	if idx == -1 {
-		return nil, fmt.Errorf("element %s not found", elementID)
-	}
-
-	el["x"] = args["x"]
-	el["y"] = args["y"]
-	elements[idx] = el
-
-	if err := s.saveDrawingElements(pageID, elements); err != nil {
+	if err := s.drawing.MoveElement(ctx, pageID, elementID, x, y); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -766,21 +578,10 @@ func (s *Server) handleResizeDrawingElement(ctx context.Context, req mcp.CallToo
 	}
 
 	elementID, _ := args["elementId"].(string)
-	elements, err := s.getDrawingElements(pageID)
-	if err != nil {
-		return nil, err
-	}
+	w, _ := args["width"].(float64)
+	h, _ := args["height"].(float64)
 
-	idx, el := findElement(elements, elementID)
-	if idx == -1 {
-		return nil, fmt.Errorf("element %s not found", elementID)
-	}
-
-	el["width"] = args["width"]
-	el["height"] = args["height"]
-	elements[idx] = el
-
-	if err := s.saveDrawingElements(pageID, elements); err != nil {
+	if err := s.drawing.ResizeElement(ctx, pageID, elementID, w, h); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -796,26 +597,20 @@ func (s *Server) handleDeleteDrawingElement(ctx context.Context, req mcp.CallToo
 	elementID, _ := args["elementId"].(string)
 
 	// Look up element details for meaningful approval description
-	elements, err := s.getDrawingElements(pageID)
-	if err != nil {
-		return nil, err
-	}
+	el, _ := s.drawing.FindElement(pageID, elementID)
 	desc := fmt.Sprintf("Delete element %s", elementID)
-	for _, el := range elements {
-		if id, _ := el["id"].(string); id == elementID {
-			elType, _ := el["type"].(string)
-			text, _ := el["text"].(string)
-			label, _ := el["label"].(string)
-			name := text
-			if name == "" {
-				name = label
-			}
-			if name != "" {
-				desc = fmt.Sprintf("%s \"%s\"", elType, name)
-			} else {
-				desc = fmt.Sprintf("%s (%s)", elType, elementID)
-			}
-			break
+	if el != nil {
+		name := ""
+		if el.Text != nil {
+			name = *el.Text
+		}
+		if name == "" && el.Label != nil {
+			name = *el.Label
+		}
+		if name != "" {
+			desc = fmt.Sprintf("%s \"%s\"", el.Type, name)
+		} else {
+			desc = fmt.Sprintf("%s (%s)", el.Type, elementID)
 		}
 	}
 
@@ -825,14 +620,7 @@ func (s *Server) handleDeleteDrawingElement(ctx context.Context, req mcp.CallToo
 		return textResult("Action rejected by user"), nil
 	}
 
-	filtered := make([]drawingElement, 0, len(elements))
-	for _, el := range elements {
-		if elID, _ := el["id"].(string); elID != elementID {
-			filtered = append(filtered, el)
-		}
-	}
-
-	if err := s.saveDrawingElements(pageID, filtered); err != nil {
+	if err := s.drawing.DeleteElement(ctx, pageID, elementID); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -850,27 +638,18 @@ func (s *Server) handleMoveArrowEndpoint(ctx context.Context, req mcp.CallToolRe
 	endpoint, _ := args["endpoint"].(string)
 	targetID, _ := args["targetElementId"].(string)
 
-	elements, err := s.getDrawingElements(pageID)
-	if err != nil {
-		return nil, err
-	}
-
-	idx, el := findElement(elements, arrowID)
-	if idx == -1 {
-		return nil, fmt.Errorf("arrow %s not found", arrowID)
-	}
-
+	conn := &domain.DrawingConnection{ElementID: targetID}
+	var patch domain.DrawingPatch
 	switch strings.ToLower(endpoint) {
 	case "start":
-		el["startConnection"] = map[string]any{"elementId": targetID}
+		patch.StartConnection = conn
 	case "end":
-		el["endConnection"] = map[string]any{"elementId": targetID}
+		patch.EndConnection = conn
 	default:
 		return nil, fmt.Errorf("endpoint must be 'start' or 'end', got %q", endpoint)
 	}
-	elements[idx] = el
 
-	if err := s.saveDrawingElements(pageID, elements); err != nil {
+	if err := s.drawing.UpdateElement(ctx, pageID, arrowID, patch); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -887,20 +666,8 @@ func (s *Server) handleUpdateArrowLabel(ctx context.Context, req mcp.CallToolReq
 	arrowID, _ := args["arrowId"].(string)
 	label, _ := args["label"].(string)
 
-	elements, err := s.getDrawingElements(pageID)
-	if err != nil {
-		return nil, err
-	}
-
-	idx, el := findElement(elements, arrowID)
-	if idx == -1 {
-		return nil, fmt.Errorf("arrow %s not found", arrowID)
-	}
-
-	el["label"] = label
-	elements[idx] = el
-
-	if err := s.saveDrawingElements(pageID, elements); err != nil {
+	patch := domain.DrawingPatch{Label: &label}
+	if err := s.drawing.UpdateElement(ctx, pageID, arrowID, patch); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -914,82 +681,73 @@ func (s *Server) handleListDrawingElements(ctx context.Context, req mcp.CallTool
 		return nil, err
 	}
 
-	elements, err := s.getDrawingElements(pageID)
+	elements, err := s.drawing.GetElements(pageID)
 	if err != nil {
 		return nil, err
-	}
-	if elements == nil {
-		elements = []drawingElement{}
 	}
 
 	// Build connection counts per element/side for smarter placement
 	connCounts := map[string]map[string]int{} // elementID -> side -> count
 	for _, el := range elements {
-		if !isArrow(el) {
+		if !el.IsArrowElement() {
 			continue
 		}
-		if sc, ok := el["startConnection"].(map[string]any); ok {
-			eid, _ := sc["elementId"].(string)
-			side, _ := sc["side"].(string)
-			if connCounts[eid] == nil {
-				connCounts[eid] = map[string]int{}
+		if sc := el.StartConnection; sc != nil {
+			if connCounts[sc.ElementID] == nil {
+				connCounts[sc.ElementID] = map[string]int{}
 			}
-			connCounts[eid][side]++
+			connCounts[sc.ElementID][sc.Side]++
 		}
-		if ec, ok := el["endConnection"].(map[string]any); ok {
-			eid, _ := ec["elementId"].(string)
-			side, _ := ec["side"].(string)
-			if connCounts[eid] == nil {
-				connCounts[eid] = map[string]int{}
+		if ec := el.EndConnection; ec != nil {
+			if connCounts[ec.ElementID] == nil {
+				connCounts[ec.ElementID] = map[string]int{}
 			}
-			connCounts[eid][side]++
+			connCounts[ec.ElementID][ec.Side]++
 		}
 	}
 
-	// Annotate elements with connection counts
-	for i, el := range elements {
-		if isArrow(el) {
-			continue
+	// Build annotated element list: marshal each element and add _connections
+	annotated := make([]map[string]any, 0, len(elements))
+	for _, el := range elements {
+		// Marshal domain element to map for annotation
+		data, _ := json.Marshal(el)
+		var m map[string]any
+		json.Unmarshal(data, &m)
+		if counts, ok := connCounts[el.ID]; ok && !el.IsArrowElement() {
+			m["_connections"] = counts
 		}
-		id, _ := el["id"].(string)
-		if counts, ok := connCounts[id]; ok {
-			el["_connections"] = counts
-			elements[i] = el
-		}
+		annotated = append(annotated, m)
 	}
 
-	// Compute overall bounding box
+	// Compute overall bounding box (non-arrow elements only)
 	var minX, minY, maxX, maxY float64
 	first := true
 	for _, el := range elements {
-		if isArrow(el) {
+		if el.IsArrowElement() {
 			continue
 		}
-		x, _ := el["x"].(float64)
-		y, _ := el["y"].(float64)
-		w, _ := el["width"].(float64)
-		h, _ := el["height"].(float64)
 		if first {
-			minX, minY, maxX, maxY = x, y, x+w, y+h
+			minX, minY = el.X, el.Y
+			maxX, maxY = el.X+el.Width, el.Y+el.Height
 			first = false
 		} else {
-			if x < minX {
-				minX = x
+			if el.X < minX {
+				minX = el.X
 			}
-			if y < minY {
-				minY = y
+			if el.Y < minY {
+				minY = el.Y
 			}
-			if x+w > maxX {
-				maxX = x + w
+			if el.X+el.Width > maxX {
+				maxX = el.X + el.Width
 			}
-			if y+h > maxY {
-				maxY = y + h
+			if el.Y+el.Height > maxY {
+				maxY = el.Y + el.Height
 			}
 		}
 	}
 
 	result := map[string]any{
-		"elements": elements,
+		"elements": annotated,
 		"boundingBox": map[string]float64{
 			"minX": minX, "minY": minY, "maxX": maxX, "maxY": maxY,
 			"width": maxX - minX, "height": maxY - minY,
@@ -1007,15 +765,13 @@ func (s *Server) handleClearDrawing(ctx context.Context, req mcp.CallToolRequest
 		return nil, err
 	}
 
-	elements, _ := s.getDrawingElements(pageID)
+	elements, _ := s.drawing.GetElements(pageID)
 	count := len(elements)
 
 	// Collect all element IDs for highlight metadata
 	ids := make([]string, 0, len(elements))
 	for _, el := range elements {
-		if id, ok := el["id"].(string); ok {
-			ids = append(ids, fmt.Sprintf(`"%s"`, id))
-		}
+		ids = append(ids, fmt.Sprintf(`"%s"`, el.ID))
 	}
 	meta := fmt.Sprintf(`{"elementIds":[%s]}`, strings.Join(ids, ","))
 
@@ -1025,7 +781,7 @@ func (s *Server) handleClearDrawing(ctx context.Context, req mcp.CallToolRequest
 		return textResult("Action rejected by user"), nil
 	}
 
-	if err := s.notebooks.UpdateDrawingData(pageID, "[]"); err != nil {
+	if err := s.drawing.ClearAll(ctx, pageID); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -1051,130 +807,116 @@ func (s *Server) handleBatchAddDrawingElements(ctx context.Context, req mcp.Call
 		return nil, fmt.Errorf("invalid elements JSON contract (check allowed fields, do not pass 'id'): %w", err)
 	}
 
-	var newElements []drawingElement
+	// Parse into domain elements
+	var newElements []domain.DrawingElement
 	if err := parseJSON(elementsJSON, &newElements); err != nil {
 		return nil, fmt.Errorf("invalid elements JSON: %w", err)
 	}
 
-	existing, err := s.getDrawingElements(pageID)
-	if err != nil {
-		return nil, err
-	}
+	// Also parse raw for fillColor→backgroundColor mapping
+	var rawElements []map[string]any
+	parseJSON(elementsJSON, &rawElements)
 
 	// Enforce minimum gap (80px) between non-arrow elements
 	const minGap = 80.0
 	for i := 1; i < len(newElements); i++ {
-		ti, _ := newElements[i]["type"].(string)
-		if ti == "ortho-arrow" || ti == "arrow" || ti == "line" {
+		ei := &newElements[i]
+		if ei.IsArrowElement() || ei.Type == domain.DrawingTypeLine {
 			continue
 		}
-		// Skip groups — they are containers and don't participate in spacing
-		if ti == "group" {
+		if ei.IsGroupElement() {
 			continue
 		}
-		if gi, _ := newElements[i]["isGroup"].(bool); gi {
-			continue
-		}
-		ix, _ := newElements[i]["x"].(float64)
-		iy, _ := newElements[i]["y"].(float64)
-		iw, _ := newElements[i]["width"].(float64)
-		ih, _ := newElements[i]["height"].(float64)
 
 		for j := 0; j < i; j++ {
-			tj, _ := newElements[j]["type"].(string)
-			if tj == "ortho-arrow" || tj == "arrow" || tj == "line" {
+			ej := &newElements[j]
+			if ej.IsArrowElement() || ej.Type == domain.DrawingTypeLine {
 				continue
 			}
-			if tj == "group" {
+			if ej.IsGroupElement() {
 				continue
 			}
-			if gj, _ := newElements[j]["isGroup"].(bool); gj {
-				continue
-			}
-			jx, _ := newElements[j]["x"].(float64)
-			jy, _ := newElements[j]["y"].(float64)
-			jw, _ := newElements[j]["width"].(float64)
-			jh, _ := newElements[j]["height"].(float64)
-
 			// Skip if j is a container (much larger than i)
-			if jw*jh > iw*ih*4 {
+			if ej.Width*ej.Height > ei.Width*ei.Height*4 {
 				continue
 			}
 
 			// Compute edge-to-edge gaps
-			gapX := 0.0 // horizontal gap (negative = overlap)
-			if ix+iw <= jx {
-				gapX = jx - (ix + iw)
-			} else if jx+jw <= ix {
-				gapX = ix - (jx + jw)
+			gapX := 0.0
+			if ei.X+ei.Width <= ej.X {
+				gapX = ej.X - (ei.X + ei.Width)
+			} else if ej.X+ej.Width <= ei.X {
+				gapX = ei.X - (ej.X + ej.Width)
 			}
 			gapY := 0.0
-			if iy+ih <= jy {
-				gapY = jy - (iy + ih)
-			} else if jy+jh <= iy {
-				gapY = iy - (jy + jh)
+			if ei.Y+ei.Height <= ej.Y {
+				gapY = ej.Y - (ei.Y + ei.Height)
+			} else if ej.Y+ej.Height <= ei.Y {
+				gapY = ei.Y - (ej.Y + ej.Height)
 			}
 
-			// If both axes overlap or are too close, push i away
-			needsFixX := gapX < minGap && (iy < jy+jh && iy+ih > jy) // vertically overlapping
-			needsFixY := gapY < minGap && (ix < jx+jw && ix+iw > jx) // horizontally overlapping
+			needsFixX := gapX < minGap && (ei.Y < ej.Y+ej.Height && ei.Y+ei.Height > ej.Y)
+			needsFixY := gapY < minGap && (ei.X < ej.X+ej.Width && ei.X+ei.Width > ej.X)
 
 			if needsFixX {
-				if ix+iw/2 >= jx+jw/2 {
-					// i is to the right of j — push right
-					newElements[i]["x"] = jx + jw + minGap
+				if ei.X+ei.Width/2 >= ej.X+ej.Width/2 {
+					ei.X = ej.X + ej.Width + minGap
 				} else {
-					// i is to the left of j — push left
-					newElements[i]["x"] = jx - iw - minGap
+					ei.X = ej.X - ei.Width - minGap
 				}
-				ix, _ = newElements[i]["x"].(float64)
 			}
 			if needsFixY && !needsFixX {
-				if iy+ih/2 >= jy+jh/2 {
-					newElements[i]["y"] = jy + jh + minGap
+				if ei.Y+ei.Height/2 >= ej.Y+ej.Height/2 {
+					ei.Y = ej.Y + ej.Height + minGap
 				} else {
-					newElements[i]["y"] = jy - ih - minGap
+					ei.Y = ej.Y - ei.Height - minGap
 				}
 			}
 		}
 	}
 
-	// Assign IDs and defaults to each new element
+	// Assign IDs, defaults, and sanitize colors
 	var created []string
 	for i := range newElements {
-		id := genDrawingID()
-		newElements[i]["id"] = id
-		if newElements[i]["strokeWidth"] == nil {
-			newElements[i]["strokeWidth"] = 2
+		el := &newElements[i]
+		el.ID = s.drawing.GenID()
+
+		if el.StrokeWidth == 0 {
+			el.StrokeWidth = 2
 		}
-		if newElements[i]["borderRadius"] == nil {
-			newElements[i]["borderRadius"] = 8
+		if el.BorderRadius == nil {
+			br := 8.0
+			el.BorderRadius = &br
 		}
-		if newElements[i]["fillStyle"] == nil {
-			newElements[i]["fillStyle"] = "solid"
+		if el.FillStyle == nil {
+			fs := "solid"
+			el.FillStyle = &fs
 		}
-		if newElements[i]["roundness"] == nil {
-			newElements[i]["roundness"] = true
+		if el.Roundness == nil {
+			el.Roundness = boolPtr(true)
 		}
-		if newElements[i]["backgroundColor"] == nil {
-			if fc, ok := newElements[i]["fillColor"].(string); ok {
-				newElements[i]["backgroundColor"] = sanitizeColor(fc, "transparent")
-				delete(newElements[i], "fillColor")
+
+		// Handle fillColor → backgroundColor from raw JSON
+		if i < len(rawElements) {
+			if fc, ok := rawElements[i]["fillColor"].(string); ok && el.BackgroundColor == "" {
+				el.BackgroundColor = service.SanitizeColor(fc, "transparent")
 			}
-		} else if bg, ok := newElements[i]["backgroundColor"].(string); ok {
-			newElements[i]["backgroundColor"] = sanitizeColor(bg, "transparent")
 		}
-		if sc, ok := newElements[i]["strokeColor"].(string); ok {
-			newElements[i]["strokeColor"] = sanitizeColor(sc, "#e8e8f0")
+		if el.BackgroundColor != "" {
+			el.BackgroundColor = service.SanitizeColor(el.BackgroundColor, "transparent")
 		}
-		if tc, ok := newElements[i]["textColor"].(string); ok {
-			newElements[i]["textColor"] = sanitizeColor(tc, "#e8e8f0")
+		if el.StrokeColor != "" {
+			el.StrokeColor = service.SanitizeColor(el.StrokeColor, "#e8e8f0")
 		}
-		existing = append(existing, newElements[i])
-		created = append(created, id)
+		if el.TextColor != nil {
+			tc := service.SanitizeColor(*el.TextColor, "#e8e8f0")
+			el.TextColor = &tc
+		}
+
+		created = append(created, el.ID)
 	}
 
-	if err := s.saveDrawingElements(pageID, existing); err != nil {
+	if err := s.drawing.AddElements(ctx, pageID, newElements); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -1194,38 +936,34 @@ func (s *Server) handleBatchDeleteDrawingElements(ctx context.Context, req mcp.C
 	}
 
 	idsStr, _ := args["elementIds"].(string)
-	ids := strings.Split(idsStr, ",")
-	for i := range ids {
-		ids[i] = strings.TrimSpace(ids[i])
-	}
+	ids := splitIDs(idsStr)
 	idSet := make(map[string]bool, len(ids))
 	for _, id := range ids {
 		idSet[id] = true
 	}
 
 	// Build description with element names
-	elements, err := s.getDrawingElements(pageID)
+	elements, err := s.drawing.GetElements(pageID)
 	if err != nil {
 		return nil, err
 	}
 
 	var names []string
 	for _, el := range elements {
-		elID, _ := el["id"].(string)
-		if !idSet[elID] {
+		if !idSet[el.ID] {
 			continue
 		}
-		text, _ := el["text"].(string)
-		label, _ := el["label"].(string)
-		elType, _ := el["type"].(string)
-		name := text
-		if name == "" {
-			name = label
+		name := ""
+		if el.Text != nil {
+			name = *el.Text
+		}
+		if name == "" && el.Label != nil {
+			name = *el.Label
 		}
 		if name != "" {
-			names = append(names, fmt.Sprintf("%s \"%s\"", elType, name))
+			names = append(names, fmt.Sprintf("%s \"%s\"", el.Type, name))
 		} else {
-			names = append(names, fmt.Sprintf("%s (%s)", elType, elID))
+			names = append(names, fmt.Sprintf("%s (%s)", el.Type, el.ID))
 		}
 	}
 
@@ -1234,7 +972,6 @@ func (s *Server) handleBatchDeleteDrawingElements(ctx context.Context, req mcp.C
 		desc = fmt.Sprintf("Delete %d elements", len(ids))
 	}
 
-	// Build metadata with element IDs
 	var quotedIDs []string
 	for _, id := range ids {
 		quotedIDs = append(quotedIDs, fmt.Sprintf(`"%s"`, id))
@@ -1246,15 +983,7 @@ func (s *Server) handleBatchDeleteDrawingElements(ctx context.Context, req mcp.C
 		return textResult("Action rejected by user"), nil
 	}
 
-	filtered := make([]drawingElement, 0, len(elements))
-	for _, el := range elements {
-		elID, _ := el["id"].(string)
-		if !idSet[elID] {
-			filtered = append(filtered, el)
-		}
-	}
-
-	if err := s.saveDrawingElements(pageID, filtered); err != nil {
+	if err := s.drawing.DeleteElements(ctx, pageID, ids); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
@@ -1278,61 +1007,49 @@ func (s *Server) handleBatchUpdateDrawingElements(ctx context.Context, req mcp.C
 		return nil, fmt.Errorf("invalid patches JSON contract (check allowed fields, do not pass 'id'): %w", err)
 	}
 
-	var patches []map[string]any
-	if err := parseJSON(patchesJSON, &patches); err != nil {
+	// Parse raw patches for fillColor→backgroundColor mapping and color sanitization
+	var rawPatches []map[string]any
+	if err := parseJSON(patchesJSON, &rawPatches); err != nil {
 		return nil, fmt.Errorf("invalid patches JSON: %w", err)
 	}
 
-	// Index patches by elementId
-	patchMap := make(map[string]map[string]any, len(patches))
-	for _, p := range patches {
-		if id, ok := p["elementId"].(string); ok {
-			patchMap[id] = p
-		}
-	}
-
-	elements, err := s.getDrawingElements(pageID)
-	if err != nil {
-		return nil, err
-	}
-
-	updated := 0
-	for i, el := range elements {
-		elID, _ := el["id"].(string)
-		patch, ok := patchMap[elID]
-		if !ok {
+	// Build domain patches indexed by elementId
+	domainPatches := make(map[string]domain.DrawingPatch, len(rawPatches))
+	for _, raw := range rawPatches {
+		id, _ := raw["elementId"].(string)
+		if id == "" {
 			continue
 		}
-		for k, v := range patch {
-			if k == "elementId" {
-				continue
-			}
-			if k == "fillColor" {
-				if cs, ok := v.(string); ok {
-					elements[i]["backgroundColor"] = sanitizeColor(cs, "transparent")
-				}
-			} else if k == "backgroundColor" {
-				if cs, ok := v.(string); ok {
-					elements[i][k] = sanitizeColor(cs, "transparent")
-				}
-			} else if k == "strokeColor" {
-				if cs, ok := v.(string); ok {
-					elements[i][k] = sanitizeColor(cs, "#e8e8f0")
-				}
-			} else if k == "textColor" {
-				if cs, ok := v.(string); ok {
-					elements[i][k] = sanitizeColor(cs, "#e8e8f0")
-				}
-			} else {
-				elements[i][k] = v
-			}
+
+		// Re-serialize without elementId to parse into DrawingPatch
+		patchBytes, _ := json.Marshal(raw)
+		var patch domain.DrawingPatch
+		json.Unmarshal(patchBytes, &patch)
+
+		// Handle fillColor → backgroundColor mapping
+		if fc, ok := raw["fillColor"].(string); ok {
+			bg := service.SanitizeColor(fc, "transparent")
+			patch.BackgroundColor = &bg
 		}
-		updated++
+		if patch.BackgroundColor != nil {
+			bg := service.SanitizeColor(*patch.BackgroundColor, "transparent")
+			patch.BackgroundColor = &bg
+		}
+		if patch.StrokeColor != nil {
+			sc := service.SanitizeColor(*patch.StrokeColor, "#e8e8f0")
+			patch.StrokeColor = &sc
+		}
+		if patch.TextColor != nil {
+			tc := service.SanitizeColor(*patch.TextColor, "#e8e8f0")
+			patch.TextColor = &tc
+		}
+
+		domainPatches[id] = patch
 	}
 
-	if err := s.saveDrawingElements(pageID, elements); err != nil {
+	if err := s.drawing.UpdateElements(ctx, pageID, domainPatches); err != nil {
 		return nil, err
 	}
 	s.emitter.Emit(ctx, "mcp:drawing-changed", map[string]string{"pageId": pageID})
-	return textResult(fmt.Sprintf("Updated %d elements", updated)), nil
+	return textResult(fmt.Sprintf("Updated %d elements", len(domainPatches))), nil
 }

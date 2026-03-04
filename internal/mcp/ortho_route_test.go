@@ -1,59 +1,25 @@
 package mcpserver
 
 import (
+	"notes/internal/domain"
 	"testing"
 )
 
-func TestIsArrow(t *testing.T) {
-	tests := []struct {
-		el   drawingElement
-		want bool
-	}{
-		{drawingElement{"type": "ortho-arrow"}, true},
-		{drawingElement{"type": "arrow"}, true},
-		{drawingElement{"type": "rectangle"}, false},
-		{drawingElement{"type": "text"}, false},
-		{drawingElement{}, false}, // no type field
-	}
-	for _, tc := range tests {
-		if got := isArrow(tc.el); got != tc.want {
-			t.Errorf("isArrow(%v) = %v, want %v", tc.el["type"], got, tc.want)
-		}
-	}
-}
-
-func TestIsGroup(t *testing.T) {
-	tests := []struct {
-		el   drawingElement
-		want bool
-	}{
-		{drawingElement{"type": "group"}, true},
-		{drawingElement{"type": "rectangle", "isGroup": true}, true},
-		{drawingElement{"type": "rectangle"}, false},
-		{drawingElement{"type": "rectangle", "isGroup": false}, false},
-	}
-	for _, tc := range tests {
-		if got := isGroup(tc.el); got != tc.want {
-			t.Errorf("isGroup(%v) = %v, want %v", tc.el, got, tc.want)
-		}
-	}
-}
-
 func TestConnectSlot_Distribution(t *testing.T) {
-	shape := drawingElement{"id": "s1", "type": "rectangle"}
+	shape := domain.DrawingElement{ID: "s1", Type: domain.DrawingTypeRectangle}
 
 	// No existing arrows → first slot (index 0)
-	t0 := connectSlot([]drawingElement{shape}, "s1", "right")
+	t0 := connectSlot([]domain.DrawingElement{shape}, "s1", "right")
 
 	// One arrow already on right side → second slot (index 1)
-	arrow1 := drawingElement{
-		"type": "ortho-arrow",
-		"startConnection": map[string]any{
-			"elementId": "s1",
-			"side":      "right",
+	arrow1 := domain.DrawingElement{
+		Type: domain.DrawingTypeOrtho,
+		StartConnection: &domain.DrawingConnection{
+			ElementID: "s1",
+			Side:      "right",
 		},
 	}
-	t1 := connectSlot([]drawingElement{shape, arrow1}, "s1", "right")
+	t1 := connectSlot([]domain.DrawingElement{shape, arrow1}, "s1", "right")
 
 	// t values should be different (BinarySubdivisionT distributes them)
 	if t0 == t1 {
@@ -70,34 +36,34 @@ func TestConnectSlot_Distribution(t *testing.T) {
 }
 
 func TestConnectSlot_CountsBothEnds(t *testing.T) {
-	shape := drawingElement{"id": "s1", "type": "rectangle"}
+	shape := domain.DrawingElement{ID: "s1", Type: domain.DrawingTypeRectangle}
 	// Arrow starting from s1.right
-	a1 := drawingElement{
-		"type":            "ortho-arrow",
-		"startConnection": map[string]any{"elementId": "s1", "side": "right"},
+	a1 := domain.DrawingElement{
+		Type:            domain.DrawingTypeOrtho,
+		StartConnection: &domain.DrawingConnection{ElementID: "s1", Side: "right"},
 	}
 	// Arrow ending at s1.right
-	a2 := drawingElement{
-		"type":          "ortho-arrow",
-		"endConnection": map[string]any{"elementId": "s1", "side": "right"},
+	a2 := domain.DrawingElement{
+		Type:          domain.DrawingTypeOrtho,
+		EndConnection: &domain.DrawingConnection{ElementID: "s1", Side: "right"},
 	}
 
 	// Both arrows connect to s1.right → count=2, next slot=index 2
-	tVal := connectSlot([]drawingElement{shape, a1, a2}, "s1", "right")
+	tVal := connectSlot([]domain.DrawingElement{shape, a1, a2}, "s1", "right")
 
 	// Should return BinarySubdivisionT(2), different from index 0 and 1
-	t0 := connectSlot([]drawingElement{shape}, "s1", "right")
+	t0 := connectSlot([]domain.DrawingElement{shape}, "s1", "right")
 	if tVal == t0 {
 		t.Error("slot with 2 existing should differ from slot with 0")
 	}
 }
 
 func TestCollectObstacleRects(t *testing.T) {
-	elements := []drawingElement{
-		{"id": "s1", "type": "rectangle", "x": 100.0, "y": 100.0, "width": 200.0, "height": 150.0},
-		{"id": "s2", "type": "ellipse", "x": 400.0, "y": 100.0, "width": 100.0, "height": 100.0},
-		{"id": "a1", "type": "ortho-arrow"}, // arrows are skipped
-		{"id": "g1", "type": "group"},        // groups are skipped
+	elements := []domain.DrawingElement{
+		{ID: "s1", Type: domain.DrawingTypeRectangle, X: 100, Y: 100, Width: 200, Height: 150},
+		{ID: "s2", Type: domain.DrawingTypeEllipse, X: 400, Y: 100, Width: 100, Height: 100},
+		{ID: "a1", Type: domain.DrawingTypeOrtho},  // arrows are skipped
+		{ID: "g1", Type: domain.DrawingTypeGroup},   // groups are skipped
 	}
 
 	// Exclude s1 (source), origin at (0,0)
@@ -113,8 +79,8 @@ func TestCollectObstacleRects(t *testing.T) {
 }
 
 func TestCollectObstacleRects_LocalCoords(t *testing.T) {
-	elements := []drawingElement{
-		{"id": "s1", "type": "rectangle", "x": 300.0, "y": 200.0, "width": 100.0, "height": 50.0},
+	elements := []domain.DrawingElement{
+		{ID: "s1", Type: domain.DrawingTypeRectangle, X: 300, Y: 200, Width: 100, Height: 50},
 	}
 
 	// Origin at (100, 100) → s1 should be at (200, 100) in local coords
@@ -128,8 +94,8 @@ func TestCollectObstacleRects_LocalCoords(t *testing.T) {
 }
 
 func TestCollectObstacleRects_ZeroOriginIsWorldCoords(t *testing.T) {
-	elements := []drawingElement{
-		{"id": "s1", "type": "rectangle", "x": 300.0, "y": 200.0, "width": 100.0, "height": 50.0},
+	elements := []domain.DrawingElement{
+		{ID: "s1", Type: domain.DrawingTypeRectangle, X: 300, Y: 200, Width: 100, Height: 50},
 	}
 
 	// Origin (0,0) = world coordinates (no subtraction)
@@ -143,9 +109,9 @@ func TestCollectObstacleRects_ZeroOriginIsWorldCoords(t *testing.T) {
 }
 
 func TestElementRect(t *testing.T) {
-	elements := []drawingElement{
-		{"id": "s1", "type": "rectangle", "x": 10.0, "y": 20.0, "width": 100.0, "height": 50.0},
-		{"id": "s2", "type": "ellipse", "x": 200.0, "y": 300.0, "width": 80.0, "height": 60.0},
+	elements := []domain.DrawingElement{
+		{ID: "s1", Type: domain.DrawingTypeRectangle, X: 10, Y: 20, Width: 100, Height: 50},
+		{ID: "s2", Type: domain.DrawingTypeEllipse, X: 200, Y: 300, Width: 80, Height: 60},
 	}
 
 	r := elementRect(elements, "s1")
@@ -163,16 +129,15 @@ func TestElementRect(t *testing.T) {
 }
 
 func TestCollectArrowObstacleRects_ExtractsSegments(t *testing.T) {
-	elements := []drawingElement{
+	elements := []domain.DrawingElement{
 		{
-			"id":   "a1",
-			"type": "ortho-arrow",
-			"x":    0.0,
-			"y":    0.0,
-			"points": []any{
-				[]any{0.0, 0.0},
-				[]any{100.0, 0.0}, // horizontal segment, length=100
-				[]any{100.0, 100.0}, // vertical segment, length=100
+			ID:   "a1",
+			Type: domain.DrawingTypeOrtho,
+			X:    0, Y: 0,
+			Points: [][]float64{
+				{0, 0},
+				{100, 0},   // horizontal segment, length=100
+				{100, 100}, // vertical segment, length=100
 			},
 		},
 	}
@@ -186,15 +151,14 @@ func TestCollectArrowObstacleRects_ExtractsSegments(t *testing.T) {
 }
 
 func TestCollectArrowObstacleRects_ExcludesID(t *testing.T) {
-	elements := []drawingElement{
+	elements := []domain.DrawingElement{
 		{
-			"id":   "a1",
-			"type": "ortho-arrow",
-			"x":    0.0,
-			"y":    0.0,
-			"points": []any{
-				[]any{0.0, 0.0},
-				[]any{100.0, 0.0},
+			ID:   "a1",
+			Type: domain.DrawingTypeOrtho,
+			X:    0, Y: 0,
+			Points: [][]float64{
+				{0, 0},
+				{100, 0},
 			},
 		},
 	}
@@ -202,5 +166,82 @@ func TestCollectArrowObstacleRects_ExcludesID(t *testing.T) {
 	rects := collectArrowObstacleRects(elements, map[string]bool{"a1": true}, 0, 0)
 	if len(rects) != 0 {
 		t.Errorf("excluded arrow should produce no rects, got %d", len(rects))
+	}
+}
+
+func TestComputeArrowInfo_HorizontalRight(t *testing.T) {
+	elements := []domain.DrawingElement{
+		{ID: "a", X: 0, Y: 0, Width: 100, Height: 100},
+		{ID: "b", X: 300, Y: 0, Width: 100, Height: 100},
+	}
+
+	info := computeArrowInfo(elements, "a", "b")
+	if info.srcSide != "right" {
+		t.Errorf("srcSide = %q, want right", info.srcSide)
+	}
+	if info.dstSide != "left" {
+		t.Errorf("dstSide = %q, want left", info.dstSide)
+	}
+	if info.srcX != 100 {
+		t.Errorf("srcX = %v, want 100 (right edge of A)", info.srcX)
+	}
+	if info.dstX != 300 {
+		t.Errorf("dstX = %v, want 300 (left edge of B)", info.dstX)
+	}
+}
+
+func TestComputeArrowInfo_VerticalDown(t *testing.T) {
+	elements := []domain.DrawingElement{
+		{ID: "a", X: 0, Y: 0, Width: 100, Height: 50},
+		{ID: "b", X: 0, Y: 300, Width: 100, Height: 50},
+	}
+
+	info := computeArrowInfo(elements, "a", "b")
+	if info.srcSide != "bottom" {
+		t.Errorf("srcSide = %q, want bottom", info.srcSide)
+	}
+	if info.dstSide != "top" {
+		t.Errorf("dstSide = %q, want top", info.dstSide)
+	}
+}
+
+func TestComputeArrowInfo_VerticalUp(t *testing.T) {
+	elements := []domain.DrawingElement{
+		{ID: "a", X: 0, Y: 300, Width: 100, Height: 50},
+		{ID: "b", X: 0, Y: 0, Width: 100, Height: 50},
+	}
+
+	info := computeArrowInfo(elements, "a", "b")
+	if info.srcSide != "top" {
+		t.Errorf("srcSide = %q, want top", info.srcSide)
+	}
+	if info.dstSide != "bottom" {
+		t.Errorf("dstSide = %q, want bottom", info.dstSide)
+	}
+}
+
+func TestComputeArrowInfo_HorizontalLeft(t *testing.T) {
+	elements := []domain.DrawingElement{
+		{ID: "a", X: 300, Y: 0, Width: 100, Height: 100},
+		{ID: "b", X: 0, Y: 0, Width: 100, Height: 100},
+	}
+
+	info := computeArrowInfo(elements, "a", "b")
+	if info.srcSide != "left" {
+		t.Errorf("srcSide = %q, want left", info.srcSide)
+	}
+	if info.dstSide != "right" {
+		t.Errorf("dstSide = %q, want right", info.dstSide)
+	}
+}
+
+func TestComputeArrowInfo_NotFound(t *testing.T) {
+	elements := []domain.DrawingElement{
+		{ID: "a", X: 0, Y: 0, Width: 100, Height: 100},
+	}
+
+	info := computeArrowInfo(elements, "a", "missing")
+	if info.srcSide != "" || info.dstSide != "" {
+		t.Errorf("missing element should return empty arrowInfo, got srcSide=%q dstSide=%q", info.srcSide, info.dstSide)
 	}
 }

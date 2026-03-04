@@ -25,6 +25,7 @@ type Server struct {
 	// Services (injected from app layer)
 	notebooks *service.NotebookService
 	blocks    *service.BlockService
+	drawing   *service.DrawingService
 	localdb   *service.LocalDBService
 	etl       *service.ETLService
 	database  *service.DatabaseService
@@ -42,6 +43,7 @@ type Deps struct {
 	Emitter    EventEmitter
 	Notebooks  *service.NotebookService
 	Blocks     *service.BlockService
+	Drawing    *service.DrawingService
 	LocalDB    *service.LocalDBService
 	ETL        *service.ETLService
 	Database   *service.DatabaseService
@@ -61,6 +63,7 @@ func New(ctx context.Context, deps Deps) *Server {
 		layout:    NewLayoutEngine(),
 		notebooks: deps.Notebooks,
 		blocks:    deps.Blocks,
+		drawing:   deps.Drawing,
 		localdb:   deps.LocalDB,
 		etl:       deps.ETL,
 		database:  deps.Database,

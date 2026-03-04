@@ -52,6 +52,7 @@ func ServeMCP() {
 	databaseSvc := service.NewDatabaseService(dbConnStore, secretStore, blocksStore)
 	etlSvc := service.NewETLService(etlStore, localDBStore, emitter)
 	notebooksSvc := service.NewNotebookService(notebooksStore, blocksSvc, storage.NewConnectionStore(db), dataDir, emitter)
+	drawingSvc := service.NewDrawingService(notebooksSvc)
 
 	// Plugin registry
 	pluginRegistry := service.NewGoPluginRegistry()
@@ -69,6 +70,7 @@ func ServeMCP() {
 		Emitter:    emitter,
 		Notebooks:  notebooksSvc,
 		Blocks:     blocksSvc,
+		Drawing:    drawingSvc,
 		LocalDB:    localdbSvc,
 		ETL:        etlSvc,
 		Database:   databaseSvc,

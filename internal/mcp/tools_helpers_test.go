@@ -1,12 +1,12 @@
 package mcpserver
 
 import (
-	"strings"
+	"notes/internal/service"
 	"testing"
 )
 
 // ═══════════════════════════════════════════════════════════════
-// sanitizeColor — palette validation with fallback
+// SanitizeColor — palette validation with fallback (from service package)
 // ═══════════════════════════════════════════════════════════════
 
 func TestSanitizeColor(t *testing.T) {
@@ -17,65 +17,21 @@ func TestSanitizeColor(t *testing.T) {
 		{"#e03131", "#000", "#e03131"},
 		{"#a5d8ff", "#000", "#a5d8ff"},
 		{"transparent", "#000", "transparent"},
-		// Case insensitive
-		{"#E03131", "#000", "#E03131"}, // returns original case
+		// Case insensitive — returns normalized (lowercase)
+		{"#E03131", "#000", "#e03131"},
 		// Invalid → fallback
 		{"#xyz123", "#000000", "#000000"},
 		{"red", "#000000", "#000000"},
 		// Empty → fallback
 		{"", "#ffffff", "#ffffff"},
-		// Whitespace trimmed
-		{" #e03131 ", "#000", " #e03131 "}, // returns original (with spaces) since normalized matches
+		// Whitespace trimmed and normalized
+		{" #e03131 ", "#000", "#e03131"},
 	}
 	for _, tc := range tests {
-		got := sanitizeColor(tc.color, tc.fallback)
+		got := service.SanitizeColor(tc.color, tc.fallback)
 		if got != tc.want {
-			t.Errorf("sanitizeColor(%q, %q) = %q, want %q", tc.color, tc.fallback, got, tc.want)
+			t.Errorf("SanitizeColor(%q, %q) = %q, want %q", tc.color, tc.fallback, got, tc.want)
 		}
-	}
-}
-
-// ═══════════════════════════════════════════════════════════════
-// genDrawingID — uniqueness
-// ═══════════════════════════════════════════════════════════════
-
-func TestGenDrawingID_Unique(t *testing.T) {
-	ids := make(map[string]bool)
-	for range 100 {
-		id := genDrawingID()
-		if !strings.HasPrefix(id, "el_") {
-			t.Errorf("id %q should start with el_", id)
-		}
-		if ids[id] {
-			t.Fatalf("duplicate id: %s", id)
-		}
-		ids[id] = true
-	}
-}
-
-// ═══════════════════════════════════════════════════════════════
-// findElement — search by ID
-// ═══════════════════════════════════════════════════════════════
-
-func TestFindElement(t *testing.T) {
-	elements := []drawingElement{
-		{"id": "a", "type": "rect"},
-		{"id": "b", "type": "ellipse"},
-	}
-
-	idx, el := findElement(elements, "b")
-	if idx != 1 || el["type"] != "ellipse" {
-		t.Errorf("findElement(b) = (%d, %v), want (1, ellipse)", idx, el)
-	}
-
-	idx, el = findElement(elements, "missing")
-	if idx != -1 || el != nil {
-		t.Error("missing should return -1, nil")
-	}
-
-	idx, _ = findElement(nil, "any")
-	if idx != -1 {
-		t.Error("nil slice should return -1")
 	}
 }
 
@@ -123,78 +79,6 @@ func TestGetFloat(t *testing.T) {
 	}
 	if v := getFloat(args, "name", 10); v != 10 {
 		t.Errorf("name (string) = %v, want 10 (fallback, wrong type)", v)
-	}
-}
-
-// ═══════════════════════════════════════════════════════════════
-// computeArrowInfo — side selection based on relative position
-// ═══════════════════════════════════════════════════════════════
-
-func TestComputeArrowInfo_HorizontalRight(t *testing.T) {
-	elements := []drawingElement{
-		{"id": "a", "x": 0.0, "y": 0.0, "width": 100.0, "height": 100.0},
-		{"id": "b", "x": 300.0, "y": 0.0, "width": 100.0, "height": 100.0},
-	}
-
-	info := computeArrowInfo(elements, "a", "b")
-	if info.srcSide != "right" {
-		t.Errorf("srcSide = %q, want right", info.srcSide)
-	}
-	if info.dstSide != "left" {
-		t.Errorf("dstSide = %q, want left", info.dstSide)
-	}
-	// Source anchor: right edge of A
-	if info.srcX != 100 {
-		t.Errorf("srcX = %v, want 100 (right edge of A)", info.srcX)
-	}
-	// Dest anchor: left edge of B
-	if info.dstX != 300 {
-		t.Errorf("dstX = %v, want 300 (left edge of B)", info.dstX)
-	}
-}
-
-func TestComputeArrowInfo_VerticalDown(t *testing.T) {
-	elements := []drawingElement{
-		{"id": "a", "x": 0.0, "y": 0.0, "width": 100.0, "height": 50.0},
-		{"id": "b", "x": 0.0, "y": 300.0, "width": 100.0, "height": 50.0},
-	}
-
-	info := computeArrowInfo(elements, "a", "b")
-	if info.srcSide != "bottom" {
-		t.Errorf("srcSide = %q, want bottom", info.srcSide)
-	}
-	if info.dstSide != "top" {
-		t.Errorf("dstSide = %q, want top", info.dstSide)
-	}
-}
-
-func TestComputeArrowInfo_VerticalUp(t *testing.T) {
-	elements := []drawingElement{
-		{"id": "a", "x": 0.0, "y": 300.0, "width": 100.0, "height": 50.0},
-		{"id": "b", "x": 0.0, "y": 0.0, "width": 100.0, "height": 50.0},
-	}
-
-	info := computeArrowInfo(elements, "a", "b")
-	if info.srcSide != "top" {
-		t.Errorf("srcSide = %q, want top", info.srcSide)
-	}
-	if info.dstSide != "bottom" {
-		t.Errorf("dstSide = %q, want bottom", info.dstSide)
-	}
-}
-
-func TestComputeArrowInfo_HorizontalLeft(t *testing.T) {
-	elements := []drawingElement{
-		{"id": "a", "x": 300.0, "y": 0.0, "width": 100.0, "height": 100.0},
-		{"id": "b", "x": 0.0, "y": 0.0, "width": 100.0, "height": 100.0},
-	}
-
-	info := computeArrowInfo(elements, "a", "b")
-	if info.srcSide != "left" {
-		t.Errorf("srcSide = %q, want left", info.srcSide)
-	}
-	if info.dstSide != "right" {
-		t.Errorf("dstSide = %q, want right", info.dstSide)
 	}
 }
 

@@ -1,6 +1,8 @@
 package mcpserver
 
 import (
+	"math"
+	"notes/internal/domain"
 	"notes/internal/plugins/drawing"
 )
 
@@ -42,128 +44,158 @@ func binarySubdivisionT(index int) float64 {
 	return drawing.BinarySubdivisionT(index)
 }
 
-// ── MCP-specific helpers (stay here — they use drawingElement) ──
+// ── MCP-specific helpers using domain types ──
 
 // connectSlot computes the `t` parameter for a new arrow connecting
 // to the given element on the given side.
-func connectSlot(elements []drawingElement, elementID, side string) float64 {
+func connectSlot(elements []domain.DrawingElement, elementID, side string) float64 {
 	count := 0
 	for _, el := range elements {
-		if isArrow(el) {
-			if sc, ok := el["startConnection"].(map[string]any); ok {
-				if sc["elementId"] == elementID && sc["side"] == side {
-					count++
-				}
+		if !el.IsArrowElement() {
+			continue
+		}
+		if sc := el.StartConnection; sc != nil {
+			if sc.ElementID == elementID && sc.Side == side {
+				count++
 			}
-			if ec, ok := el["endConnection"].(map[string]any); ok {
-				if ec["elementId"] == elementID && ec["side"] == side {
-					count++
-				}
+		}
+		if ec := el.EndConnection; ec != nil {
+			if ec.ElementID == elementID && ec.Side == side {
+				count++
 			}
 		}
 	}
 	return binarySubdivisionT(count)
 }
 
-func isArrow(el drawingElement) bool {
-	t, _ := el["type"].(string)
-	return t == "ortho-arrow" || t == "arrow"
-}
-
-func isGroup(el drawingElement) bool {
-	t, _ := el["type"].(string)
-	if t == "group" {
-		return true
-	}
-	g, _ := el["isGroup"].(bool)
-	return g
-}
-
-// collectObstacleRects returns bounding boxes for all non-arrow elements,
+// collectObstacleRects returns bounding boxes for all non-arrow, non-group elements,
 // converting from world coordinates to arrow-local coordinates.
-func collectObstacleRects(elements []drawingElement, excludeIDs map[string]bool, originX, originY float64) []rect {
+func collectObstacleRects(elements []domain.DrawingElement, excludeIDs map[string]bool, originX, originY float64) []rect {
 	var rects []rect
 	for _, el := range elements {
-		if isArrow(el) || isGroup(el) {
+		if el.IsArrowElement() || el.IsGroupElement() {
 			continue
 		}
-		id, _ := el["id"].(string)
-		if excludeIDs[id] {
+		if excludeIDs[el.ID] {
 			continue
 		}
-		x, _ := el["x"].(float64)
-		y, _ := el["y"].(float64)
-		w, _ := el["width"].(float64)
-		h, _ := el["height"].(float64)
-		rects = append(rects, rect{x - originX, y - originY, w, h})
+		rects = append(rects, rect{el.X - originX, el.Y - originY, el.Width, el.Height})
 	}
 	return rects
 }
 
 // elementRect finds the bounding box of an element by ID.
-func elementRect(elements []drawingElement, id string) *rect {
+func elementRect(elements []domain.DrawingElement, id string) *rect {
 	for _, el := range elements {
-		elID, _ := el["id"].(string)
-		if elID == id {
-			x, _ := el["x"].(float64)
-			y, _ := el["y"].(float64)
-			w, _ := el["width"].(float64)
-			h, _ := el["height"].(float64)
-			return &rect{x, y, w, h}
+		if el.ID == id {
+			return &rect{el.X, el.Y, el.Width, el.Height}
 		}
 	}
 	return nil
 }
 
 // collectArrowObstacleRects extracts thin rectangles from existing arrow paths.
-func collectArrowObstacleRects(elements []drawingElement, excludeIDs map[string]bool, originX, originY float64) []rect {
+func collectArrowObstacleRects(elements []domain.DrawingElement, excludeIDs map[string]bool, originX, originY float64) []rect {
 	var rects []rect
 	for _, el := range elements {
-		if !isArrow(el) {
+		if !el.IsArrowElement() {
 			continue
 		}
-		id, _ := el["id"].(string)
-		if excludeIDs[id] {
+		if excludeIDs[el.ID] {
 			continue
 		}
-		ax, _ := el["x"].(float64)
-		ay, _ := el["y"].(float64)
-		rawPts, ok := el["points"].([]any)
-		if !ok || len(rawPts) < 2 {
+		if len(el.Points) < 2 {
 			continue
 		}
 
 		type pt struct{ x, y float64 }
-		pts := make([]pt, 0, len(rawPts))
-		for _, rp := range rawPts {
-			switch v := rp.(type) {
-			case []any:
-				if len(v) >= 2 {
-					px, _ := v[0].(float64)
-					py, _ := v[1].(float64)
-					pts = append(pts, pt{px + ax - originX, py + ay - originY})
-				}
-			case []float64:
-				if len(v) >= 2 {
-					pts = append(pts, pt{v[0] + ax - originX, v[1] + ay - originY})
-				}
+		pts := make([]pt, 0, len(el.Points))
+		for _, p := range el.Points {
+			if len(p) >= 2 {
+				pts = append(pts, pt{p[0] + el.X - originX, p[1] + el.Y - originY})
 			}
 		}
 
 		for i := 0; i < len(pts)-1; i++ {
 			p1, p2 := pts[i], pts[i+1]
-			segLen := abs(p2.x-p1.x) + abs(p2.y-p1.y)
+			segLen := math.Abs(p2.x-p1.x) + math.Abs(p2.y-p1.y)
 			if segLen < 5 {
 				continue
 			}
-			if abs(p1.y-p2.y) < 1 {
+			if math.Abs(p1.y-p2.y) < 1 {
 				minX := min(p1.x, p2.x)
-				rects = append(rects, rect{minX, p1.y - arrowGap/2, abs(p2.x - p1.x), arrowGap})
-			} else if abs(p1.x-p2.x) < 1 {
+				rects = append(rects, rect{minX, p1.y - arrowGap/2, math.Abs(p2.x - p1.x), arrowGap})
+			} else if math.Abs(p1.x-p2.x) < 1 {
 				minY := min(p1.y, p2.y)
-				rects = append(rects, rect{p1.x - arrowGap/2, minY, arrowGap, abs(p2.y - p1.y)})
+				rects = append(rects, rect{p1.x - arrowGap/2, minY, arrowGap, math.Abs(p2.y - p1.y)})
 			}
 		}
 	}
 	return rects
+}
+
+// computeArrowInfo computes the best connection sides and anchor points for an arrow
+// between two elements. Returns source/target world coordinates and sides.
+type arrowInfo struct {
+	srcX, srcY float64
+	dstX, dstY float64
+	srcSide    string
+	dstSide    string
+}
+
+func computeArrowInfo(elements []domain.DrawingElement, fromID, toID string) arrowInfo {
+	var srcEl, dstEl *domain.DrawingElement
+	for i := range elements {
+		if elements[i].ID == fromID {
+			srcEl = &elements[i]
+		}
+		if elements[i].ID == toID {
+			dstEl = &elements[i]
+		}
+	}
+
+	if srcEl == nil || dstEl == nil {
+		return arrowInfo{}
+	}
+
+	srcCX, srcCY := srcEl.CenterX(), srcEl.CenterY()
+	dstCX, dstCY := dstEl.CenterX(), dstEl.CenterY()
+	dx := dstCX - srcCX
+	dy := dstCY - srcCY
+
+	var info arrowInfo
+	if math.Abs(dy) > math.Abs(dx) {
+		if dy > 0 {
+			info.srcSide = "bottom"
+			info.dstSide = "top"
+			info.srcX = srcEl.CenterX()
+			info.srcY = srcEl.Y + srcEl.Height
+			info.dstX = dstEl.CenterX()
+			info.dstY = dstEl.Y
+		} else {
+			info.srcSide = "top"
+			info.dstSide = "bottom"
+			info.srcX = srcEl.CenterX()
+			info.srcY = srcEl.Y
+			info.dstX = dstEl.CenterX()
+			info.dstY = dstEl.Y + dstEl.Height
+		}
+	} else {
+		if dx > 0 {
+			info.srcSide = "right"
+			info.dstSide = "left"
+			info.srcX = srcEl.X + srcEl.Width
+			info.srcY = srcEl.CenterY()
+			info.dstX = dstEl.X
+			info.dstY = dstEl.CenterY()
+		} else {
+			info.srcSide = "left"
+			info.dstSide = "right"
+			info.srcX = srcEl.X
+			info.srcY = srcEl.CenterY()
+			info.dstX = dstEl.X + dstEl.Width
+			info.dstY = dstEl.CenterY()
+		}
+	}
+	return info
 }
