@@ -8,7 +8,7 @@ import type { DrawingElement, ResizeHandle, Connection, AnchorPoint } from '../t
 import { isArrowType, genId, getElementBounds } from '../types'
 import { hitTest, hitTestHandle, hitTestArrowEndpoint, hitTestSegmentMidpoint, findNearestSegment, isPointInElement } from '../hitTest'
 import { getArrowLabelPos, drawAnchors, drawBoxSelection } from '../canvasRender'
-import { getAnchors, getAnchorsForRect, resolveAnchor, findNearestAnchor, updateConnectedArrows } from '../connections'
+import { getAnchors, getAnchorsForRect, resolveAnchor, findNearestAnchor, updateConnectedArrows, updateSimpleConnectedArrows } from '../connections'
 import { computeOrthoRoute, simplifyOrthoPoints, enforceOrthogonality } from '../ortho'
 
 // ── Internal state (owned by this handler, not shared) ─────
@@ -130,7 +130,7 @@ export function boxIntersects(el: { x: number; y: number; width: number; height:
 export class SelectHandler implements InteractionHandler {
     private s = createSelectState()
     private lastRouteTime = 0
-    private readonly ROUTE_THROTTLE = 32  // ms (~30fps cap for routing)
+    private readonly ROUTE_THROTTLE = 16  // ms (~60fps cap for WASM ortho routing)
 
     setShiftKey(shift: boolean) {
         this.s.shiftDown = shift
@@ -332,6 +332,14 @@ export class SelectHandler implements InteractionHandler {
             const dx = world.x - this.s.groupDragStart.x
             const dy = world.y - this.s.groupDragStart.y
             const blockIdSet = new Set(ctx.getSelectedBlockIds())
+            // Build live blockRects with dragged positions for arrow routing
+            const liveBlockRects = ctx.blockRects.map(r => {
+                if (blockIdSet.has(r.id)) {
+                    const orig = this.s.groupOrigPositions.get(r.id)
+                    return orig ? { ...r, x: orig.x + dx, y: orig.y + dy } : r
+                }
+                return r
+            })
             for (const [id, orig] of this.s.groupOrigPositions) {
                 if (blockIdSet.has(id)) {
                     // Move block via DOM for zero re-renders during drag
@@ -346,6 +354,18 @@ export class SelectHandler implements InteractionHandler {
                         el.x = orig.x + dx
                         el.y = orig.y + dy
                     }
+                }
+            }
+            // Simple arrows: update endpoints every frame (cheap, no WASM)
+            for (const [id] of this.s.groupOrigPositions) {
+                updateSimpleConnectedArrows(ctx.elements, id, liveBlockRects)
+            }
+            // Ortho arrows: full WASM re-route, throttled
+            const now = performance.now()
+            if (now - this.lastRouteTime >= this.ROUTE_THROTTLE) {
+                this.lastRouteTime = now
+                for (const [id] of this.s.groupOrigPositions) {
+                    updateConnectedArrows(ctx.elements, id, liveBlockRects)
                 }
             }
             ctx.render()
@@ -398,6 +418,9 @@ export class SelectHandler implements InteractionHandler {
             this.s.hasDragged = true
             ctx.selectedElement.x = world.x - this.s.dragOffset.x
             ctx.selectedElement.y = world.y - this.s.dragOffset.y
+            // Simple arrows: instant endpoint update (no WASM)
+            updateSimpleConnectedArrows(ctx.elements, ctx.selectedElement.id, ctx.blockRects)
+            // Ortho arrows: throttled WASM re-route
             const now = performance.now()
             if (now - this.lastRouteTime >= this.ROUTE_THROTTLE) {
                 this.lastRouteTime = now

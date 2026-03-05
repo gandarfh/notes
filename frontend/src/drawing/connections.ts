@@ -90,6 +90,52 @@ export function findNearestAnchor(elements: DrawingElement[], x: number, y: numb
     return best
 }
 
+/** Lightweight arrow update: resolves anchor positions and updates simple arrow endpoints
+ *  every frame without WASM re-routing. Skips ortho-arrows (handled by throttled updateConnectedArrows).
+ */
+export function updateSimpleConnectedArrows(
+    elements: DrawingElement[],
+    movedElementId: string,
+    blockRects?: AnchorableRect[],
+) {
+    for (const el of elements) {
+        if (!isArrowType(el) || el.type === 'ortho-arrow') continue
+
+        const startMoved = el.startConnection?.elementId === movedElementId
+        const endMoved = el.endConnection?.elementId === movedElementId
+        if (!startMoved && !endMoved) continue
+
+        const startPt = el.startConnection ? resolveAnchor(elements, el.startConnection, blockRects) : null
+        const endPt = el.endConnection ? resolveAnchor(elements, el.endConnection, blockRects) : null
+
+        const hasValidPoints = el.points && el.points.length >= 2
+        const absStart = startPt ?? (hasValidPoints
+            ? { x: el.x + el.points![0][0], y: el.y + el.points![0][1] }
+            : { x: el.x, y: el.y })
+        const absEnd = endPt ?? (hasValidPoints
+            ? { x: el.x + el.points![el.points!.length - 1][0], y: el.y + el.points![el.points!.length - 1][1] }
+            : { x: el.x + el.width, y: el.y + el.height })
+
+        el.x = absStart.x
+        el.y = absStart.y
+        if (!el.points || el.points.length < 2) {
+            el.points = [[0, 0], [absEnd.x - el.x, absEnd.y - el.y]]
+        } else {
+            el.points[0] = [0, 0]
+            el.points[el.points.length - 1] = [absEnd.x - el.x, absEnd.y - el.y]
+        }
+
+        let maxPx = 0, maxPy = 0
+        for (const p of el.points!) {
+            const apx = Math.abs(p[0]), apy = Math.abs(p[1])
+            if (apx > maxPx) maxPx = apx
+            if (apy > maxPy) maxPy = apy
+        }
+        el.width = maxPx
+        el.height = maxPy
+    }
+}
+
 /** Update arrows connected to a moved element (drawing shape or DOM block).
  *  Rebuilds path via computeOrthoRoute with nearby shapes as obstacles.
  */
