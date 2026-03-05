@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { api, onEvent } from '../bridge/wails'
-import type { Block } from '../bridge/wails'
+import type { Block, CanvasEntity } from '../bridge/wails'
 import type { AppState } from './types'
 import { useUndoTree } from './useUndoTree'
 import { captureSnapshot, mergeBlocks } from './helpers'
@@ -8,6 +8,8 @@ import { createNotebookSlice } from './notebookSlice'
 import { createCanvasSlice, createBlockSlice } from './canvasSlice'
 import { createDrawingSlice } from './drawingSlice'
 import { createConnectionSlice } from './connectionSlice'
+import { createEntitySlice } from './entitySlice'
+import { createSelectionSlice } from './selectionSlice'
 import { pluginBus } from '../plugins/sdk/runtime/eventBus'
 import useToastStore from './toastSlice'
 
@@ -48,6 +50,8 @@ export const useAppStore = create<AppState>((...a) => ({
     ...createBlockSlice(...a),
     ...createDrawingSlice(...a),
     ...createConnectionSlice(...a),
+    ...createEntitySlice(...a),
+    ...createSelectionSlice(...a),
 
     // ── Cross-slice actions ────────────────────────────────
 
@@ -56,6 +60,9 @@ export const useAppStore = create<AppState>((...a) => ({
         set({
             blocks: new Map(),
             connections: [],
+            entities: new Map(),
+            canvasConnections: [],
+            selectedIds: new Set(),
             drawingData: '',
             selectedBlockId: null,
             editingBlockId: null,
@@ -66,10 +73,15 @@ export const useAppStore = create<AppState>((...a) => ({
             const blocks = new Map<string, Block>()
                 ; (ps.blocks || []).forEach(b => blocks.set(b.id, b))
 
+            const entities = new Map<string, CanvasEntity>()
+                ; (ps.entities || []).forEach(e => entities.set(e.id, e))
+
             set({
                 viewport: { x: ps.page.viewportX, y: ps.page.viewportY, zoom: ps.page.viewportZoom || 1 },
                 blocks,
                 connections: ps.connections || [],
+                entities,
+                canvasConnections: ps.canvasConnections || [],
                 drawingData: ps.page.drawingData || '',
             })
 

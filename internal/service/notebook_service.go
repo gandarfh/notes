@@ -19,11 +19,13 @@ import (
 // NotebookService manages notebooks and pages.
 // It is the thin-delegate equivalent for app_notebook.go.
 type NotebookService struct {
-	store   *storage.NotebookStore
-	blocks  *BlockService
-	conns   *storage.ConnectionStore
-	dataDir string
-	emitter EventEmitter
+	store            *storage.NotebookStore
+	blocks           *BlockService
+	conns            *storage.ConnectionStore
+	canvasEntities   *storage.CanvasEntityStore
+	canvasConns      *storage.CanvasConnectionStore
+	dataDir          string
+	emitter          EventEmitter
 }
 
 // NewNotebookService creates a NotebookService.
@@ -41,6 +43,12 @@ func NewNotebookService(
 		dataDir: dataDir,
 		emitter: emitter,
 	}
+}
+
+// SetCanvasStores injects the unified canvas stores for PageState population.
+func (s *NotebookService) SetCanvasStores(entities *storage.CanvasEntityStore, connections *storage.CanvasConnectionStore) {
+	s.canvasEntities = entities
+	s.canvasConns = connections
 }
 
 // ── Notebooks ──────────────────────────────────────────────
@@ -127,11 +135,35 @@ func (s *NotebookService) GetPageState(pageID string) (*domain.PageState, error)
 	if connections == nil {
 		connections = []domain.Connection{}
 	}
-	return &domain.PageState{
+	state := &domain.PageState{
 		Page:        *page,
 		Blocks:      blocks,
 		Connections: connections,
-	}, nil
+	}
+
+	// Populate unified canvas entities if stores are configured
+	if s.canvasEntities != nil {
+		entities, err := s.canvasEntities.ListCanvasEntities(pageID)
+		if err != nil {
+			return nil, err
+		}
+		if entities == nil {
+			entities = []domain.CanvasEntity{}
+		}
+		state.Entities = entities
+	}
+	if s.canvasConns != nil {
+		cc, err := s.canvasConns.ListCanvasConnections(pageID)
+		if err != nil {
+			return nil, err
+		}
+		if cc == nil {
+			cc = []domain.CanvasConnection{}
+		}
+		state.CanvasConnections = cc
+	}
+
+	return state, nil
 }
 
 func (s *NotebookService) RenamePage(id, name string) error {

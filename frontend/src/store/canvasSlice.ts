@@ -54,8 +54,11 @@ export const createBlockSlice: StateCreator<AppState, [], [], BlockSlice> = (set
     removeBlock: (id) => set(s => {
         const blocks = new Map(s.blocks)
         blocks.delete(id)
+        const selectedIds = new Set(s.selectedIds)
+        selectedIds.delete(id)
         return {
             blocks,
+            selectedIds,
             selectedBlockId: s.selectedBlockId === id ? null : s.selectedBlockId,
             editingBlockId: s.editingBlockId === id ? null : s.editingBlockId,
         }
@@ -68,7 +71,13 @@ export const createBlockSlice: StateCreator<AppState, [], [], BlockSlice> = (set
         return { blocks }
     }),
 
-    selectBlock: (id) => set({ selectedBlockId: id }),
+    selectBlock: (id) => set(s => ({
+        selectedBlockId: id,
+        // When selecting a specific block, reset unified selection to just that block.
+        // When deselecting (null), only clear selectedBlockId — don't wipe selectedIds
+        // because the drawing layer may be managing unified selection.
+        selectedIds: id ? new Set([id]) : s.selectedIds,
+    })),
     setEditing: (id) => set({ editingBlockId: id }),
 
     moveBlock: (id, x, y) => {

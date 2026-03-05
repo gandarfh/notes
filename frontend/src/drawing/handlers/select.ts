@@ -8,7 +8,7 @@ import type { DrawingElement, ResizeHandle, Connection, AnchorPoint } from '../t
 import { isArrowType, genId, getElementBounds } from '../types'
 import { hitTest, hitTestHandle, hitTestArrowEndpoint, hitTestSegmentMidpoint, findNearestSegment, isPointInElement } from '../hitTest'
 import { getArrowLabelPos, drawAnchors, drawBoxSelection } from '../canvasRender'
-import { getAnchors, resolveAnchor, findNearestAnchor, updateConnectedArrows } from '../connections'
+import { getAnchors, getAnchorsForRect, resolveAnchor, findNearestAnchor, updateConnectedArrows } from '../connections'
 import { computeOrthoRoute, simplifyOrthoPoints, enforceOrthogonality } from '../ortho'
 
 // ── Internal state (owned by this handler, not shared) ─────
@@ -107,12 +107,12 @@ export function cloneElement(el: DrawingElement): DrawingElement {
 
 // ── Box intersection check ────────────────────────────────
 
-export function boxIntersects(el: DrawingElement, x1: number, y1: number, x2: number, y2: number): boolean {
+export function boxIntersects(el: { x: number; y: number; width: number; height: number; points?: number[][]; type?: string }, x1: number, y1: number, x2: number, y2: number): boolean {
     const bx = Math.min(x1, x2), by = Math.min(y1, y2)
     const bw = Math.abs(x2 - x1), bh = Math.abs(y2 - y1)
 
     // For arrow types, check if any point is inside the box
-    if (isArrowType(el) && el.points) {
+    if (el.type && isArrowType(el as DrawingElement) && el.points) {
         for (const p of el.points) {
             const px = el.x + p[0], py = el.y + p[1]
             if (px >= bx && px <= bx + bw && py >= by && py <= by + bh) return true
@@ -120,7 +120,7 @@ export function boxIntersects(el: DrawingElement, x1: number, y1: number, x2: nu
         return false
     }
 
-    // For shapes/text: AABB overlap
+    // For shapes/text/blocks: AABB overlap
     const ex = el.x, ey = el.y, ew = el.width || 0, eh = el.height || 0
     return !(ex + ew < bx || ex > bx + bw || ey + eh < by || ey > by + bh)
 }
@@ -134,6 +134,20 @@ export class SelectHandler implements InteractionHandler {
 
     setShiftKey(shift: boolean) {
         this.s.shiftDown = shift
+    }
+
+    /** Returns the current group-drag delta (for live bounding box rendering) */
+    getGroupDragDelta(): Point | null {
+        if (!this.s.isGroupDragging || !this.s.groupDragStart) return null
+        return {
+            x: this.s.lastMouseWorld.x - this.s.groupDragStart.x,
+            y: this.s.lastMouseWorld.y - this.s.groupDragStart.y,
+        }
+    }
+
+    /** Returns IDs being group-dragged (for offset calculation) */
+    getGroupDragIds(): Set<string> {
+        return new Set(this.s.groupOrigPositions.keys())
     }
 
     deactivate(ctx: DrawingContext) {
@@ -187,6 +201,7 @@ export class SelectHandler implements InteractionHandler {
 
         // Hit test elements
         const hit = hitTest(ctx.elements, world.x, world.y)
+        console.log(`[SelectHandler MOUSE] world=(${world.x.toFixed(0)},${world.y.toFixed(0)}) hit=${hit?.id ?? 'none'} shift=${this.s.shiftDown} shapes=[${[...ctx.selectedElements]}] blocks=[${ctx.getSelectedBlockIds()}] blockRects=${ctx.blockRects.length}`)
 
         if (hit) {
             if (this.s.shiftDown) {
@@ -200,12 +215,18 @@ export class SelectHandler implements InteractionHandler {
                     ctx.selectedElements.add(hit.id)
                     ctx.selectedElement = hit
                 }
+                // Sync unified selection: drawing shapes + store blocks
+                const allIds = [...ctx.selectedElements, ...ctx.getSelectedBlockIds()]
+                console.log(`[SelectHandler] shift+click shape → sync [${allIds}]`)
+                ctx.onSelectEntities?.(allIds)
                 ctx.render()
                 return
             }
 
             // Click on already-selected element in multi-selection → start group drag
-            if (ctx.selectedElements.has(hit.id) && ctx.selectedElements.size > 1) {
+            if ((ctx.selectedElements.has(hit.id) && ctx.selectedElements.size > 1) ||
+                (ctx.selectedElements.has(hit.id) && ctx.getSelectedBlockIds().length > 0)) {
+                console.log(`[SelectHandler] click selected shape in multi → group drag`)
                 this.startGroupDrag(ctx, world)
                 return
             }
@@ -214,6 +235,9 @@ export class SelectHandler implements InteractionHandler {
             ctx.selectedElements.clear()
             ctx.selectedElements.add(hit.id)
             ctx.selectedElement = hit
+            // Sync to unified store (clears block selection too)
+            console.log(`[SelectHandler] normal click shape → sync [${hit.id}]`)
+            ctx.onSelectEntities?.([hit.id])
 
             const isConnected = isArrowType(hit) && (hit.startConnection || hit.endConnection)
             if (!isConnected) {
@@ -222,10 +246,52 @@ export class SelectHandler implements InteractionHandler {
                 this.s.dragOffset = { x: world.x - hit.x, y: world.y - hit.y }
             }
         } else {
-            if (!this.s.shiftDown) {
-                // Click on empty space → clear selection and start box select
+            // Check if click landed on a DOM block
+            const hitBlock = ctx.blockRects.find(r =>
+                world.x >= r.x && world.x <= r.x + r.width &&
+                world.y >= r.y && world.y <= r.y + r.height
+            )
+
+            if (hitBlock) {
+                const blockIds = ctx.getSelectedBlockIds()
+                const isInSelection = blockIds.includes(hitBlock.id)
+                console.log(`[SelectHandler] hitBlock=${hitBlock.id} isInSelection=${isInSelection} shift=${this.s.shiftDown} shapes=[${[...ctx.selectedElements]}] blockIds=[${blockIds}]`)
+
+                if (this.s.shiftDown) {
+                    // Shift+click on block: toggle in unified selection
+                    if (isInSelection) {
+                        const allIds = [...ctx.selectedElements].concat(blockIds.filter(id => id !== hitBlock.id))
+                        console.log(`[SelectHandler] shift+click block (remove) → sync [${allIds}]`)
+                        ctx.onSelectEntities?.(allIds)
+                    } else {
+                        const allIds = [...ctx.selectedElements, ...blockIds, hitBlock.id]
+                        console.log(`[SelectHandler] shift+click block (add) → sync [${allIds}]`)
+                        ctx.onSelectEntities?.(allIds)
+                    }
+                    ctx.render()
+                    return
+                }
+
+                if (isInSelection && (ctx.selectedElements.size > 0 || blockIds.length > 1)) {
+                    console.log(`[SelectHandler] click block in multi → group drag`)
+                    this.startGroupDrag(ctx, world)
+                    return
+                }
+
+                // Normal click on block → select only this block
+                console.log(`[SelectHandler] normal click block → sync [${hitBlock.id}]`)
                 ctx.selectedElement = null
                 ctx.selectedElements.clear()
+                ctx.onSelectEntities?.([hitBlock.id])
+                ctx.render()
+                return
+            }
+
+            if (!this.s.shiftDown) {
+                // Click on empty space → clear ALL selection (shapes + blocks)
+                ctx.selectedElement = null
+                ctx.selectedElements.clear()
+                ctx.onSelectEntities?.([])
             }
             // Start box selection
             this.s.isBoxSelecting = true
@@ -244,27 +310,42 @@ export class SelectHandler implements InteractionHandler {
         if (this.s.isBoxSelecting && this.s.boxStart) {
             ctx.setCursor('crosshair')
             this.s.boxEnd = { ...world }
-            // Compute preview: which elements are inside the box
+            // Compute preview: which elements (shapes + blocks) are inside the box
             this.s.boxPreviewIds.clear()
             for (const el of ctx.elements) {
                 if (boxIntersects(el, this.s.boxStart.x, this.s.boxStart.y, world.x, world.y)) {
                     this.s.boxPreviewIds.add(el.id)
                 }
             }
+            for (const rect of ctx.blockRects) {
+                if (boxIntersects(rect, this.s.boxStart.x, this.s.boxStart.y, world.x, world.y)) {
+                    this.s.boxPreviewIds.add(rect.id)
+                }
+            }
             ctx.render()
             return
         }
 
-        // Group drag
+        // Group drag (shapes + blocks)
         if (this.s.isGroupDragging && this.s.groupDragStart) {
             ctx.setCursor('move')
             const dx = world.x - this.s.groupDragStart.x
             const dy = world.y - this.s.groupDragStart.y
+            const blockIdSet = new Set(ctx.getSelectedBlockIds())
             for (const [id, orig] of this.s.groupOrigPositions) {
-                const el = ctx.elements.find(e => e.id === id)
-                if (el) {
-                    el.x = orig.x + dx
-                    el.y = orig.y + dy
+                if (blockIdSet.has(id)) {
+                    // Move block via DOM for zero re-renders during drag
+                    const el = document.querySelector(`[data-block-id="${id}"]`) as HTMLElement
+                    if (el) {
+                        el.style.left = `${orig.x + dx}px`
+                        el.style.top = `${orig.y + dy}px`
+                    }
+                } else {
+                    const el = ctx.elements.find(e => e.id === id)
+                    if (el) {
+                        el.x = orig.x + dx
+                        el.y = orig.y + dy
+                    }
                 }
             }
             ctx.render()
@@ -306,7 +387,7 @@ export class SelectHandler implements InteractionHandler {
         if (this.s.isResizing && ctx.selectedElement) {
             // Keep resize cursor during active resize
             this.handleResize(ctx, world)
-            updateConnectedArrows(ctx.elements, ctx.selectedElement.id)
+            updateConnectedArrows(ctx.elements, ctx.selectedElement.id, ctx.blockRects)
             ctx.render()
             return
         }
@@ -320,7 +401,7 @@ export class SelectHandler implements InteractionHandler {
             const now = performance.now()
             if (now - this.lastRouteTime >= this.ROUTE_THROTTLE) {
                 this.lastRouteTime = now
-                updateConnectedArrows(ctx.elements, ctx.selectedElement.id)
+                updateConnectedArrows(ctx.elements, ctx.selectedElement.id, ctx.blockRects)
             }
             ctx.render()
             return
@@ -376,12 +457,25 @@ export class SelectHandler implements InteractionHandler {
 
             // Only select if box has meaningful size
             if (Math.abs(x2 - x1) > 3 || Math.abs(y2 - y1) > 3) {
+                const allSelectedIds: string[] = []
                 for (const el of ctx.elements) {
                     if (boxIntersects(el, x1, y1, x2, y2)) {
                         ctx.selectedElements.add(el.id)
+                        allSelectedIds.push(el.id)
                     }
                 }
-                // Set selectedElement to first in selection
+                // Also include DOM blocks in the box
+                for (const rect of ctx.blockRects) {
+                    if (boxIntersects(rect, x1, y1, x2, y2)) {
+                        allSelectedIds.push(rect.id)
+                    }
+                }
+                // Sync all selected IDs (shapes + blocks) to unified store
+                console.log(`[SelectHandler] box-select commit: shapes=[${[...ctx.selectedElements]}] allIds=[${allSelectedIds}]`)
+                if (allSelectedIds.length > 0) {
+                    ctx.onSelectEntities?.(allSelectedIds)
+                }
+                // Set selectedElement to first in selection (shapes only)
                 if (ctx.selectedElements.size === 1) {
                     const id = ctx.selectedElements.values().next().value
                     ctx.selectedElement = ctx.elements.find(e => e.id === id) ?? null
@@ -399,8 +493,9 @@ export class SelectHandler implements InteractionHandler {
         if (this.s.isGroupDragging) {
             this.s.isGroupDragging = false
             this.s.groupDragStart = null
+            const blockIdSet = new Set(ctx.getSelectedBlockIds())
 
-            // Pass 1: snap all non-arrow elements to grid
+            // Pass 1: snap all non-arrow drawing elements to grid
             for (const id of ctx.selectedElements) {
                 const el = ctx.elements.find(e => e.id === id)
                 if (el && !isArrowType(el)) {
@@ -409,16 +504,33 @@ export class SelectHandler implements InteractionHandler {
                 }
             }
 
-            // Pass 2: recalculate connected arrows (shapes are already in final positions)
+            // Pass 1b: commit block positions (read final pos from DOM, snap to grid)
+            if (blockIdSet.size > 0 && ctx.onMoveBlocks) {
+                const moves: Array<{id: string, x: number, y: number}> = []
+                for (const id of blockIdSet) {
+                    const el = document.querySelector(`[data-block-id="${id}"]`) as HTMLElement
+                    if (el) {
+                        moves.push({
+                            id,
+                            x: ctx.snap(parseFloat(el.style.left)),
+                            y: ctx.snap(parseFloat(el.style.top)),
+                        })
+                    }
+                }
+                if (moves.length > 0) ctx.onMoveBlocks(moves)
+            }
+
+            // Pass 2: recalculate connected arrows (shapes + blocks are in final positions)
             const updatedArrows = new Set<string>()
-            for (const id of ctx.selectedElements) {
-                if (isArrowType(ctx.elements.find(e => e.id === id)!)) continue
+            const allMovedIds = new Set([...ctx.selectedElements, ...blockIdSet])
+            for (const id of allMovedIds) {
+                if (ctx.selectedElements.has(id) && isArrowType(ctx.elements.find(e => e.id === id)!)) continue
                 for (const el of ctx.elements) {
                     if (isArrowType(el) && (el.startConnection?.elementId === id || el.endConnection?.elementId === id)) {
                         updatedArrows.add(el.id)
                     }
                 }
-                updateConnectedArrows(ctx.elements, id)
+                updateConnectedArrows(ctx.elements, id, ctx.blockRects)
             }
 
             // Pass 3: snap unconnected arrows that weren't recalculated
@@ -463,7 +575,7 @@ export class SelectHandler implements InteractionHandler {
             el.x = ctx.snap(el.x); el.y = ctx.snap(el.y)
             el.width = Math.max(ctx.grid(), ctx.snap(el.width))
             el.height = Math.max(ctx.grid(), ctx.snap(el.height))
-            updateConnectedArrows(ctx.elements, el.id)
+            updateConnectedArrows(ctx.elements, el.id, ctx.blockRects)
             ctx.render(); ctx.save()
             return
         }
@@ -474,7 +586,7 @@ export class SelectHandler implements InteractionHandler {
             if (this.s.hasDragged) {
                 ctx.selectedElement.x = ctx.snap(ctx.selectedElement.x)
                 ctx.selectedElement.y = ctx.snap(ctx.selectedElement.y)
-                updateConnectedArrows(ctx.elements, ctx.selectedElement.id)
+                updateConnectedArrows(ctx.elements, ctx.selectedElement.id, ctx.blockRects)
                 ctx.render(); ctx.save()
             }
             this.s.hasDragged = false
@@ -579,22 +691,31 @@ export class SelectHandler implements InteractionHandler {
     onKeyDown(ctx: DrawingContext, e: KeyboardEvent): boolean {
         const mod = e.ctrlKey || e.metaKey
 
-        // Delete selected elements
+        // Delete selected elements + blocks
         if (e.key === 'Delete' || e.key === 'Backspace') {
+            const blockIds = ctx.getSelectedBlockIds()
+            let acted = false
+
+            // Delete drawing shapes
             if (ctx.selectedElements.size > 0) {
                 ctx.elements = ctx.elements.filter(el => !ctx.selectedElements.has(el.id))
                 ctx.selectedElements.clear()
                 ctx.selectedElement = null
-                ctx.render(); ctx.saveNow()
-                return true
-            }
-            if (ctx.selectedElement) {
+                acted = true
+            } else if (ctx.selectedElement) {
                 ctx.elements = ctx.elements.filter(el => el.id !== ctx.selectedElement!.id)
                 ctx.selectedElement = null
-                ctx.render(); ctx.saveNow()
-                return true
+                acted = true
             }
-            return false
+
+            // Delete blocks
+            if (blockIds.length > 0 && ctx.onDeleteBlocks) {
+                ctx.onDeleteBlocks(blockIds)
+                acted = true
+            }
+
+            if (acted) { ctx.render(); ctx.saveNow() }
+            return acted
         }
 
         // Ctrl+A: select all
@@ -644,27 +765,41 @@ export class SelectHandler implements InteractionHandler {
             return true
         }
 
-        // Arrow keys: nudge selected elements (1px, 10px with Shift)
+        // Arrow keys: nudge selected elements + blocks (1px, 10px with Shift)
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-            const ids = ctx.selectedElements.size > 0
+            const shapeIds = ctx.selectedElements.size > 0
                 ? ctx.selectedElements
                 : ctx.selectedElement ? new Set([ctx.selectedElement.id]) : new Set<string>()
-            if (ids.size === 0) return false
+            const blockIds = ctx.getSelectedBlockIds()
+
+            if (shapeIds.size === 0 && blockIds.length === 0) return false
 
             e.preventDefault()
             const step = e.shiftKey ? 10 : 1
             const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
             const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
 
-            for (const id of ids) {
+            // Move drawing elements
+            for (const id of shapeIds) {
                 const el = ctx.elements.find(e => e.id === id)
                 if (el) {
                     el.x += dx
                     el.y += dy
-                    updateConnectedArrows(ctx.elements, el.id)
+                    updateConnectedArrows(ctx.elements, el.id, ctx.blockRects)
                 }
             }
-            ctx.render(); ctx.save()
+
+            // Move blocks via store callback
+            if (blockIds.length > 0 && ctx.onMoveBlocks) {
+                const moves: Array<{id: string, x: number, y: number}> = []
+                for (const id of blockIds) {
+                    const rect = ctx.blockRects.find(r => r.id === id)
+                    if (rect) moves.push({ id, x: rect.x + dx, y: rect.y + dy })
+                }
+                if (moves.length > 0) ctx.onMoveBlocks(moves)
+            }
+
+            if (shapeIds.size > 0) { ctx.render(); ctx.save() }
             return true
         }
 
@@ -716,7 +851,7 @@ export class SelectHandler implements InteractionHandler {
 
         // Box selection rectangle
         if (this.s.isBoxSelecting && this.s.boxStart && this.s.boxEnd) {
-            drawBoxSelection(canvas, this.s.boxStart, this.s.boxEnd, this.s.boxPreviewIds, ctx.elements)
+            drawBoxSelection(canvas, this.s.boxStart, this.s.boxEnd, this.s.boxPreviewIds, ctx.elements, ctx.blockRects)
         }
     }
 
@@ -726,9 +861,15 @@ export class SelectHandler implements InteractionHandler {
         this.s.isGroupDragging = true
         this.s.groupDragStart = { ...world }
         this.s.groupOrigPositions.clear()
+        // Drawing elements
         for (const id of ctx.selectedElements) {
             const el = ctx.elements.find(e => e.id === id)
             if (el) this.s.groupOrigPositions.set(id, { x: el.x, y: el.y })
+        }
+        // DOM blocks (from unified selection)
+        for (const id of ctx.getSelectedBlockIds()) {
+            const rect = ctx.blockRects.find(r => r.id === id)
+            if (rect) this.s.groupOrigPositions.set(id, { x: rect.x, y: rect.y })
         }
     }
 
@@ -923,5 +1064,8 @@ function drawAnchorsCanvas(
     hoveredElement: DrawingElement | null,
     hoveredAnchor: AnchorPoint | null,
 ): void {
-    drawAnchors(canvas, hoveredElement, hoveredAnchor, getAnchors)
+    drawAnchors(canvas, hoveredElement, hoveredAnchor, (el) => {
+        if ('strokeColor' in el) return getAnchors(el as DrawingElement)
+        return getAnchorsForRect(el)
+    })
 }

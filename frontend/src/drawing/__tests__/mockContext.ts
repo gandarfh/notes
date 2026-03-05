@@ -23,6 +23,8 @@ export function makeMockContext(overrides?: Partial<DrawingContext>): DrawingCon
         elements: [],
         selectedElement: null,
         currentElement: null,
+        blockRects: [],
+        getSelectedBlockIds: () => [],
         selectedElements: new Set(),
         clipboard: [],
         snap: (v: number) => Math.round(v / 30) * 30,

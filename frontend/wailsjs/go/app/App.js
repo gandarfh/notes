@@ -10,6 +10,10 @@ export function ApproveAction(arg1) {
   return window['go']['app']['App']['ApproveAction'](arg1);
 }
 
+export function BatchUpdateCanvasEntities(arg1) {
+  return window['go']['app']['App']['BatchUpdateCanvasEntities'](arg1);
+}
+
 export function BatchUpdateLocalDBRows(arg1, arg2) {
   return window['go']['app']['App']['BatchUpdateLocalDBRows'](arg1, arg2);
 }
@@ -28,6 +32,14 @@ export function CloseEditor() {
 
 export function CreateBlock(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['app']['App']['CreateBlock'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
+export function CreateCanvasConnection(arg1, arg2, arg3) {
+  return window['go']['app']['App']['CreateCanvasConnection'](arg1, arg2, arg3);
+}
+
+export function CreateCanvasEntity(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['app']['App']['CreateCanvasEntity'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function CreateConnection(arg1, arg2, arg3) {
@@ -60,6 +72,14 @@ export function CreatePage(arg1, arg2) {
 
 export function DeleteBlock(arg1) {
   return window['go']['app']['App']['DeleteBlock'](arg1);
+}
+
+export function DeleteCanvasConnection(arg1) {
+  return window['go']['app']['App']['DeleteCanvasConnection'](arg1);
+}
+
+export function DeleteCanvasEntity(arg1) {
+  return window['go']['app']['App']['DeleteCanvasEntity'](arg1);
 }
 
 export function DeleteConnection(arg1) {
@@ -118,6 +138,14 @@ export function GetCachedResult(arg1) {
   return window['go']['app']['App']['GetCachedResult'](arg1);
 }
 
+export function GetCanvasConnection(arg1) {
+  return window['go']['app']['App']['GetCanvasConnection'](arg1);
+}
+
+export function GetCanvasEntity(arg1) {
+  return window['go']['app']['App']['GetCanvasEntity'](arg1);
+}
+
 export function GetETLJob(arg1) {
   return window['go']['app']['App']['GetETLJob'](arg1);
 }
@@ -144,6 +172,14 @@ export function GoToUndoNode(arg1, arg2) {
 
 export function IntrospectDatabase(arg1) {
   return window['go']['app']['App']['IntrospectDatabase'](arg1);
+}
+
+export function ListCanvasConnections(arg1) {
+  return window['go']['app']['App']['ListCanvasConnections'](arg1);
+}
+
+export function ListCanvasEntities(arg1) {
+  return window['go']['app']['App']['ListCanvasEntities'](arg1);
 }
 
 export function ListDatabaseConnections() {
@@ -278,6 +314,14 @@ export function UpdateBlockPosition(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['UpdateBlockPosition'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function UpdateCanvasConnection(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
+  return window['go']['app']['App']['UpdateCanvasConnection'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
+}
+
+export function UpdateCanvasEntity(arg1, arg2) {
+  return window['go']['app']['App']['UpdateCanvasEntity'](arg1, arg2);
+}
+
 export function UpdateConnection(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['UpdateConnection'](arg1, arg2, arg3, arg4);
 }
@@ -292,6 +336,10 @@ export function UpdateDrawingData(arg1, arg2) {
 
 export function UpdateETLJob(arg1, arg2) {
   return window['go']['app']['App']['UpdateETLJob'](arg1, arg2);
+}
+
+export function UpdateEntityZOrder(arg1, arg2) {
+  return window['go']['app']['App']['UpdateEntityZOrder'](arg1, arg2);
 }
 
 export function UpdateLocalDBRow(arg1, arg2) {

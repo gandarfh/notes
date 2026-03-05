@@ -4,7 +4,7 @@
  * Lightweight Canvas2D functions for selection UI, anchors, and box selection.
  * NO WASM calls — all element rendering is in the Web Worker (drawing-worker.ts).
  */
-import { type DrawingElement, type AnchorPoint, ANCHOR_RADIUS, HANDLE_SIZE, getElementBounds, measureTextElement } from './types'
+import { type DrawingElement, type AnchorPoint, type AnchorableRect, ANCHOR_RADIUS, HANDLE_SIZE, getElementBounds, measureTextElement } from './types'
 
 // ── Theme helpers (lightweight, no WASM) ──
 
@@ -131,9 +131,9 @@ export function drawSelectionUI(ctx: CanvasRenderingContext2D, el: DrawingElemen
 
 export function drawAnchors(
     ctx: CanvasRenderingContext2D,
-    hoveredElement: DrawingElement | null,
+    hoveredElement: DrawingElement | AnchorableRect | null,
     hoveredAnchor: AnchorPoint | null,
-    anchorsForElement: (el: DrawingElement) => AnchorPoint[],
+    anchorsForElement: (el: DrawingElement | AnchorableRect) => AnchorPoint[],
 ): void {
     const ACCENT = '#6c9eff'
 
@@ -169,6 +169,7 @@ export function drawBoxSelection(
     boxEnd: { x: number; y: number },
     previewIds: Set<string>,
     elements: DrawingElement[],
+    blockRects?: Array<{ id: string; x: number; y: number; width: number; height: number }>,
 ): void {
     const x = Math.min(boxStart.x, boxEnd.x)
     const y = Math.min(boxStart.y, boxEnd.y)
@@ -186,22 +187,36 @@ export function drawBoxSelection(
     ctx.stroke()
     ctx.setLineDash([])
 
-    // Preview highlights
+    // Preview highlights — drawing shapes
     for (const el of elements) {
         if (previewIds.has(el.id)) {
             const pad = 4
             const b = getElementBounds(el)
-            ctx.fillStyle = 'rgba(99,102,241,0.06)'
-            ctx.strokeStyle = ACCENT
-            ctx.lineWidth = 1.5
-            ctx.setLineDash([4, 2])
-            ctx.beginPath()
-            ctx.roundRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2, 3)
-            ctx.fill()
-            ctx.stroke()
-            ctx.setLineDash([])
+            drawPreviewHighlight(ctx, b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2)
         }
     }
+
+    // Preview highlights — DOM blocks
+    if (blockRects) {
+        for (const rect of blockRects) {
+            if (previewIds.has(rect.id)) {
+                const pad = 4
+                drawPreviewHighlight(ctx, rect.x - pad, rect.y - pad, rect.width + pad * 2, rect.height + pad * 2)
+            }
+        }
+    }
+}
+
+function drawPreviewHighlight(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+    ctx.fillStyle = 'rgba(99,102,241,0.06)'
+    ctx.strokeStyle = ACCENT
+    ctx.lineWidth = 1.5
+    ctx.setLineDash([4, 2])
+    ctx.beginPath()
+    ctx.roundRect(x, y, w, h, 3)
+    ctx.fill()
+    ctx.stroke()
+    ctx.setLineDash([])
 }
 
 // ── Arrow Label Position (pure math) ──

@@ -256,13 +256,15 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             }
         }
 
-        // Always deselect block on left-click unless clicking on a block
-        if (e.button === 0 && !isOnBlock) {
+        // Deselect block on left-click outside blocks — but ONLY if the drawing
+        // layer didn't consume the event (it manages unified selectedIds itself)
+        if (e.button === 0 && !isOnBlock && !eventConsumedRef.current) {
             selectBlock(null)
         }
 
-        // Always clear drawing selection when clicking on a block
-        if (isOnBlock) {
+        // Clear drawing selection when clicking on a block (unless drawing consumed it,
+        // which means it's a multi-selection group drag from the drawing layer)
+        if (isOnBlock && !eventConsumedRef.current) {
             clearDrawingSelection()
         }
 
@@ -496,9 +498,11 @@ export function Canvas({ onEditBlock }: CanvasProps) {
 
             {/* Overlay canvas — stays on main thread for selection UI + handler overlays.
                 No WASM calls, just lightweight Canvas2D (handles, box select, anchors). */}
+            {/* Overlay canvas — above blocks (z-[4]) for selection UI visibility.
+                pointer-events:none so it doesn't interfere with block interactions. */}
             <canvas
                 ref={overlayCanvasRef}
-                className="drawing-overlay absolute inset-0 z-[1]"
+                className="drawing-overlay absolute inset-0 z-[4]"
                 style={{ width: '100%', height: '100%', pointerEvents: 'none', willChange: 'transform', transformOrigin: '0 0' }}
             />
 

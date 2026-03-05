@@ -20,7 +20,9 @@ import { FreedrawHandler } from '../drawing/handlers/freedraw'
 import { TextHandler } from '../drawing/handlers/text'
 import { BlockHandler, type BlockCreationCallback } from '../drawing/handlers/block'
 import { genId } from '../drawing/types'
+import { updateConnectedArrows } from '../drawing/connections'
 import { getDrawingEngine } from '../drawing/drawing-wasm'
+import { setOnBlockMoved } from '../input/drawingBridge'
 
 // Eagerly load WASM engine on main thread so ortho routing can use Dijkstra
 getDrawingEngine().catch(() => { /* WASM load failure is non-fatal */ })
@@ -216,26 +218,52 @@ export function useDrawing(
                     if (selected && multiSelected.size <= 1) {
                         drawSelectionUI(oCtx, selected)
                     }
-                    if (multiSelected.size > 1) {
-                        const elements = elementsRef.current
-                        const selEls = elements.filter(e => multiSelected.has(e.id))
-                        if (selEls.length > 0) {
+                    // Unified multi-selection bounding box (shapes + blocks)
+                    {
+                        const { selectedIds, blocks } = useAppStore.getState()
+                        const totalSelected = selectedIds.size
+                        if (totalSelected > 1) {
+                            // Get live drag delta from SelectHandler (if group-dragging)
+                            const selectHandler = handlersRef.current.get('draw-select') as import('../drawing/handlers/select').SelectHandler | undefined
+                            const dragDelta = selectHandler?.getGroupDragDelta?.()
+                            const dragIds = selectHandler?.getGroupDragIds?.() ?? new Set<string>()
+
                             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-                            for (const el of selEls) {
-                                const b = getElementBounds(el)
-                                minX = Math.min(minX, b.x)
-                                minY = Math.min(minY, b.y)
-                                maxX = Math.max(maxX, b.x + b.w)
-                                maxY = Math.max(maxY, b.y + b.h)
+                            let count = 0
+                            // Include selected drawing shapes (positions already live in refs)
+                            for (const el of elementsRef.current) {
+                                if (multiSelected.has(el.id)) {
+                                    const b = getElementBounds(el)
+                                    minX = Math.min(minX, b.x)
+                                    minY = Math.min(minY, b.y)
+                                    maxX = Math.max(maxX, b.x + b.w)
+                                    maxY = Math.max(maxY, b.y + b.h)
+                                    count++
+                                }
                             }
-                            const pad = 6
-                            oCtx.strokeStyle = '#6366f1'
-                            oCtx.lineWidth = 1
-                            oCtx.setLineDash([4, 3])
-                            oCtx.beginPath()
-                            oCtx.roundRect(minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2, 3)
-                            oCtx.stroke()
-                            oCtx.setLineDash([])
+                            // Include selected blocks (apply drag delta for live position)
+                            for (const id of selectedIds) {
+                                const block = blocks.get(id)
+                                if (block) {
+                                    const dx = (dragDelta && dragIds.has(id)) ? dragDelta.x : 0
+                                    const dy = (dragDelta && dragIds.has(id)) ? dragDelta.y : 0
+                                    minX = Math.min(minX, block.x + dx)
+                                    minY = Math.min(minY, block.y + dy)
+                                    maxX = Math.max(maxX, block.x + block.width + dx)
+                                    maxY = Math.max(maxY, block.y + block.height + dy)
+                                    count++
+                                }
+                            }
+                            if (count > 0) {
+                                const pad = 6
+                                oCtx.strokeStyle = '#6366f1'
+                                oCtx.lineWidth = 1
+                                oCtx.setLineDash([4, 3])
+                                oCtx.beginPath()
+                                oCtx.roundRect(minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2, 3)
+                                oCtx.stroke()
+                                oCtx.setLineDash([])
+                            }
                         }
                     }
 
@@ -284,6 +312,14 @@ export function useDrawing(
         set selectedElements(v) { selectedElementsRef.current = v },
         get clipboard() { return clipboardRef.current },
         set clipboard(v) { clipboardRef.current = v },
+        get blockRects() {
+            const blocks = useAppStore.getState().blocks
+            const rects: Array<{ id: string; x: number; y: number; width: number; height: number }> = []
+            for (const b of blocks.values()) {
+                rects.push({ id: b.id, x: b.x, y: b.y, width: b.width, height: b.height })
+            }
+            return rects
+        },
         snap,
         grid: () => GRID_SIZE,
         setSubTool: (tool: DrawingSubTool) => {
@@ -321,6 +357,42 @@ export function useDrawing(
         setDefaults: (type, patch) => {
             const cat = elementTypeCategory(type)
             useAppStore.getState().setStyleDefaults(cat, patch)
+        },
+        getSelectedBlockIds: () => {
+            const { selectedIds, blocks } = useAppStore.getState()
+            const result: string[] = []
+            for (const id of selectedIds) {
+                if (blocks.has(id)) result.push(id)
+            }
+            console.log(`[getSelectedBlockIds] selectedIds=[${[...selectedIds]}] blocks.size=${blocks.size} result=[${result}]`)
+            return result
+        },
+        onCanvasConnectionCreated: (fromEntityId, toEntityId) => {
+            useAppStore.getState().createCanvasConnection(fromEntityId, toEntityId)
+        },
+        onMoveBlocks: (moves) => {
+            const store = useAppStore.getState()
+            for (const { id, x, y } of moves) {
+                store.moveBlock(id, x, y)
+                store.saveBlockPosition(id)
+                // Update connected arrows
+                const blockRects: Array<{ id: string; x: number; y: number; width: number; height: number }> = []
+                for (const b of store.blocks.values()) {
+                    blockRects.push({ id: b.id, x: b.id === id ? x : b.x, y: b.id === id ? y : b.y, width: b.width, height: b.height })
+                }
+                updateConnectedArrows(elementsRef.current, id, blockRects)
+            }
+            render()
+            save()
+        },
+        onDeleteBlocks: (ids) => {
+            const store = useAppStore.getState()
+            for (const id of ids) store.deleteBlock(id)
+        },
+        onSelectEntities: (ids) => {
+            console.log(`[onSelectEntities] ids=[${ids}]`)
+            useAppStore.getState().selectMultiple(ids)
+            console.log(`[onSelectEntities] store.selectedIds=[${[...useAppStore.getState().selectedIds]}]`)
         },
     }), [snap, render, save, getScreenCoords, getZoom, editorRequest, saveNow])
 
@@ -422,7 +494,7 @@ export function useDrawing(
         const container = containerRef.current
         if (!container) return
 
-        const onMouseDown = (e: MouseEvent) => {
+        const onPointerDown = (e: PointerEvent) => {
             // Reset consumed flag — Canvas checks this before panning
             eventConsumedRef.current = false
 
@@ -432,12 +504,28 @@ export function useDrawing(
             // Only handle left mouse button (0) for drawing interactions
             if (e.button !== 0) return
 
-            // Don't handle events on blocks or the style panel
+            // Don't handle events on the style panel
             const target = e.target as HTMLElement
-            if (target.closest('[data-role=block]') || target.closest('.style-panel')) return
+            if (target.closest('.style-panel')) return
+
+            // Don't handle events on blocks UNLESS it's a block in a multi-selection
+            // (the block lets the event propagate so SelectHandler can handle group drag)
+            const blockEl = target.closest('[data-role=block]')
+            if (blockEl) {
+                const { selectedIds } = useAppStore.getState()
+                const clickedBlockId = (blockEl as HTMLElement).dataset.blockId
+                const isInMultiSelection = selectedIds.size > 1 && clickedBlockId && selectedIds.has(clickedBlockId)
+                console.log(`[Layer3 MOUSE] click on block=${clickedBlockId} selectedIds=[${[...selectedIds]}] isInMulti=${isInMultiSelection}`)
+                if (!isInMultiSelection) return
+            }
 
             // Mark as consumed so Canvas doesn't also handle this left-click
             eventConsumedRef.current = true
+            console.log(`[Layer3 MOUSE] mousedown on canvas, target=${target.tagName} blockEl=${!!blockEl} shift=${e.shiftKey} tool=${useAppStore.getState().drawingSubTool}`)
+
+            // Capture pointer so all subsequent move/up events come to the container,
+            // even when cursor is over a block or outside the window (critical for box-select)
+            container.setPointerCapture(e.pointerId)
 
             const world = getWorldCoords(e.clientX, e.clientY)
             const ctx = buildContext()
@@ -470,19 +558,24 @@ export function useDrawing(
             activeHandlerRef.current?.onMouseDown(ctx, world)
         }
 
-        const onMouseMove = (e: MouseEvent) => {
-            // Fast check: is cursor over a block? Walk up max 3 levels instead of full closest()
-            let el: HTMLElement | null = e.target as HTMLElement
-            for (let i = 0; i < 4 && el && el !== container; i++) {
-                if (el.dataset.role === 'block') return
-                el = el.parentElement
+        const onPointerMove = (e: PointerEvent) => {
+            // When pointer is NOT captured: skip events over blocks (let them handle their own interactions)
+            if (!container.hasPointerCapture(e.pointerId)) {
+                let el: HTMLElement | null = e.target as HTMLElement
+                for (let i = 0; i < 4 && el && el !== container; i++) {
+                    if (el.dataset.role === 'block') return
+                    el = el.parentElement
+                }
             }
 
             const world = getWorldCoords(e.clientX, e.clientY)
             activeHandlerRef.current?.onMouseMove(buildContext(), world)
         }
 
-        const onMouseUp = () => {
+        const onPointerUp = (e: PointerEvent) => {
+            if (container.hasPointerCapture(e.pointerId)) {
+                container.releasePointerCapture(e.pointerId)
+            }
             activeHandlerRef.current?.onMouseUp(buildContext())
         }
 
@@ -497,10 +590,31 @@ export function useDrawing(
             if (editorRequest) return false
 
             const ctx = buildContext()
+            const _debugKey = e.key
+            const _debugShapes = [...ctx.selectedElements]
+            const _debugBlocks = ctx.getSelectedBlockIds()
+            const _debugTool = useAppStore.getState().drawingSubTool
+            const _debugHandler = activeHandlerRef.current?.constructor?.name ?? 'unknown'
+
+            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Delete','Backspace'].includes(_debugKey)) {
+                console.log(`[Layer3 KEY] key=${_debugKey} tool=${_debugTool} handler=${_debugHandler} shapes=[${_debugShapes}] blocks=[${_debugBlocks}] selectedIds=[${[...useAppStore.getState().selectedIds]}]`)
+            }
 
             // Let active handler try first (e.g. SelectHandler: Ctrl+C/V/D/A, Delete)
             if (activeHandlerRef.current?.onKeyDown?.(ctx, e)) {
+                console.log(`[Layer3 KEY] → consumed by active handler (${_debugHandler})`)
                 return true
+            }
+
+            // Fallback: if active handler is NOT SelectHandler, try SelectHandler
+            // for unified keys (arrow nudge, delete) that work across all tools
+            const selectHandler = handlersRef.current.get('draw-select')
+            if (selectHandler && activeHandlerRef.current !== selectHandler) {
+                console.log(`[Layer3 KEY] → trying SelectHandler fallback`)
+                if (selectHandler.onKeyDown?.(ctx, e)) {
+                    console.log(`[Layer3 KEY] → consumed by SelectHandler fallback`)
+                    return true
+                }
             }
 
             // Global drawing shortcuts (skip if shift or meta/ctrl is held)
@@ -526,36 +640,37 @@ export function useDrawing(
             }
             switch (e.key.toLowerCase()) {
                 case 'delete': case 'backspace':
-                    // Only consume if there's a drawing selection, otherwise fall through to block layer
-                    if (selectedElementRef.current || selectedElementsRef.current.size > 0) {
-                        deleteSelected(); return true
-                    }
+                    // Handled by SelectHandler (active or fallback above)
                     return false
-                case 'escape':
-                    if (selectedElementRef.current) {
-                        selectedElementRef.current = null
-                        selectedElementsRef.current.clear()
+                case 'escape': {
+                    // Unified escape: clear everything
+                    const hadDrawing = !!selectedElementRef.current || selectedElementsRef.current.size > 0
+                    const hadBlock = !!useAppStore.getState().selectedBlockId || useAppStore.getState().selectedIds.size > 0
+                    selectedElementRef.current = null
+                    selectedElementsRef.current.clear()
+                    useAppStore.getState().selectBlock(null)
+                    useAppStore.getState().clearSelection()
+                    if (hadDrawing || hadBlock) {
                         render()
                         ctx.setSubTool('draw-select')
                         return true
                     }
-                    // No drawing selection — let block layer handle Escape (deselect block)
-                    if (blockSelected) return false
                     ctx.setSubTool('draw-select')
                     return true
+                }
             }
             return false
         })
 
-        container.addEventListener('mousedown', onMouseDown)
-        container.addEventListener('mousemove', onMouseMove)
-        container.addEventListener('mouseup', onMouseUp)
+        container.addEventListener('pointerdown', onPointerDown)
+        container.addEventListener('pointermove', onPointerMove)
+        container.addEventListener('pointerup', onPointerUp)
         container.addEventListener('contextmenu', onContextMenu)
 
         return () => {
-            container.removeEventListener('mousedown', onMouseDown)
-            container.removeEventListener('mousemove', onMouseMove)
-            container.removeEventListener('mouseup', onMouseUp)
+            container.removeEventListener('pointerdown', onPointerDown)
+            container.removeEventListener('pointermove', onPointerMove)
+            container.removeEventListener('pointerup', onPointerUp)
             container.removeEventListener('contextmenu', onContextMenu)
             unregisterKeys()
         }
@@ -612,6 +727,24 @@ export function useDrawing(
             const newIds = sel.map(e => e.id).join(',')
             if (prevIds !== newIds || currVersion !== renderVersionRef.current) {
                 setStyleSelection(sel)
+                // Sync drawing selection → unified selectionSlice
+                // Preserve any block IDs already in the store — this interval
+                // only knows about drawing shapes, not DOM blocks.
+                const { selectedIds: storeIds, blocks } = useAppStore.getState()
+                const shapeIds = sel.map(e => e.id)
+                const blockIdsInStore: string[] = []
+                for (const id of storeIds) {
+                    if (blocks.has(id)) blockIdsInStore.push(id)
+                }
+                const mergedIds = [...shapeIds, ...blockIdsInStore]
+                const same = mergedIds.length === storeIds.size && mergedIds.every(id => storeIds.has(id))
+                if (!same) {
+                    if (mergedIds.length > 0) {
+                        useAppStore.getState().selectMultiple(mergedIds)
+                    } else if (storeIds.size > 0 && !useAppStore.getState().selectedBlockId) {
+                        useAppStore.getState().clearSelection()
+                    }
+                }
             }
         }, 100)
         return () => clearInterval(interval)
@@ -645,6 +778,17 @@ export function useDrawing(
             selectedElementRef.current = null
             selectedElementsRef.current.clear()
             render()
+            // Sync: remove drawing shapes from unified selection, but preserve block IDs
+            const { selectedIds, blocks, selectedBlockId } = useAppStore.getState()
+            const blockIdsToKeep: string[] = []
+            for (const id of selectedIds) {
+                if (blocks.has(id)) blockIdsToKeep.push(id)
+            }
+            if (blockIdsToKeep.length > 0) {
+                useAppStore.getState().selectMultiple(blockIdsToKeep)
+            } else if (!selectedBlockId) {
+                useAppStore.getState().clearSelection()
+            }
         }
     }, [render])
 
@@ -657,6 +801,10 @@ export function useDrawing(
 
         elementsRef.current = reorderElements(elementsRef.current, ids, action)
         render(); save()
+
+        // Sync: persist z-order to entity store
+        const orderedIDs = elementsRef.current.map(el => el.id)
+        useAppStore.getState().updateEntityZOrder(orderedIDs)
     }, [render, save])
 
     // Align/distribute selected elements
@@ -669,6 +817,26 @@ export function useDrawing(
         alignElements(selected, action)
         render(); save()
         setStyleSelection(elementsRef.current.filter(e => ids.has(e.id)))
+    }, [render, save])
+
+    // Register block-moved bridge so arrows connected to blocks update when blocks are dragged
+    useEffect(() => {
+        setOnBlockMoved((blockId: string, liveX?: number, liveY?: number) => {
+            const blockRects: Array<{ id: string; x: number; y: number; width: number; height: number }> = []
+            for (const b of useAppStore.getState().blocks.values()) {
+                // Use live position for the moving block (DOM is ahead of store during drag)
+                if (b.id === blockId && liveX !== undefined && liveY !== undefined) {
+                    blockRects.push({ id: b.id, x: liveX, y: liveY, width: b.width, height: b.height })
+                } else {
+                    blockRects.push({ id: b.id, x: b.x, y: b.y, width: b.width, height: b.height })
+                }
+            }
+            updateConnectedArrows(elementsRef.current, blockId, blockRects)
+            render()
+            // Only save on final position (not during drag) — caller passes liveX during drag
+            if (liveX === undefined) save()
+        })
+        return () => setOnBlockMoved(null)
     }, [render, save])
 
     const multiSelected = selectedElementsRef.current.size > 1

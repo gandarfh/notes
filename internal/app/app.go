@@ -31,13 +31,14 @@ type App struct {
 	conns *storage.ConnectionStore
 
 	// Services (business logic layer)
-	notebooks *service.NotebookService
-	blocks    *service.BlockService
-	drawing   *service.DrawingService
-	etl       *service.ETLService
-	localdb   *service.LocalDBService
-	database  *service.DatabaseService
-	window    *service.WindowSettingsService
+	notebooks      *service.NotebookService
+	blocks         *service.BlockService
+	drawing        *service.DrawingService
+	canvasEntities *service.CanvasEntityService
+	etl            *service.ETLService
+	localdb        *service.LocalDBService
+	database       *service.DatabaseService
+	window         *service.WindowSettingsService
 
 	// Plugin registry
 	pluginRegistry *service.GoPluginRegistry
@@ -95,6 +96,8 @@ func (a *App) Startup(ctx context.Context) {
 	localDBStore := storage.NewLocalDatabaseStore(db)
 	etlStore := storage.NewETLStore(db)
 	dbConnStore := storage.NewDBConnectionStore(db)
+	canvasEntityStore := storage.NewCanvasEntityStore(db)
+	canvasConnStore := storage.NewCanvasConnectionStore(db)
 
 	a.undos = undoStore
 	a.conns = connsStore
@@ -109,7 +112,9 @@ func (a *App) Startup(ctx context.Context) {
 	a.database = service.NewDatabaseService(dbConnStore, secretStore, blocksStore)
 	a.etl = service.NewETLService(etlStore, localDBStore, a)
 	a.notebooks = service.NewNotebookService(notebooksStore, a.blocks, connsStore, dataDir, a)
+	a.notebooks.SetCanvasStores(canvasEntityStore, canvasConnStore)
 	a.drawing = service.NewDrawingService(a.notebooks)
+	a.canvasEntities = service.NewCanvasEntityService(canvasEntityStore, canvasConnStore, a)
 	a.window = service.NewWindowSettingsService(db)
 
 	// Restore saved window size

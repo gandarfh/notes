@@ -8,6 +8,7 @@
 
 export { notebookAPI } from './notebook'
 export { blockAPI } from './block'
+export { canvasEntityAPI } from './canvasEntity'
 export { etlAPI } from './etl'
 export { localdbAPI } from './localdb'
 export { databaseAPI, httpAPI, terminalAPI, connectionAPI } from './database'
@@ -17,6 +18,7 @@ export { databaseAPI, httpAPI, terminalAPI, connectionAPI } from './database'
 
 import { notebookAPI } from './notebook'
 import { blockAPI } from './block'
+import { canvasEntityAPI } from './canvasEntity'
 import { etlAPI } from './etl'
 import { localdbAPI } from './localdb'
 import { databaseAPI, httpAPI, terminalAPI, connectionAPI } from './database'

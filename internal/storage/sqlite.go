@@ -231,6 +231,41 @@ func (db *DB) migrate() error {
 			payload TEXT NOT NULL DEFAULT '{}',
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
+		// Unified canvas entities table (blocks + drawing elements)
+		`CREATE TABLE IF NOT EXISTS canvas_entities (
+			id TEXT PRIMARY KEY,
+			page_id TEXT NOT NULL REFERENCES pages(id),
+			type TEXT NOT NULL,
+			render_mode TEXT NOT NULL DEFAULT 'canvas',
+			z_index INTEGER NOT NULL DEFAULT 0,
+			x REAL NOT NULL DEFAULT 0,
+			y REAL NOT NULL DEFAULT 0,
+			width REAL NOT NULL DEFAULT 0,
+			height REAL NOT NULL DEFAULT 0,
+			content TEXT NOT NULL DEFAULT '',
+			file_path TEXT NOT NULL DEFAULT '',
+			canvas_props TEXT NOT NULL DEFAULT '{}',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_canvas_entities_page ON canvas_entities(page_id)`,
+		// Unified canvas connections (replaces connections table for cross-type arrows)
+		`CREATE TABLE IF NOT EXISTS canvas_connections (
+			id TEXT PRIMARY KEY,
+			page_id TEXT NOT NULL REFERENCES pages(id),
+			from_entity_id TEXT NOT NULL,
+			to_entity_id TEXT NOT NULL,
+			from_side TEXT NOT NULL DEFAULT '',
+			from_t REAL NOT NULL DEFAULT 0.5,
+			to_side TEXT NOT NULL DEFAULT '',
+			to_t REAL NOT NULL DEFAULT 0.5,
+			label TEXT NOT NULL DEFAULT '',
+			color TEXT NOT NULL DEFAULT '#666666',
+			style TEXT NOT NULL DEFAULT 'solid',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_canvas_connections_page ON canvas_connections(page_id)`,
 	}
 
 	for _, m := range migrations {

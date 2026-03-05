@@ -2,7 +2,7 @@ import { GRID_SIZE, snapToGrid } from '../../constants'
 import { useRef, useState, useCallback, useMemo, useEffect, memo } from 'react'
 import { useAppStore } from '../../store'
 import { BlockRegistry } from '../../plugins'
-import { clearDrawingSelectionGlobal, closeEditorGlobal } from '../../input/drawingBridge'
+import { clearDrawingSelectionGlobal, closeEditorGlobal, notifyBlockMoved } from '../../input/drawingBridge'
 import { IconEdit, IconX, IconLink } from '@tabler/icons-react'
 import { api } from '../../bridge/wails'
 import { createPluginContext } from '../../plugins/sdk/runtime/contextFactory'
@@ -81,9 +81,11 @@ interface BlockContainerProps {
 
 export const BlockContainer = memo(function BlockContainer({ blockId, onEditBlock }: BlockContainerProps) {
     const block = useAppStore(s => s.blocks.get(blockId))
-    const isSelected = useAppStore(s => s.selectedBlockId === blockId)
+    const entityZIndex = useAppStore(s => s.entities.get(blockId)?.zIndex)
+    const isSelected = useAppStore(s => s.selectedIds.has(blockId))
     const isEditing = useAppStore(s => s.editingBlockId === blockId)
     const selectBlock = useAppStore(s => s.selectBlock)
+    const toggleSelection = useAppStore(s => s.toggleSelection)
     const deleteBlock = useAppStore(s => s.deleteBlock)
     const moveBlock = useAppStore(s => s.moveBlock)
     const resizeBlock = useAppStore(s => s.resizeBlock)
@@ -93,6 +95,8 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
     const elRef = useRef<HTMLDivElement>(null)
     const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
     const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null)
+    // Prevent double-toggle: mousedown + click both fire on shift+click
+    const shiftHandledRef = useRef(false)
 
     const plugin = useMemo(() => block ? BlockRegistry.get(block.type) : undefined, [block?.type])
 
@@ -100,11 +104,31 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
     const onHeaderMouseDown = useCallback((e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest('button')) return
         if (isEditing) return
-        e.stopPropagation()
-        const { editingBlockId } = useAppStore.getState()
+
+        const { editingBlockId, selectedIds } = useAppStore.getState()
         if (editingBlockId && editingBlockId !== blockId) closeEditorGlobal()
-        selectBlock(blockId)
-        clearDrawingSelectionGlobal()
+
+        // If this block is part of a multi-selection, let the event propagate
+        // to the drawing layer so SelectHandler can handle unified group drag
+        const inMultiSelection = selectedIds.size > 1 && selectedIds.has(blockId)
+        console.log(`[BlockContainer] headerMouseDown block=${blockId} shift=${e.shiftKey} inMulti=${inMultiSelection} selectedIds=[${[...selectedIds]}]`)
+        if (inMultiSelection && !e.shiftKey) {
+            console.log(`[BlockContainer] → propagating to drawing layer (multi-selection drag)`)
+            return
+        }
+
+        e.stopPropagation()
+
+        if (e.shiftKey) {
+            // Shift+Click: additive multi-select (preserve drawing selection for cross-type)
+            console.log(`[BlockContainer] → shift+click toggleSelection(${blockId})`)
+            shiftHandledRef.current = true
+            toggleSelection(blockId)
+        } else {
+            console.log(`[BlockContainer] → normal click selectBlock(${blockId})`)
+            selectBlock(blockId)
+            clearDrawingSelectionGlobal()
+        }
 
         if (!block) return
         dragRef.current = { startX: e.clientX, startY: e.clientY, origX: block.x, origY: block.y }
@@ -115,11 +139,15 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
             const zoom = useAppStore.getState().viewport.zoom
             const dx = (ev.clientX - d.startX) / zoom
             const dy = (ev.clientY - d.startY) / zoom
+            const newX = d.origX + dx
+            const newY = d.origY + dy
             // Direct DOM update — bypass React/Zustand during drag for zero re-renders
             if (elRef.current) {
-                elRef.current.style.left = `${d.origX + dx}px`
-                elRef.current.style.top = `${d.origY + dy}px`
+                elRef.current.style.left = `${newX}px`
+                elRef.current.style.top = `${newY}px`
             }
+            // Update connected arrows in real-time (pass live position since store is stale)
+            notifyBlockMoved(blockId, newX, newY)
         }
 
         const onUp = () => {
@@ -132,13 +160,15 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                 moveBlock(blockId, finalX, finalY)
             }
             saveBlockPosition(blockId)
+            // Notify drawing layer so arrows connected to this block update
+            notifyBlockMoved(blockId)
             window.removeEventListener('mousemove', onMove)
             window.removeEventListener('mouseup', onUp)
         }
 
         window.addEventListener('mousemove', onMove)
         window.addEventListener('mouseup', onUp)
-    }, [blockId, block, isEditing, selectBlock, moveBlock, saveBlockPosition])
+    }, [blockId, block, isEditing, selectBlock, toggleSelection, moveBlock, saveBlockPosition])
 
     // ── Double-click header to focus (zoom 100% + center) ──
     const onHeaderDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -267,13 +297,27 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                 background: isNoBg ? 'transparent' : 'var(--color-block-bg)',
                 border: `1px solid ${borderColor}`,
                 boxShadow: isNoBg ? 'none' : boxShadow,
-                zIndex: isEditing ? 100 : isSelected ? 50 : undefined,
+                zIndex: isEditing ? 9999 : isSelected ? 9998 : entityZIndex,
             }}
-            onClick={() => {
-                const { editingBlockId } = useAppStore.getState()
+            onClick={(e) => {
+                const { editingBlockId, selectedIds } = useAppStore.getState()
                 if (editingBlockId && editingBlockId !== blockId) closeEditorGlobal()
-                selectBlock(blockId)
-                clearDrawingSelectionGlobal()
+
+                // If block is in multi-selection, don't destroy it (SelectHandler handles it)
+                const inMultiSelection = selectedIds.size > 1 && selectedIds.has(blockId)
+                if (inMultiSelection && !e.shiftKey) return
+
+                if (e.shiftKey) {
+                    // Skip if mousedown already handled this shift+click (prevents double-toggle)
+                    if (shiftHandledRef.current) {
+                        shiftHandledRef.current = false
+                        return
+                    }
+                    toggleSelection(blockId)
+                } else {
+                    selectBlock(blockId)
+                    clearDrawingSelectionGlobal()
+                }
             }}
         >
             {!isNoBg && (

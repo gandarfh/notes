@@ -2,7 +2,7 @@
 // Core abstractions for the extensible canvas architecture.
 // Adding a new tool = implement InteractionHandler.
 
-import type { DrawingElement, DrawingSubTool, AnchorPoint } from './types'
+import type { DrawingElement, DrawingSubTool, AnchorPoint, AnchorableRect } from './types'
 
 // ── Geometry ───────────────────────────────────────────────
 
@@ -53,6 +53,9 @@ export interface DrawingContext {
     selectedElement: DrawingElement | null
     currentElement: DrawingElement | null
 
+    // ── DOM block rects (for unified anchor snapping) ──
+    blockRects: AnchorableRect[]
+
     // ── Multi-selection ──
     selectedElements: Set<string>
     clipboard: DrawingElement[]
@@ -84,6 +87,16 @@ export interface DrawingContext {
     // ── Style Defaults (per element type) ──
     getDefaults(type: string): import('../store/types').ElementStyleDefaults
     setDefaults(type: string, patch: Partial<import('../store/types').ElementStyleDefaults>): void
+
+    // ── Canvas Connections (cross-type entity connections) ──
+    onCanvasConnectionCreated?(fromEntityId: string, toEntityId: string): void
+
+    // ── Unified entity operations (blocks via store, shapes via refs) ──
+    /** IDs of blocks currently in the unified selection (from store.selectedIds) */
+    getSelectedBlockIds(): string[]
+    onMoveBlocks?(moves: Array<{id: string, x: number, y: number}>): void
+    onDeleteBlocks?(ids: string[]): void
+    onSelectEntities?(ids: string[]): void
 }
 
 // ── Interaction Handler ────────────────────────────────────

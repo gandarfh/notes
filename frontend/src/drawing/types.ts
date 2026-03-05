@@ -31,6 +31,15 @@ export interface Connection {
     t: number   // parametric position along the edge
 }
 
+/** Minimal rect interface for anchor computation on DOM blocks */
+export interface AnchorableRect {
+    id: string
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
 // ── Element model ──────────────────────────────────────────
 
 export interface DrawingElement {

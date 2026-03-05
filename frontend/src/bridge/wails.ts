@@ -83,6 +83,19 @@ declare global {
           ExecuteHTTPRequest(blockID: string, configJSON: string): Promise<HTTPResponse>
           SaveBlockHTTPConfig(blockID: string, config: string): Promise<void>
           ListPageHTTPBlocks(pageID: string): Promise<PageBlockRef[]>
+          // Canvas entities (unified)
+          CreateCanvasEntity(pageID: string, entityType: string, x: number, y: number, w: number, h: number): Promise<CanvasEntity>
+          GetCanvasEntity(id: string): Promise<CanvasEntity>
+          ListCanvasEntities(pageID: string): Promise<CanvasEntity[]>
+          UpdateCanvasEntity(id: string, patch: CanvasEntityPatch): Promise<void>
+          DeleteCanvasEntity(id: string): Promise<void>
+          BatchUpdateCanvasEntities(patches: CanvasEntityPatchWithID[]): Promise<void>
+          UpdateEntityZOrder(pageID: string, orderedIDs: string[]): Promise<void>
+          CreateCanvasConnection(pageID: string, fromEntityID: string, toEntityID: string): Promise<CanvasConnection>
+          GetCanvasConnection(id: string): Promise<CanvasConnection>
+          ListCanvasConnections(pageID: string): Promise<CanvasConnection[]>
+          UpdateCanvasConnection(id: string, fromEntityID: string, toEntityID: string, fromSide: string, toSide: string, label: string, color: string, style: string, fromT: number, toT: number): Promise<void>
+          DeleteCanvasConnection(id: string): Promise<void>
           // MCP approval
           ApproveAction(id: string): Promise<void>
           RejectAction(id: string): Promise<void>
@@ -149,6 +162,62 @@ export interface PageState {
   page: Page
   blocks: Block[]
   connections: Connection[]
+  entities: CanvasEntity[]
+  canvasConnections: CanvasConnection[]
+}
+
+// ── Unified Canvas Entity Types ───────────────────────────
+
+export type RenderMode = 'dom' | 'canvas'
+
+export interface CanvasEntity {
+  id: string
+  pageId: string
+  type: string
+  renderMode: RenderMode
+  zIndex: number
+  x: number
+  y: number
+  width: number
+  height: number
+  content: string
+  filePath: string
+  canvasProps: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CanvasEntityPatch {
+  type?: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  zIndex?: number
+  content?: string
+  filePath?: string
+  canvasProps?: string
+}
+
+export interface CanvasEntityPatchWithID {
+  id: string
+  patch: CanvasEntityPatch
+}
+
+export interface CanvasConnection {
+  id: string
+  pageId: string
+  fromEntityId: string
+  toEntityId: string
+  fromSide: string
+  fromT: number
+  toSide: string
+  toT: number
+  label: string
+  color: string
+  style: 'solid' | 'dashed' | 'dotted'
+  createdAt: string
+  updatedAt: string
 }
 
 export interface UndoNode {
@@ -399,6 +468,7 @@ export { api } from './api'
 export {
   notebookAPI,
   blockAPI,
+  canvasEntityAPI,
   etlAPI,
   localdbAPI,
   databaseAPI,

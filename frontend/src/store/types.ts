@@ -1,4 +1,4 @@
-import type { Block, Connection, Notebook, Page, PageState } from '../bridge/wails'
+import type { Block, Connection, CanvasEntity, CanvasConnection, CanvasEntityPatch, CanvasEntityPatchWithID, Notebook, Page, PageState } from '../bridge/wails'
 import { api, onEvent } from '../bridge/wails'
 
 // ── Types ──────────────────────────────────────────────────
@@ -120,9 +120,49 @@ export interface ConnectionSlice {
     deleteConnection: (id: string) => Promise<void>
 }
 
+// ── Entity Slice (unified canvas entities) ────────────────
+
+export interface EntitySlice {
+    entities: Map<string, CanvasEntity>
+    canvasConnections: CanvasConnection[]
+
+    setEntities: (entities: CanvasEntity[]) => void
+    addEntity: (entity: CanvasEntity) => void
+    removeEntity: (id: string) => void
+    updateEntity: (id: string, patch: Partial<CanvasEntity>) => void
+    setCanvasConnections: (conns: CanvasConnection[]) => void
+    addCanvasConnection: (conn: CanvasConnection) => void
+    removeCanvasConnection: (id: string) => void
+
+    createEntity: (type: string, x: number, y: number, w: number, h: number) => Promise<CanvasEntity | null>
+    deleteEntity: (id: string) => Promise<void>
+    saveEntityPatch: (id: string, patch: CanvasEntityPatch) => void
+    batchUpdateEntities: (patches: CanvasEntityPatchWithID[]) => Promise<void>
+    updateEntityZOrder: (orderedIDs: string[]) => Promise<void>
+    createCanvasConnection: (fromId: string, toId: string) => Promise<void>
+    deleteCanvasConnection: (id: string) => Promise<void>
+
+    getDomEntities: () => CanvasEntity[]
+    getCanvasEntities: () => CanvasEntity[]
+}
+
+// ── Selection Slice (unified selection) ────────────────────
+
+export interface SelectionSlice {
+    selectedIds: Set<string>
+
+    select: (id: string) => void
+    selectMultiple: (ids: string[]) => void
+    addToSelection: (id: string) => void
+    removeFromSelection: (id: string) => void
+    toggleSelection: (id: string) => void
+    clearSelection: () => void
+    isSelected: (id: string) => boolean
+}
+
 // ── Combined Store ─────────────────────────────────────────
 
-export type AppState = NotebookSlice & CanvasSlice & BlockSlice & DrawingSlice & ConnectionSlice & {
+export type AppState = NotebookSlice & CanvasSlice & BlockSlice & DrawingSlice & ConnectionSlice & EntitySlice & SelectionSlice & {
     /** Load full page state (blocks + connections + viewport + drawing) */
     loadPageState: (pageId: string) => Promise<void>
 
