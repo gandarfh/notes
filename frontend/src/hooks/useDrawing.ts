@@ -1,4 +1,4 @@
-import { GRID_SIZE } from '../constants'
+import { GRID_SIZE, DASHBOARD_COLS, DASHBOARD_ROW_HEIGHT } from '../constants'
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useAppStore } from '../store'
 import { setDrawingKeyHandler } from '../input'
@@ -12,7 +12,7 @@ import { alignElements, reorderElements } from '../drawing/layout'
 import type { DrawingContext, InteractionHandler, Point, EditorRequest, BlockPreviewRect } from '../drawing/interfaces'
 import { drawSelectionUI } from '../drawing/canvasRender'
 import { DrawingWorkerProxy, type RenderState } from '../drawing/drawing-worker-proxy'
-import { hitTest } from '../drawing/hitTest'
+import { hitTest, hitTestHandle } from '../drawing/hitTest'
 import { SelectHandler } from '../drawing/handlers/select'
 import { ArrowHandler } from '../drawing/handlers/arrow'
 import { ShapeHandler } from '../drawing/handlers/shape'
@@ -370,9 +370,17 @@ export function useDrawing(
         onCanvasConnectionCreated: (fromEntityId, toEntityId) => {
             useAppStore.getState().createCanvasConnection(fromEntityId, toEntityId)
         },
+        getDashboardGrid: () => {
+            const store = useAppStore.getState()
+            if (store.activePageType !== 'board') return null
+            return { colW: store.canvasContainerWidth / DASHBOARD_COLS, rowH: DASHBOARD_ROW_HEIGHT }
+        },
         onMoveBlocks: (moves) => {
             const store = useAppStore.getState()
+            // In board mode, RGL controls block positions — skip block moves
+            const isDash = store.activePageType === 'board'
             for (const { id, x, y } of moves) {
+                if (isDash) continue
                 store.moveBlock(id, x, y)
                 store.saveBlockPosition(id)
                 // Update connected arrows
@@ -507,6 +515,12 @@ export function useDrawing(
             // Don't handle events on the style panel
             const target = e.target as HTMLElement
             if (target.closest('.style-panel')) return
+
+            // In board mode, don't handle events on RGL elements (resize handles, grid items)
+            // — RGL manages its own drag/resize interactions
+            if (useAppStore.getState().activePageType === 'board') {
+                if (target.closest('.react-grid-item') || target.closest('.react-resizable-handle')) return
+            }
 
             // Don't handle events on blocks UNLESS it's a block in a multi-selection
             // (the block lets the event propagate so SelectHandler can handle group drag)

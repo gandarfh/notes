@@ -14,8 +14,8 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-func (a *App) CreateBlock(pageID, blockType string, x, y, width, height float64) (*domain.Block, error) {
-	b, err := a.blocks.CreateBlock(pageID, blockType, x, y, width, height)
+func (a *App) CreateBlock(pageID, blockType string, x, y, width, height float64, viewMode string) (*domain.Block, error) {
+	b, err := a.blocks.CreateBlock(pageID, blockType, x, y, width, height, viewMode)
 	if err != nil {
 		return nil, err
 	}

@@ -195,6 +195,49 @@ func (s *NotebookService) UpdateDrawingData(pageID, data string) error {
 	return s.store.UpdatePage(p)
 }
 
+func (s *NotebookService) CreateBoardPage(notebookID, name string) (*domain.Page, error) {
+	p := &domain.Page{
+		ID:           uuid.New().String(),
+		NotebookID:   notebookID,
+		Name:         name,
+		PageType:     "board",
+		BoardMode:    "document",
+		BoardLayout:  "[]",
+		ViewportZoom: 1.0,
+	}
+	if err := s.store.CreatePage(p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func (s *NotebookService) UpdateBoardContent(pageID, content string) error {
+	p, err := s.store.GetPage(pageID)
+	if err != nil {
+		return err
+	}
+	p.BoardContent = content
+	return s.store.UpdatePage(p)
+}
+
+func (s *NotebookService) UpdateBoardLayout(pageID, layout string) error {
+	p, err := s.store.GetPage(pageID)
+	if err != nil {
+		return err
+	}
+	p.BoardLayout = layout
+	return s.store.UpdatePage(p)
+}
+
+func (s *NotebookService) UpdateBoardMode(pageID, mode string) error {
+	p, err := s.store.GetPage(pageID)
+	if err != nil {
+		return err
+	}
+	p.BoardMode = mode
+	return s.store.UpdatePage(p)
+}
+
 func (s *NotebookService) DeletePage(id string) error {
 	s.conns.DeleteConnectionsByPage(id)
 	s.blocks.DeleteBlocksByPage(id)

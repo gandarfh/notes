@@ -40,7 +40,7 @@ func (s *Server) handleCreateHTTPBlock(ctx context.Context, req mcp.CallToolRequ
 	existing, _ := s.blocks.ListBlocks(pageID)
 	x, y := s.layout.NextPosition(existing, 540, 480)
 
-	block, err := s.blocks.CreateBlock(pageID, "http", x, y, 540, 480)
+	block, err := s.blocks.CreateBlock(pageID, "http", x, y, 540, 480, "dashboard")
 	if err != nil {
 		return nil, fmt.Errorf("create http block: %w", err)
 	}

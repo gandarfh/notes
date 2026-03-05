@@ -83,6 +83,10 @@ export const useAppStore = create<AppState>((...a) => ({
                 entities,
                 canvasConnections: ps.canvasConnections || [],
                 drawingData: ps.page.drawingData || '',
+                activePageType: ps.page.pageType || 'canvas',
+                activeBoardMode: ps.page.boardMode || 'document',
+                activeBoardContent: ps.page.boardContent || '',
+                activeBoardLayout: ps.page.boardLayout || '[]',
             })
 
             await useUndoTree.getState().loadTree(pageId)

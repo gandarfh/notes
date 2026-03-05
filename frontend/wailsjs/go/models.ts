@@ -229,6 +229,7 @@ export namespace domain {
 	    content: string;
 	    filePath: string;
 	    styleJson: string;
+	    viewMode: string;
 	    // Go type: time
 	    createdAt: any;
 	    // Go type: time
@@ -250,6 +251,7 @@ export namespace domain {
 	        this.content = source["content"];
 	        this.filePath = source["filePath"];
 	        this.styleJson = source["styleJson"];
+	        this.viewMode = source["viewMode"];
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	        this.updatedAt = this.convertValues(source["updatedAt"], null);
 	    }
@@ -675,10 +677,14 @@ export namespace domain {
 	    notebookId: string;
 	    name: string;
 	    order: number;
+	    pageType: string;
 	    viewportX: number;
 	    viewportY: number;
 	    viewportZoom: number;
 	    drawingData: string;
+	    boardContent: string;
+	    boardLayout: string;
+	    boardMode: string;
 	    // Go type: time
 	    createdAt: any;
 	    // Go type: time
@@ -694,10 +700,14 @@ export namespace domain {
 	        this.notebookId = source["notebookId"];
 	        this.name = source["name"];
 	        this.order = source["order"];
+	        this.pageType = source["pageType"];
 	        this.viewportX = source["viewportX"];
 	        this.viewportY = source["viewportY"];
 	        this.viewportZoom = source["viewportZoom"];
 	        this.drawingData = source["drawingData"];
+	        this.boardContent = source["boardContent"];
+	        this.boardLayout = source["boardLayout"];
+	        this.boardMode = source["boardMode"];
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	        this.updatedAt = this.convertValues(source["updatedAt"], null);
 	    }

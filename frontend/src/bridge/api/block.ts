@@ -7,8 +7,8 @@ import type { Block, UndoTree, UndoNode } from '../wails'
 function go() { return window.go.app.App }
 
 export const blockAPI = {
-    createBlock: (pageID: string, type: string, x: number, y: number, w: number, h: number): Promise<Block> =>
-        go().CreateBlock(pageID, type, x, y, w, h),
+    createBlock: (pageID: string, type: string, x: number, y: number, w: number, h: number, viewMode: string): Promise<Block> =>
+        go().CreateBlock(pageID, type, x, y, w, h, viewMode),
     updateBlockPosition: (id: string, x: number, y: number, w: number, h: number): Promise<void> =>
         go().UpdateBlockPosition(id, x, y, w, h),
     updateBlockContent: (id: string, content: string): Promise<void> =>

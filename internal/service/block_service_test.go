@@ -41,7 +41,7 @@ func TestBlockService_CreateBlock_Markdown(t *testing.T) {
 	svc, _, ns, dataDir := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, err := svc.CreateBlock(pageID, "markdown", 10, 20, 300, 200)
+	b, err := svc.CreateBlock(pageID, "markdown", 10, 20, 300, 200, "dashboard")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestBlockService_CreateBlock_Code(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, err := svc.CreateBlock(pageID, "code", 0, 0, 300, 200)
+	b, err := svc.CreateBlock(pageID, "code", 0, 0, 300, 200, "dashboard")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestBlockService_CreateBlock_Drawing(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, err := svc.CreateBlock(pageID, "drawing", 0, 0, 300, 200)
+	b, err := svc.CreateBlock(pageID, "drawing", 0, 0, 300, 200, "dashboard")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestBlockService_GetBlock(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	created, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200)
+	created, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200, "dashboard")
 
 	got, err := svc.GetBlock(created.ID)
 	if err != nil {
@@ -139,8 +139,8 @@ func TestBlockService_ListBlocks(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200)
-	svc.CreateBlock(pageID, "code", 400, 0, 300, 200)
+	svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200, "dashboard")
+	svc.CreateBlock(pageID, "code", 400, 0, 300, 200, "dashboard")
 
 	blocks, err := svc.ListBlocks(pageID)
 	if err != nil {
@@ -155,7 +155,7 @@ func TestBlockService_UpdateBlockPosition(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200)
+	b, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200, "dashboard")
 
 	if err := svc.UpdateBlockPosition(b.ID, 100, 200, 400, 300); err != nil {
 		t.Fatalf("update position: %v", err)
@@ -174,7 +174,7 @@ func TestBlockService_UpdateBlockContent(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200)
+	b, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200, "dashboard")
 
 	if err := svc.UpdateBlockContent(b.ID, "# Updated\n"); err != nil {
 		t.Fatalf("update content: %v", err)
@@ -199,7 +199,7 @@ func TestBlockService_UpdateBlockContent_NoFile(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, _ := svc.CreateBlock(pageID, "drawing", 0, 0, 300, 200)
+	b, _ := svc.CreateBlock(pageID, "drawing", 0, 0, 300, 200, "dashboard")
 
 	if err := svc.UpdateBlockContent(b.ID, `{"shapes":[1]}`); err != nil {
 		t.Fatalf("update: %v", err)
@@ -215,7 +215,7 @@ func TestBlockService_DeleteBlock(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200)
+	b, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200, "dashboard")
 	filePath := b.FilePath
 
 	if err := svc.DeleteBlock(context.Background(), b.ID); err != nil {
@@ -237,8 +237,8 @@ func TestBlockService_DeleteBlocksByPage(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b1, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200)
-	b2, _ := svc.CreateBlock(pageID, "code", 400, 0, 300, 200)
+	b1, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200, "dashboard")
+	b2, _ := svc.CreateBlock(pageID, "code", 400, 0, 300, 200, "dashboard")
 
 	if err := svc.DeleteBlocksByPage(pageID); err != nil {
 		t.Fatalf("delete by page: %v", err)
@@ -261,7 +261,7 @@ func TestBlockService_SaveAndGetImageFile(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, _ := svc.CreateBlock(pageID, "image", 0, 0, 300, 200)
+	b, _ := svc.CreateBlock(pageID, "image", 0, 0, 300, 200, "dashboard")
 
 	// Create a small fake PNG (just base64 of some bytes)
 	fakeImage := []byte{0x89, 0x50, 0x4E, 0x47}
@@ -295,7 +295,7 @@ func TestBlockService_GetImageData_NoFile(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, _ := svc.CreateBlock(pageID, "image", 0, 0, 300, 200)
+	b, _ := svc.CreateBlock(pageID, "image", 0, 0, 300, 200, "dashboard")
 
 	data, err := svc.GetImageData(b.ID)
 	if err != nil {
@@ -310,7 +310,7 @@ func TestBlockService_UpdateBlockFilePath(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200)
+	b, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200, "dashboard")
 
 	// Create a temp file to link
 	tmpFile := filepath.Join(t.TempDir(), "external.md")
@@ -335,7 +335,7 @@ func TestBlockService_UpdateBlockFilePath_FileNotFound(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200)
+	b, _ := svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200, "dashboard")
 
 	_, err := svc.UpdateBlockFilePath(b.ID, "/nonexistent/file.md")
 	if err == nil {
@@ -347,7 +347,7 @@ func TestBlockService_ChangeBlockFileExt(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, _ := svc.CreateBlock(pageID, "code", 0, 0, 300, 200)
+	b, _ := svc.CreateBlock(pageID, "code", 0, 0, 300, 200, "dashboard")
 
 	newPath, err := svc.ChangeBlockFileExt(b.ID, ".py")
 	if err != nil {
@@ -372,7 +372,7 @@ func TestBlockService_ChangeBlockFileExt_NoFile(t *testing.T) {
 	svc, _, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	b, _ := svc.CreateBlock(pageID, "drawing", 0, 0, 300, 200)
+	b, _ := svc.CreateBlock(pageID, "drawing", 0, 0, 300, 200, "dashboard")
 
 	_, err := svc.ChangeBlockFileExt(b.ID, ".py")
 	if err == nil {
@@ -384,8 +384,8 @@ func TestBlockService_RestorePageBlocks(t *testing.T) {
 	svc, bs, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200)
-	svc.CreateBlock(pageID, "code", 400, 0, 300, 200)
+	svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200, "dashboard")
+	svc.CreateBlock(pageID, "code", 400, 0, 300, 200, "dashboard")
 
 	// Restore with new blocks
 	newBlocks := []domain.Block{
@@ -408,7 +408,7 @@ func TestBlockService_ReplacePageBlocks(t *testing.T) {
 	svc, bs, ns, _ := newBlockService(t)
 	pageID := createTestPage(t, ns)
 
-	svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200)
+	svc.CreateBlock(pageID, "markdown", 0, 0, 300, 200, "dashboard")
 
 	newBlocks := []domain.Block{
 		{ID: "new-1", PageID: pageID, Type: domain.BlockTypeImage, Content: "{}", StyleJSON: "{}"},

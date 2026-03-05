@@ -84,7 +84,7 @@ func (s *Server) handleCreateETLJob(ctx context.Context, req mcp.CallToolRequest
 	existing, _ := s.blocks.ListBlocks(pageID)
 	x, y := s.layout.NextPosition(existing, 600, 480)
 
-	block, err := s.blocks.CreateBlock(pageID, "etl", x, y, 600, 480)
+	block, err := s.blocks.CreateBlock(pageID, "etl", x, y, 600, 480, "dashboard")
 	if err != nil {
 		return nil, fmt.Errorf("create etl block: %w", err)
 	}

@@ -4,12 +4,21 @@
 // box-select, group move, copy/paste/duplicate.
 
 import type { DrawingContext, InteractionHandler, Point } from '../interfaces'
+import { DASHBOARD_COLS } from '../../constants'
 import type { DrawingElement, ResizeHandle, Connection, AnchorPoint } from '../types'
 import { isArrowType, genId, getElementBounds } from '../types'
 import { hitTest, hitTestHandle, hitTestArrowEndpoint, hitTestSegmentMidpoint, findNearestSegment, isPointInElement } from '../hitTest'
 import { getArrowLabelPos, drawAnchors, drawBoxSelection } from '../canvasRender'
 import { getAnchors, getAnchorsForRect, resolveAnchor, findNearestAnchor, updateConnectedArrows, updateSimpleConnectedArrows } from '../connections'
 import { computeOrthoRoute, simplifyOrthoPoints, enforceOrthogonality } from '../ortho'
+
+/** Clamp a drawing element's position to board boundaries */
+function clampToBoard(el: { x: number; y: number; width?: number; height?: number }, grid: { colW: number; rowH: number }) {
+    const maxW = grid.colW * DASHBOARD_COLS
+    const elW = el.width ?? 0
+    el.x = Math.max(0, Math.min(el.x, maxW - elW))
+    el.y = Math.max(0, el.y)
+}
 
 // ── Internal state (owned by this handler, not shared) ─────
 
@@ -353,6 +362,8 @@ export class SelectHandler implements InteractionHandler {
                     if (el) {
                         el.x = orig.x + dx
                         el.y = orig.y + dy
+                        const dg = ctx.getDashboardGrid?.()
+                        if (dg) clampToBoard(el, dg)
                     }
                 }
             }
@@ -418,6 +429,8 @@ export class SelectHandler implements InteractionHandler {
             this.s.hasDragged = true
             ctx.selectedElement.x = world.x - this.s.dragOffset.x
             ctx.selectedElement.y = world.y - this.s.dragOffset.y
+            const dgDrag = ctx.getDashboardGrid?.()
+            if (dgDrag) clampToBoard(ctx.selectedElement, dgDrag)
             // Simple arrows: instant endpoint update (no WASM)
             updateSimpleConnectedArrows(ctx.elements, ctx.selectedElement.id, ctx.blockRects)
             // Ortho arrows: throttled WASM re-route
@@ -519,11 +532,13 @@ export class SelectHandler implements InteractionHandler {
             const blockIdSet = new Set(ctx.getSelectedBlockIds())
 
             // Pass 1: snap all non-arrow drawing elements to grid
+            const dgSnap = ctx.getDashboardGrid?.()
             for (const id of ctx.selectedElements) {
                 const el = ctx.elements.find(e => e.id === id)
                 if (el && !isArrowType(el)) {
                     el.x = ctx.snap(el.x)
                     el.y = ctx.snap(el.y)
+                    if (dgSnap) clampToBoard(el, dgSnap)
                 }
             }
 
@@ -609,6 +624,8 @@ export class SelectHandler implements InteractionHandler {
             if (this.s.hasDragged) {
                 ctx.selectedElement.x = ctx.snap(ctx.selectedElement.x)
                 ctx.selectedElement.y = ctx.snap(ctx.selectedElement.y)
+                const dgDrop = ctx.getDashboardGrid?.()
+                if (dgDrop) clampToBoard(ctx.selectedElement, dgDrop)
                 updateConnectedArrows(ctx.elements, ctx.selectedElement.id, ctx.blockRects)
                 ctx.render(); ctx.save()
             }
@@ -798,22 +815,29 @@ export class SelectHandler implements InteractionHandler {
             if (shapeIds.size === 0 && blockIds.length === 0) return false
 
             e.preventDefault()
-            const step = e.shiftKey ? 10 : 1
-            const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
-            const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+            const dashGrid = ctx.getDashboardGrid?.()
+            const step = dashGrid
+                ? 1  // 1 grid cell
+                : (e.shiftKey ? 10 : 1)
+            const stepX = dashGrid ? dashGrid.colW * step : step
+            const stepY = dashGrid ? dashGrid.rowH * step : step
+            const dx = e.key === 'ArrowLeft' ? -stepX : e.key === 'ArrowRight' ? stepX : 0
+            const dy = e.key === 'ArrowUp' ? -stepY : e.key === 'ArrowDown' ? stepY : 0
 
             // Move drawing elements
+            const dgNudge = dashGrid
             for (const id of shapeIds) {
                 const el = ctx.elements.find(e => e.id === id)
                 if (el) {
                     el.x += dx
                     el.y += dy
+                    if (dgNudge) clampToBoard(el, dgNudge)
                     updateConnectedArrows(ctx.elements, el.id, ctx.blockRects)
                 }
             }
 
-            // Move blocks via store callback
-            if (blockIds.length > 0 && ctx.onMoveBlocks) {
+            // Move blocks via store callback (skip in board mode — RGL controls position)
+            if (blockIds.length > 0 && ctx.onMoveBlocks && !dashGrid) {
                 const moves: Array<{id: string, x: number, y: number}> = []
                 for (const id of blockIds) {
                     const rect = ctx.blockRects.find(r => r.id === id)

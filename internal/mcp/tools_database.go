@@ -106,7 +106,7 @@ func (s *Server) handleCreateQueryBlock(ctx context.Context, req mcp.CallToolReq
 	existing, _ := s.blocks.ListBlocks(pageID)
 	x, y := s.layout.NextPosition(existing, 600, 420)
 
-	block, err := s.blocks.CreateBlock(pageID, "database", x, y, 600, 420)
+	block, err := s.blocks.CreateBlock(pageID, "database", x, y, 600, 420, "dashboard")
 	if err != nil {
 		return nil, fmt.Errorf("create database block: %w", err)
 	}

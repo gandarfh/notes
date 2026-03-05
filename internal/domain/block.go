@@ -16,6 +16,11 @@ const (
 	BlockTypeHTTP     BlockType = "http"
 )
 
+const (
+	BlockViewDocument  = "document"
+	BlockViewDashboard = "dashboard"
+)
+
 type Block struct {
 	ID        string    `json:"id"`
 	PageID    string    `json:"pageId"`
@@ -27,6 +32,7 @@ type Block struct {
 	Content   string    `json:"content"`   // markdown text or drawing JSON
 	FilePath  string    `json:"filePath"`  // path to .md file for markdown blocks
 	StyleJSON string    `json:"styleJson"` // colors, borders, etc.
+	ViewMode  string    `json:"viewMode"`  // "document" or "dashboard"
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }

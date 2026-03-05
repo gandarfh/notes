@@ -22,7 +22,9 @@ export function ClearCachedResult(arg1:string):Promise<void>;
 
 export function CloseEditor():Promise<void>;
 
-export function CreateBlock(arg1:string,arg2:string,arg3:number,arg4:number,arg5:number,arg6:number):Promise<domain.Block>;
+export function CreateBlock(arg1:string,arg2:string,arg3:number,arg4:number,arg5:number,arg6:number,arg7:string):Promise<domain.Block>;
+
+export function CreateBoardPage(arg1:string,arg2:string):Promise<domain.Page>;
 
 export function CreateCanvasConnection(arg1:string,arg2:string,arg3:string):Promise<domain.CanvasConnection>;
 
@@ -163,6 +165,12 @@ export function UpdateBlockContent(arg1:string,arg2:string):Promise<void>;
 export function UpdateBlockFilePath(arg1:string,arg2:string):Promise<string>;
 
 export function UpdateBlockPosition(arg1:string,arg2:number,arg3:number,arg4:number,arg5:number):Promise<void>;
+
+export function UpdateBoardContent(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateBoardLayout(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateBoardMode(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateCanvasConnection(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string,arg8:string,arg9:number,arg10:number):Promise<void>;
 

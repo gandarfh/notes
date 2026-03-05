@@ -30,8 +30,12 @@ export function CloseEditor() {
   return window['go']['app']['App']['CloseEditor']();
 }
 
-export function CreateBlock(arg1, arg2, arg3, arg4, arg5, arg6) {
-  return window['go']['app']['App']['CreateBlock'](arg1, arg2, arg3, arg4, arg5, arg6);
+export function CreateBlock(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+  return window['go']['app']['App']['CreateBlock'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+}
+
+export function CreateBoardPage(arg1, arg2) {
+  return window['go']['app']['App']['CreateBoardPage'](arg1, arg2);
 }
 
 export function CreateCanvasConnection(arg1, arg2, arg3) {
@@ -312,6 +316,18 @@ export function UpdateBlockFilePath(arg1, arg2) {
 
 export function UpdateBlockPosition(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['UpdateBlockPosition'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function UpdateBoardContent(arg1, arg2) {
+  return window['go']['app']['App']['UpdateBoardContent'](arg1, arg2);
+}
+
+export function UpdateBoardLayout(arg1, arg2) {
+  return window['go']['app']['App']['UpdateBoardLayout'](arg1, arg2);
+}
+
+export function UpdateBoardMode(arg1, arg2) {
+  return window['go']['app']['App']['UpdateBoardMode'](arg1, arg2);
 }
 
 export function UpdateCanvasConnection(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {

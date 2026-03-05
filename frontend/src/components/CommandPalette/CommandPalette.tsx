@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } fro
 import { useAppStore } from '../../store'
 import { api } from '../../bridge/wails'
 import type { Page } from '../../bridge/wails'
-import { IconPlus, IconNotebook, IconFile } from '@tabler/icons-react'
+import { IconPlus, IconNotebook, IconFile, IconLayout } from '@tabler/icons-react'
 
 interface CommandItem {
     id: string
@@ -21,11 +21,12 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
     const selectPage = useAppStore(s => s.selectPage)
     const createNotebook = useAppStore(s => s.createNotebook)
     const createPage = useAppStore(s => s.createPage)
+    const createBoardPage = useAppStore(s => s.createBoardPage)
 
     const [query, setQuery] = useState('')
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [allPages, setAllPages] = useState<(Page & { notebookName: string })[]>([])
-    const [mode, setMode] = useState<'search' | 'create-notebook' | 'create-page'>('search')
+    const [mode, setMode] = useState<'search' | 'create-notebook' | 'create-page' | 'create-board'>('search')
     const inputRef = useRef<HTMLInputElement>(null)
     const listRef = useRef<HTMLDivElement>(null)
 
@@ -67,10 +68,18 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
             result.push({
                 id: 'action-create-page',
                 label: 'New Page',
-                sublabel: 'in current notebook',
+                sublabel: 'canvas page in current notebook',
                 icon: <IconPlus size={14} />,
                 type: 'action',
                 action: () => setMode('create-page'),
+            })
+            result.push({
+                id: 'action-create-board',
+                label: 'New Board',
+                sublabel: 'document/dashboard page in current notebook',
+                icon: <IconPlus size={14} />,
+                type: 'action',
+                action: () => setMode('create-board'),
             })
         }
 
@@ -91,7 +100,7 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
                     id: `page-${page.id}`,
                     label: page.name,
                     sublabel: nb.name,
-                    icon: <IconFile size={14} />,
+                    icon: page.pageType === 'board' ? <IconLayout size={14} /> : <IconFile size={14} />,
                     type: 'page',
                     action: () => {
                         if (nb.id !== activeNotebookId) selectNotebook(nb.id)
@@ -139,6 +148,9 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
             } else if (mode === 'create-page') {
                 const name = query.trim()
                 if (name && activeNotebookId) { createPage(activeNotebookId, name); onClose() }
+            } else if (mode === 'create-board') {
+                const name = query.trim()
+                if (name && activeNotebookId) { createBoardPage(activeNotebookId, name); onClose() }
             } else if (items[selectedIndex]) {
                 items[selectedIndex].action()
             }
@@ -147,7 +159,7 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
             if (mode !== 'search') { setMode('search'); setQuery('') }
             else onClose()
         }
-    }, [items, selectedIndex, mode, query, activeNotebookId, createNotebook, createPage, onClose])
+    }, [items, selectedIndex, mode, query, activeNotebookId, createNotebook, createPage, createBoardPage, onClose])
 
     if (!isOpen) return null
 
@@ -161,7 +173,7 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
                 <div className="cmd-input-wrapper">
                     {mode !== 'search' && (
                         <span className="cmd-mode-badge">
-                            {mode === 'create-notebook' ? 'New Notebook' : 'New Page'}
+                            {mode === 'create-notebook' ? 'New Notebook' : mode === 'create-board' ? 'New Board' : 'New Page'}
                         </span>
                     )}
                     <input
@@ -170,7 +182,8 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
                         placeholder={
                             mode === 'create-notebook' ? 'Notebook name...' :
                                 mode === 'create-page' ? 'Page name...' :
-                                    'Search notebooks & pages...'
+                                    mode === 'create-board' ? 'Board name...' :
+                                        'Search notebooks & pages...'
                         }
                         value={query}
                         onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0) }}

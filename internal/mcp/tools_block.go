@@ -158,7 +158,7 @@ func (s *Server) handleCreateBlock(ctx context.Context, req mcp.CallToolRequest)
 		x, y = s.layout.NextPosition(existing, w, h)
 	}
 
-	block, err := s.blocks.CreateBlock(pageID, blockType, x, y, w, h)
+	block, err := s.blocks.CreateBlock(pageID, blockType, x, y, w, h, "dashboard")
 	if err != nil {
 		return nil, fmt.Errorf("create block: %w", err)
 	}

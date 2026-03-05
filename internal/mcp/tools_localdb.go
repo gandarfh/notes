@@ -54,7 +54,7 @@ func (s *Server) handleCreateLocalDatabase(ctx context.Context, req mcp.CallTool
 	existing, _ := s.blocks.ListBlocks(pageID)
 	x, y := s.layout.NextPosition(existing, 600, 420)
 
-	block, err := s.blocks.CreateBlock(pageID, "localdb", x, y, 600, 420)
+	block, err := s.blocks.CreateBlock(pageID, "localdb", x, y, 600, 420, "dashboard")
 	if err != nil {
 		return nil, fmt.Errorf("create localdb block: %w", err)
 	}

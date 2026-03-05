@@ -13,12 +13,16 @@ declare global {
           DeleteNotebook(id: string): Promise<void>
           ListPages(notebookID: string): Promise<Page[]>
           CreatePage(notebookID: string, name: string): Promise<Page>
+          CreateBoardPage(notebookID: string, name: string): Promise<Page>
           GetPageState(pageID: string): Promise<PageState>
           RenamePage(id: string, name: string): Promise<void>
           UpdateViewport(pageID: string, x: number, y: number, zoom: number): Promise<void>
           UpdateDrawingData(pageID: string, data: string): Promise<void>
           DeletePage(id: string): Promise<void>
-          CreateBlock(pageID: string, blockType: string, x: number, y: number, w: number, h: number): Promise<Block>
+          UpdateBoardContent(pageID: string, content: string): Promise<void>
+          UpdateBoardLayout(pageID: string, layout: string): Promise<void>
+          UpdateBoardMode(pageID: string, mode: string): Promise<void>
+          CreateBlock(pageID: string, blockType: string, x: number, y: number, w: number, h: number, viewMode: string): Promise<Block>
           UpdateBlockPosition(blockID: string, x: number, y: number, w: number, h: number): Promise<void>
           UpdateBlockContent(blockID: string, content: string): Promise<void>
           DeleteBlock(blockID: string): Promise<void>
@@ -118,15 +122,22 @@ export interface Notebook {
   updatedAt: string
 }
 
+export type PageType = 'canvas' | 'board'
+export type BoardMode = 'document' | 'dashboard' | 'split'
+
 export interface Page {
   id: string
   notebookId: string
   name: string
   order: number
+  pageType: PageType
   viewportX: number
   viewportY: number
   viewportZoom: number
   drawingData: string
+  boardContent: string
+  boardLayout: string
+  boardMode: BoardMode
   createdAt: string
   updatedAt: string
 }
@@ -142,6 +153,7 @@ export interface Block {
   content: string
   filePath: string
   styleJson: string
+  viewMode: 'document' | 'dashboard'
   createdAt: string
   updatedAt: string
 }

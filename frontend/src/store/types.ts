@@ -1,4 +1,4 @@
-import type { Block, Connection, CanvasEntity, CanvasConnection, CanvasEntityPatch, CanvasEntityPatchWithID, Notebook, Page, PageState } from '../bridge/wails'
+import type { Block, Connection, CanvasEntity, CanvasConnection, CanvasEntityPatch, CanvasEntityPatchWithID, Notebook, Page, PageState, PageType, BoardMode } from '../bridge/wails'
 import { api, onEvent } from '../bridge/wails'
 
 // ── Types ──────────────────────────────────────────────────
@@ -16,6 +16,10 @@ export interface NotebookSlice {
     pages: Page[]
     activeNotebookId: string | null
     activePageId: string | null
+    activePageType: PageType
+    activeBoardMode: BoardMode
+    activeBoardContent: string
+    activeBoardLayout: string
     initializing: boolean
     expandedNotebooks: Set<string>
 
@@ -29,6 +33,7 @@ export interface NotebookSlice {
 
     loadPages: (notebookId: string) => Promise<void>
     createPage: (notebookId: string, name: string) => Promise<void>
+    createBoardPage: (notebookId: string, name: string) => Promise<void>
     renamePage: (id: string, name: string) => Promise<void>
     deletePage: (id: string) => Promise<void>
     selectPage: (id: string) => Promise<void>
@@ -38,8 +43,10 @@ export interface NotebookSlice {
 
 export interface CanvasSlice {
     viewport: ViewportState
+    canvasContainerWidth: number
 
     setViewport: (x: number, y: number, zoom: number) => void
+    setCanvasContainerWidth: (width: number) => void
     pan: (dx: number, dy: number) => void
     zoomTo: (zoom: number, cx?: number, cy?: number) => void
     resetZoom: () => void
@@ -62,7 +69,7 @@ export interface BlockSlice {
     moveBlock: (id: string, x: number, y: number) => void
     resizeBlock: (id: string, w: number, h: number) => void
 
-    createBlock: (type: string, x: number, y: number, w: number, h: number) => Promise<Block | null>
+    createBlock: (type: string, x: number, y: number, w: number, h: number, viewMode?: string) => Promise<Block | null>
     deleteBlock: (id: string) => Promise<void>
     saveBlockPosition: (id: string) => void
     saveBlockContent: (id: string, content: string) => void

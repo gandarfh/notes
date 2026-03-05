@@ -2,7 +2,7 @@ import './breadcrumb.css'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../../store'
 import { registerModal } from '../../input'
-import { IconNotebook, IconFile, IconPencil, IconTrash } from '@tabler/icons-react'
+import { IconNotebook, IconFile, IconLayout, IconPencil, IconTrash } from '@tabler/icons-react'
 
 // ── Inline rename input ──
 function RenameInput({ value, onRename, onCancel }: { value: string; onRename: (name: string) => void; onCancel: () => void }) {
@@ -148,7 +148,7 @@ export function Breadcrumb() {
                         className="breadcrumb-segment"
                         onClick={() => setOpenDropdown(openDropdown === 'page' ? null : 'page')}
                     >
-                        <span className="breadcrumb-icon"><IconFile size={14} /></span>
+                        <span className="breadcrumb-icon">{activePage?.pageType === 'board' ? <IconLayout size={14} /> : <IconFile size={14} />}</span>
                         <span className="breadcrumb-label">{activePage?.name || 'Select Page'}</span>
                         <span className="breadcrumb-chevron">▾</span>
                     </button>
@@ -159,7 +159,7 @@ export function Breadcrumb() {
                                 <div key={p.id} className={`breadcrumb-dropdown-item ${p.id === activePageId ? 'active' : ''}`}>
                                     {renamingId === p.id ? (
                                         <>
-                                            <span className="breadcrumb-dropdown-icon"><IconFile size={14} /></span>
+                                            <span className="breadcrumb-dropdown-icon">{p.pageType === 'board' ? <IconLayout size={14} /> : <IconFile size={14} />}</span>
                                             <RenameInput
                                                 value={p.name}
                                                 onRename={(name) => { renamePage(p.id, name); setRenamingId(null) }}
@@ -172,7 +172,7 @@ export function Breadcrumb() {
                                                 className="breadcrumb-dropdown-label"
                                                 onClick={() => { selectPage(p.id); setOpenDropdown(null) }}
                                             >
-                                                <span className="breadcrumb-dropdown-icon"><IconFile size={14} /></span>
+                                                <span className="breadcrumb-dropdown-icon">{p.pageType === 'board' ? <IconLayout size={14} /> : <IconFile size={14} />}</span>
                                                 {p.name}
                                             </span>
                                             <span className="breadcrumb-dropdown-actions">

@@ -94,6 +94,8 @@ export interface DrawingContext {
     // ── Unified entity operations (blocks via store, shapes via refs) ──
     /** IDs of blocks currently in the unified selection (from store.selectedIds) */
     getSelectedBlockIds(): string[]
+    /** In board mode, returns { colW, rowH } for grid-snapped arrow-key nudge */
+    getDashboardGrid?(): { colW: number; rowH: number } | null
     onMoveBlocks?(moves: Array<{id: string, x: number, y: number}>): void
     onDeleteBlocks?(ids: string[]): void
     onSelectEntities?(ids: string[]): void

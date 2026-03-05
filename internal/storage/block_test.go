@@ -33,7 +33,7 @@ func TestBlockStore_CreateAndGet(t *testing.T) {
 	b := &domain.Block{
 		ID: "block-1", PageID: pageID, Type: domain.BlockTypeMarkdown,
 		X: 10, Y: 20, Width: 300, Height: 200,
-		Content: "hello", FilePath: "/tmp/f.md", StyleJSON: "{}",
+		Content: "hello", FilePath: "/tmp/f.md", StyleJSON: "{}", ViewMode: "dashboard",
 	}
 	if err := bs.CreateBlock(b); err != nil {
 		t.Fatalf("create: %v", err)
@@ -79,7 +79,7 @@ func TestBlockStore_ListBlocks(t *testing.T) {
 		b := &domain.Block{
 			ID: id, PageID: pageID, Type: domain.BlockTypeMarkdown,
 			X: float64(i * 100), Y: 0, Width: 300, Height: 200,
-			Content: id, StyleJSON: "{}",
+			Content: id, StyleJSON: "{}", ViewMode: "dashboard",
 		}
 		if err := bs.CreateBlock(b); err != nil {
 			t.Fatalf("create %s: %v", id, err)
@@ -119,7 +119,7 @@ func TestBlockStore_UpdateBlock(t *testing.T) {
 
 	b := &domain.Block{
 		ID: "block-1", PageID: pageID, Type: domain.BlockTypeMarkdown,
-		X: 10, Y: 20, Width: 300, Height: 200, Content: "old", StyleJSON: "{}",
+		X: 10, Y: 20, Width: 300, Height: 200, Content: "old", StyleJSON: "{}", ViewMode: "dashboard",
 	}
 	if err := bs.CreateBlock(b); err != nil {
 		t.Fatalf("create: %v", err)
@@ -150,7 +150,7 @@ func TestBlockStore_DeleteBlock(t *testing.T) {
 	bs, ns := newBlockStore(t)
 	pageID := createPageForBlocks(t, ns)
 
-	b := &domain.Block{ID: "block-1", PageID: pageID, Type: domain.BlockTypeMarkdown, StyleJSON: "{}"}
+	b := &domain.Block{ID: "block-1", PageID: pageID, Type: domain.BlockTypeMarkdown, StyleJSON: "{}", ViewMode: "dashboard"}
 	if err := bs.CreateBlock(b); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestBlockStore_DeleteBlocksByPage(t *testing.T) {
 	pageID := createPageForBlocks(t, ns)
 
 	for _, id := range []string{"b1", "b2"} {
-		b := &domain.Block{ID: id, PageID: pageID, Type: domain.BlockTypeMarkdown, StyleJSON: "{}"}
+		b := &domain.Block{ID: id, PageID: pageID, Type: domain.BlockTypeMarkdown, StyleJSON: "{}", ViewMode: "dashboard"}
 		if err := bs.CreateBlock(b); err != nil {
 			t.Fatalf("create: %v", err)
 		}
@@ -197,7 +197,7 @@ func TestBlockStore_ReplacePageBlocks(t *testing.T) {
 
 	// Create initial blocks
 	for _, id := range []string{"b1", "b2"} {
-		b := &domain.Block{ID: id, PageID: pageID, Type: domain.BlockTypeMarkdown, Content: "old", StyleJSON: "{}"}
+		b := &domain.Block{ID: id, PageID: pageID, Type: domain.BlockTypeMarkdown, Content: "old", StyleJSON: "{}", ViewMode: "dashboard"}
 		if err := bs.CreateBlock(b); err != nil {
 			t.Fatalf("create: %v", err)
 		}
@@ -205,7 +205,7 @@ func TestBlockStore_ReplacePageBlocks(t *testing.T) {
 
 	// Replace with new set
 	newBlocks := []domain.Block{
-		{ID: "b3", Type: domain.BlockTypeCode, Content: "new", Width: 400, Height: 300, StyleJSON: "{}"},
+		{ID: "b3", Type: domain.BlockTypeCode, Content: "new", Width: 400, Height: 300, StyleJSON: "{}", ViewMode: "dashboard"},
 	}
 	if err := bs.ReplacePageBlocks(pageID, newBlocks); err != nil {
 		t.Fatalf("replace: %v", err)
@@ -236,7 +236,7 @@ func TestBlockStore_ReplacePageBlocks_AlsoDeletesConnections(t *testing.T) {
 
 	// Create 2 blocks
 	for _, id := range []string{"b1", "b2"} {
-		b := &domain.Block{ID: id, PageID: pageID, Type: domain.BlockTypeMarkdown, StyleJSON: "{}"}
+		b := &domain.Block{ID: id, PageID: pageID, Type: domain.BlockTypeMarkdown, StyleJSON: "{}", ViewMode: "dashboard"}
 		if err := bs.CreateBlock(b); err != nil {
 			t.Fatalf("create block: %v", err)
 		}
@@ -270,7 +270,7 @@ func TestBlockStore_ReplacePageBlocks_EmptySlice(t *testing.T) {
 	bs, ns := newBlockStore(t)
 	pageID := createPageForBlocks(t, ns)
 
-	b := &domain.Block{ID: "b1", PageID: pageID, Type: domain.BlockTypeMarkdown, StyleJSON: "{}"}
+	b := &domain.Block{ID: "b1", PageID: pageID, Type: domain.BlockTypeMarkdown, StyleJSON: "{}", ViewMode: "dashboard"}
 	if err := bs.CreateBlock(b); err != nil {
 		t.Fatalf("create: %v", err)
 	}

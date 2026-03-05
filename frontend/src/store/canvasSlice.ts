@@ -7,8 +7,10 @@ import { pushUndo } from './helpers'
 
 export const createCanvasSlice: StateCreator<AppState, [], [], CanvasSlice> = (set, get) => ({
     viewport: { x: 0, y: 0, zoom: 1 },
+    canvasContainerWidth: 1200,
 
     setViewport: (x, y, zoom) => set({ viewport: { x, y, zoom } }),
+    setCanvasContainerWidth: (width) => set({ canvasContainerWidth: width }),
 
     pan: (dx, dy) => set(s => ({
         viewport: { ...s.viewport, x: s.viewport.x + dx, y: s.viewport.y + dy }
@@ -88,12 +90,12 @@ export const createBlockSlice: StateCreator<AppState, [], [], BlockSlice> = (set
         get().updateBlock(id, { width: w, height: h })
     },
 
-    createBlock: async (type, x, y, w, h) => {
+    createBlock: async (type, x, y, w, h, viewMode = 'dashboard') => {
         const { activePageId } = get()
         if (!activePageId) return null
         try {
             pushUndo(get, 'Create block')
-            const block = await api.createBlock(activePageId, type, x, y, w, h)
+            const block = await api.createBlock(activePageId, type, x, y, w, h, viewMode)
             get().addBlock(block)
             return block
         } catch (e) {

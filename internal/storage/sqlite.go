@@ -222,6 +222,11 @@ func (db *DB) migrate() error {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			resolved_at DATETIME
 		)`,
+		// Board page columns
+		`ALTER TABLE pages ADD COLUMN page_type TEXT NOT NULL DEFAULT 'canvas'`,
+		`ALTER TABLE pages ADD COLUMN board_content TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE pages ADD COLUMN board_layout TEXT NOT NULL DEFAULT '[]'`,
+		`ALTER TABLE pages ADD COLUMN board_mode TEXT NOT NULL DEFAULT 'document'`,
 		// Add metadata column if missing (migration safety)
 		`ALTER TABLE mcp_approvals ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'`,
 		// MCP cross-process signals (standalone → Wails IPC)
@@ -266,6 +271,8 @@ func (db *DB) migrate() error {
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_canvas_connections_page ON canvas_connections(page_id)`,
+		// Block view mode isolation (document vs dashboard)
+		`ALTER TABLE blocks ADD COLUMN view_mode TEXT NOT NULL DEFAULT 'dashboard'`,
 	}
 
 	for _, m := range migrations {

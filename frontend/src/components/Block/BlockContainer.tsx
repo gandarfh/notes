@@ -1,5 +1,5 @@
 import { GRID_SIZE, snapToGrid } from '../../constants'
-import { useRef, useState, useCallback, useMemo, useEffect, memo } from 'react'
+import { useRef, useCallback, useMemo, memo } from 'react'
 import { useAppStore } from '../../store'
 import { BlockRegistry } from '../../plugins'
 import { clearDrawingSelectionGlobal, closeEditorGlobal, notifyBlockMoved } from '../../input/drawingBridge'
@@ -92,6 +92,8 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
     const saveBlockPosition = useAppStore(s => s.saveBlockPosition)
     const updateBlock = useAppStore(s => s.updateBlock)
 
+    const isDashboard = useAppStore(s => s.activePageType === 'board')
+
     const elRef = useRef<HTMLDivElement>(null)
     const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
     const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null)
@@ -100,7 +102,7 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
 
     const plugin = useMemo(() => block ? BlockRegistry.get(block.type) : undefined, [block?.type])
 
-    // ── Drag ──
+    // ── Drag (canvas mode only — board mode is handled by RGL) ──
     const onHeaderMouseDown = useCallback((e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest('button')) return
         if (isEditing) return
@@ -111,36 +113,38 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
         // If this block is part of a multi-selection, let the event propagate
         // to the drawing layer so SelectHandler can handle unified group drag
         const inMultiSelection = selectedIds.size > 1 && selectedIds.has(blockId)
-        console.log(`[BlockContainer] headerMouseDown block=${blockId} shift=${e.shiftKey} inMulti=${inMultiSelection} selectedIds=[${[...selectedIds]}]`)
-        if (inMultiSelection && !e.shiftKey) {
-            console.log(`[BlockContainer] → propagating to drawing layer (multi-selection drag)`)
-            return
-        }
+        if (inMultiSelection && !e.shiftKey) return
 
-        e.stopPropagation()
+        // In board mode, don't stopPropagation — RGL needs the event to bubble
+        // up to its DraggableCore wrapper for drag handling
+        if (!isDashboard) e.stopPropagation()
 
         if (e.shiftKey) {
-            // Shift+Click: additive multi-select (preserve drawing selection for cross-type)
-            console.log(`[BlockContainer] → shift+click toggleSelection(${blockId})`)
             shiftHandledRef.current = true
             toggleSelection(blockId)
         } else {
-            console.log(`[BlockContainer] → normal click selectBlock(${blockId})`)
             selectBlock(blockId)
             clearDrawingSelectionGlobal()
         }
 
-        if (!block) return
-        dragRef.current = { startX: e.clientX, startY: e.clientY, origX: block.x, origY: block.y }
+        // In board mode, RGL handles drag — only do selection above
+        if (isDashboard) return
+
+        // Read live position from store (not stale render-time block)
+        const liveBlock = useAppStore.getState().blocks.get(blockId)
+        if (!liveBlock) return
+        dragRef.current = { startX: e.clientX, startY: e.clientY, origX: liveBlock.x, origY: liveBlock.y }
 
         const onMove = (ev: MouseEvent) => {
             const d = dragRef.current
             if (!d) return
-            const zoom = useAppStore.getState().viewport.zoom
+            const store = useAppStore.getState()
+            const zoom = store.viewport.zoom
             const dx = (ev.clientX - d.startX) / zoom
             const dy = (ev.clientY - d.startY) / zoom
             const newX = d.origX + dx
             const newY = d.origY + dy
+
             // Direct DOM update — bypass React/Zustand during drag for zero re-renders
             if (elRef.current) {
                 elRef.current.style.left = `${newX}px`
@@ -152,7 +156,7 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
 
         const onUp = () => {
             dragRef.current = null
-            // Read final position from DOM, snap to grid, commit once to store
+
             const el = elRef.current
             if (el) {
                 const finalX = snapToGrid(parseFloat(el.style.left))
@@ -168,7 +172,7 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
 
         window.addEventListener('mousemove', onMove)
         window.addEventListener('mouseup', onUp)
-    }, [blockId, block, isEditing, selectBlock, toggleSelection, moveBlock, saveBlockPosition])
+    }, [blockId, isEditing, isDashboard, selectBlock, toggleSelection, moveBlock, saveBlockPosition])
 
     // ── Double-click header to focus (zoom 100% + center) ──
     const onHeaderDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -190,8 +194,9 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
         useAppStore.getState().setViewport(x, y, 1)
     }, [block])
 
-    // ── Resize ──
+    // ── Resize (canvas mode only — board mode is handled by RGL) ──
     const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
+        if (isDashboard) return // RGL handles resize in board mode
         e.stopPropagation()
         const { editingBlockId } = useAppStore.getState()
         if (editingBlockId && editingBlockId !== blockId) closeEditorGlobal()
@@ -205,13 +210,13 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
         const onMove = (ev: MouseEvent) => {
             const r = resizeRef.current
             if (!r) return
-            const zoom = useAppStore.getState().viewport.zoom
+            const store = useAppStore.getState()
+            const zoom = store.viewport.zoom
             const dw = (ev.clientX - r.startX) / zoom
             const dh = (ev.clientY - r.startY) / zoom
-            const blockType = useAppStore.getState().blocks.get(blockId)?.type
+            const blockType = store.blocks.get(blockId)?.type
             const p = blockType ? BlockRegistry.get(blockType) : undefined
 
-            // Direct DOM update — bypass React/Zustand during resize
             if (elRef.current) {
                 if (p?.capabilities?.aspectRatioResize && !ev.ctrlKey && !ev.metaKey) {
                     const newW = Math.max(60, r.origW + dw)
@@ -227,7 +232,6 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
 
         const onUp = () => {
             resizeRef.current = null
-            // Read final size from DOM, snap to grid, commit once to store
             const el = elRef.current
             if (el) {
                 const finalW = snapToGrid(Math.max(60, parseFloat(el.style.width)))
@@ -241,7 +245,7 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
 
         window.addEventListener('mousemove', onMove)
         window.addEventListener('mouseup', onUp)
-    }, [blockId, block, selectBlock, resizeBlock, saveBlockPosition])
+    }, [blockId, block, isDashboard, selectBlock, resizeBlock, saveBlockPosition])
 
     // ── Ctrl/Cmd+Click to edit (capability: editable) ──
     const onContentMouseDown = useCallback((e: React.MouseEvent) => {
@@ -288,12 +292,10 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
             data-block-id={blockId}
             data-block-type={block.type}
             tabIndex={-1}
-            className={`group absolute flex flex-col overflow-hidden pointer-events-auto ${caps.smallBorderRadius ? 'rounded-sm' : 'rounded-md'}`}
+            className={`group ${isDashboard ? 'relative' : 'absolute'} flex flex-col overflow-hidden pointer-events-auto ${caps.smallBorderRadius ? 'rounded-sm' : 'rounded-md'}`}
             style={{
-                left: block.x,
-                top: block.y,
-                width: block.width,
-                height: block.height,
+                // In board mode, RGL positions the wrapper — BlockContainer fills it
+                ...(isDashboard ? { width: '100%', height: '100%' } : { left: block.x, top: block.y, width: block.width, height: block.height }),
                 background: isNoBg ? 'transparent' : 'var(--color-block-bg)',
                 border: `1px solid ${borderColor}`,
                 boxShadow: isNoBg ? 'none' : boxShadow,
@@ -362,16 +364,18 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                 </div>
             )}
 
-            {/* Resize handle */}
-            <div
-                onMouseDown={onResizeMouseDown}
-                className={`absolute pointer-events-auto z-10 transition-opacity duration-100 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
-                style={{
-                    width: 10, height: 10, borderRadius: 2,
-                    background: 'var(--color-accent)',
-                    bottom: -4, right: -4, cursor: 'se-resize',
-                }}
-            />
+            {/* Resize handle (canvas mode only — RGL handles resize in board mode) */}
+            {!isDashboard && (
+                <div
+                    onMouseDown={onResizeMouseDown}
+                    className={`absolute pointer-events-auto z-10 transition-opacity duration-100 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                    style={{
+                        width: 10, height: 10, borderRadius: 2,
+                        background: 'var(--color-accent)',
+                        bottom: -4, right: -4, cursor: 'se-resize',
+                    }}
+                />
+            )}
 
             {/* Floating delete button for no-bg blocks (e.g. image) */}
             {isNoBg && (

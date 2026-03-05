@@ -85,8 +85,8 @@ func TestNotebookService_DeleteNotebook_CascadesEverything(t *testing.T) {
 	page, _ := notebookSvc.CreatePage(nb.ID, "Page 1")
 
 	// Create blocks on the page
-	b1, _ := blockSvc.CreateBlock(page.ID, "markdown", 0, 0, 300, 200)
-	b2, _ := blockSvc.CreateBlock(page.ID, "code", 400, 0, 300, 200)
+	b1, _ := blockSvc.CreateBlock(page.ID, "markdown", 0, 0, 300, 200, "dashboard")
+	b2, _ := blockSvc.CreateBlock(page.ID, "code", 400, 0, 300, 200, "dashboard")
 
 	// Create a connection
 	conn := &domain.Connection{
@@ -177,8 +177,8 @@ func TestNotebookService_GetPageState(t *testing.T) {
 	nb, _ := notebookSvc.CreateNotebook("Test")
 	page, _ := notebookSvc.CreatePage(nb.ID, "Page")
 
-	b1, _ := blockSvc.CreateBlock(page.ID, "markdown", 0, 0, 300, 200)
-	b2, _ := blockSvc.CreateBlock(page.ID, "code", 400, 0, 300, 200)
+	b1, _ := blockSvc.CreateBlock(page.ID, "markdown", 0, 0, 300, 200, "dashboard")
+	b2, _ := blockSvc.CreateBlock(page.ID, "code", 400, 0, 300, 200, "dashboard")
 
 	conn := &domain.Connection{
 		ID: "c1", PageID: page.ID,
@@ -291,8 +291,8 @@ func TestNotebookService_DeletePage_CascadesBlocksAndConnections(t *testing.T) {
 	nb, _ := notebookSvc.CreateNotebook("Test")
 	page, _ := notebookSvc.CreatePage(nb.ID, "Page")
 
-	b1, _ := blockSvc.CreateBlock(page.ID, "markdown", 0, 0, 300, 200)
-	b2, _ := blockSvc.CreateBlock(page.ID, "code", 400, 0, 300, 200)
+	b1, _ := blockSvc.CreateBlock(page.ID, "markdown", 0, 0, 300, 200, "dashboard")
+	b2, _ := blockSvc.CreateBlock(page.ID, "code", 400, 0, 300, 200, "dashboard")
 
 	conn := &domain.Connection{
 		ID: "c1", PageID: page.ID,

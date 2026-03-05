@@ -15,10 +15,14 @@ type Page struct {
 	NotebookID   string    `json:"notebookId"`
 	Name         string    `json:"name"`
 	Order        int       `json:"order"`
+	PageType     string    `json:"pageType"`
 	ViewportX    float64   `json:"viewportX"`
 	ViewportY    float64   `json:"viewportY"`
 	ViewportZoom float64   `json:"viewportZoom"`
 	DrawingData  string    `json:"drawingData"`
+	BoardContent string    `json:"boardContent"`
+	BoardLayout  string    `json:"boardLayout"`
+	BoardMode    string    `json:"boardMode"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
