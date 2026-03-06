@@ -13,6 +13,7 @@ export function useTheme() {
     useEffect(() => {
         document.documentElement.dataset.theme = theme
         localStorage.setItem(STORAGE_KEY, theme)
+        window.dispatchEvent(new CustomEvent('theme-change', { detail: theme }))
     }, [theme])
 
     const toggleTheme = useCallback(() => {

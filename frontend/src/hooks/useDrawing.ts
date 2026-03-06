@@ -492,7 +492,9 @@ export function useDrawing(
         if (!canvas) return
         const ro = new ResizeObserver(() => render())
         ro.observe(canvas)
-        return () => ro.disconnect()
+        const onThemeChange = () => render()
+        window.addEventListener('theme-change', onThemeChange)
+        return () => { ro.disconnect(); window.removeEventListener('theme-change', onThemeChange) }
     }, [svgRef, render])
 
     // NOTE: Drawing canvas is a direct child of the container.
