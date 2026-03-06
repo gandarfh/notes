@@ -14,6 +14,14 @@ import {
     IconBlockquote,
     IconMinus,
     IconCode,
+    IconListCheck,
+    IconInfoCircle,
+    IconAlertTriangle,
+    IconCircleCheck,
+    IconCircleX,
+    IconChevronRight,
+    IconTable,
+    IconPhoto,
 } from '@tabler/icons-react'
 import type { ComponentType } from 'react'
 
@@ -105,6 +113,101 @@ const basicCommands: SlashCommandItem[] = [
         section: 'Basic',
         command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).toggleCodeBlock().run()
+        },
+    },
+    {
+        id: 'task-list',
+        label: 'Task List',
+        icon: IconListCheck,
+        section: 'Basic',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).toggleTaskList().run()
+        },
+    },
+    {
+        id: 'callout-info',
+        label: 'Callout (Info)',
+        icon: IconInfoCircle,
+        section: 'Basic',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).insertContent({
+                type: 'callout',
+                attrs: { type: 'info' },
+                content: [{ type: 'paragraph' }],
+            }).run()
+        },
+    },
+    {
+        id: 'callout-warning',
+        label: 'Callout (Warning)',
+        icon: IconAlertTriangle,
+        section: 'Basic',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).insertContent({
+                type: 'callout',
+                attrs: { type: 'warning' },
+                content: [{ type: 'paragraph' }],
+            }).run()
+        },
+    },
+    {
+        id: 'callout-success',
+        label: 'Callout (Success)',
+        icon: IconCircleCheck,
+        section: 'Basic',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).insertContent({
+                type: 'callout',
+                attrs: { type: 'success' },
+                content: [{ type: 'paragraph' }],
+            }).run()
+        },
+    },
+    {
+        id: 'callout-error',
+        label: 'Callout (Error)',
+        icon: IconCircleX,
+        section: 'Basic',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).insertContent({
+                type: 'callout',
+                attrs: { type: 'error' },
+                content: [{ type: 'paragraph' }],
+            }).run()
+        },
+    },
+    {
+        id: 'toggle',
+        label: 'Toggle',
+        icon: IconChevronRight,
+        section: 'Basic',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).insertContent({
+                type: 'toggle',
+                content: [{ type: 'paragraph' }],
+            }).run()
+        },
+    },
+    {
+        id: 'table',
+        label: 'Table',
+        icon: IconTable,
+        section: 'Basic',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+        },
+    },
+    {
+        id: 'image',
+        label: 'Image',
+        icon: IconPhoto,
+        section: 'Basic',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).run()
+            const url = prompt('Image URL:')
+            if (url) {
+                editor.chain().focus().setImage({ src: url }).run()
+            }
         },
     },
 ]
