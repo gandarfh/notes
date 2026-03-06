@@ -21,14 +21,15 @@ import (
 // CreateDBConnInput is the service-layer DTO for creating/updating connections.
 // Defined here to avoid circular imports with the app package.
 type CreateDBConnInput struct {
-	Name     string `json:"name"`
-	Driver   string `json:"driver"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Database string `json:"database"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	SSLMode  string `json:"sslMode"`
+	Name      string `json:"name"`
+	Driver    string `json:"driver"`
+	Host      string `json:"host"`
+	Port      int    `json:"port"`
+	Database  string `json:"database"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	SSLMode   string `json:"sslMode"`
+	ExtraJSON string `json:"extraJson"`
 }
 
 // DatabaseService manages external database connections, query execution,
@@ -71,14 +72,15 @@ func (s *DatabaseService) ListConnections() ([]domain.DatabaseConnection, error)
 
 func (s *DatabaseService) CreateConnection(input CreateDBConnInput) (*domain.DatabaseConnection, error) {
 	conn := &domain.DatabaseConnection{
-		ID:       uuid.New().String(),
-		Name:     input.Name,
-		Driver:   domain.DatabaseDriver(input.Driver),
-		Host:     input.Host,
-		Port:     input.Port,
-		Database: input.Database,
-		Username: input.Username,
-		SSLMode:  input.SSLMode,
+		ID:        uuid.New().String(),
+		Name:      input.Name,
+		Driver:    domain.DatabaseDriver(input.Driver),
+		Host:      input.Host,
+		Port:      input.Port,
+		Database:  input.Database,
+		Username:  input.Username,
+		SSLMode:   input.SSLMode,
+		ExtraJSON: input.ExtraJSON,
 	}
 	if err := s.connStore.CreateConnection(conn); err != nil {
 		return nil, fmt.Errorf("create connection: %w", err)
@@ -101,6 +103,7 @@ func (s *DatabaseService) UpdateConnection(id string, input CreateDBConnInput) e
 	conn.Database = input.Database
 	conn.Username = input.Username
 	conn.SSLMode = input.SSLMode
+	conn.ExtraJSON = input.ExtraJSON
 	if err := s.connStore.UpdateConnection(conn); err != nil {
 		return err
 	}
@@ -108,6 +111,24 @@ func (s *DatabaseService) UpdateConnection(id string, input CreateDBConnInput) e
 		_ = s.secrets.Set("db:"+id, []byte(input.Password))
 	}
 	// Invalidate cached connector so next query re-connects with new config.
+	s.mu.Lock()
+	if e, ok := s.activeConnectors[id]; ok {
+		_ = e.connector.Close()
+		delete(s.activeConnectors, id)
+	}
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *DatabaseService) UpdateConnectionPassword(id, password string) error {
+	// Verify connection exists.
+	if _, err := s.connStore.GetConnection(id); err != nil {
+		return err
+	}
+	if s.secrets != nil && password != "" {
+		_ = s.secrets.Set("db:"+id, []byte(password))
+	}
+	// Invalidate cached connector so next query uses the new password.
 	s.mu.Lock()
 	if e, ok := s.activeConnectors[id]; ok {
 		_ = e.connector.Close()

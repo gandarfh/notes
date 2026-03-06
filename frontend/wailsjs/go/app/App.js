@@ -234,6 +234,10 @@ export function OpenBlockInEditor(arg1, arg2) {
   return window['go']['app']['App']['OpenBlockInEditor'](arg1, arg2);
 }
 
+export function PickCertificateFile() {
+  return window['go']['app']['App']['PickCertificateFile']();
+}
+
 export function PickDatabaseFile() {
   return window['go']['app']['App']['PickDatabaseFile']();
 }
@@ -348,6 +352,10 @@ export function UpdateConnection(arg1, arg2, arg3, arg4) {
 
 export function UpdateDatabaseConnection(arg1, arg2) {
   return window['go']['app']['App']['UpdateDatabaseConnection'](arg1, arg2);
+}
+
+export function UpdateDatabaseConnectionPassword(arg1, arg2) {
+  return window['go']['app']['App']['UpdateDatabaseConnectionPassword'](arg1, arg2);
 }
 
 export function UpdateDrawingData(arg1, arg2) {

@@ -1,6 +1,7 @@
 package dbclient
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"notes/internal/domain"
@@ -18,7 +19,25 @@ func buildPostgresDSN(conn *domain.DatabaseConnection, password string) string {
 	if sslMode == "" {
 		sslMode = "disable"
 	}
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		conn.Host, port, conn.Username, password, conn.Database, sslMode,
 	)
+
+	// Append certificate paths from ExtraJSON if present.
+	if conn.ExtraJSON != "" && conn.ExtraJSON != "{}" {
+		var extras map[string]string
+		if json.Unmarshal([]byte(conn.ExtraJSON), &extras) == nil {
+			if v := extras["sslRootCert"]; v != "" {
+				dsn += fmt.Sprintf(" sslrootcert=%s", v)
+			}
+			if v := extras["sslCert"]; v != "" {
+				dsn += fmt.Sprintf(" sslcert=%s", v)
+			}
+			if v := extras["sslKey"]; v != "" {
+				dsn += fmt.Sprintf(" sslkey=%s", v)
+			}
+		}
+	}
+
+	return dsn
 }

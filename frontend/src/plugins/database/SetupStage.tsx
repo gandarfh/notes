@@ -1,6 +1,25 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { DBConnView, CreateDBConnInput } from './types'
 import { rpcCall } from '../sdk'
+
+interface SSLExtras {
+    sslRootCert?: string
+    sslCert?: string
+    sslKey?: string
+}
+
+const SSL_MODE_OPTIONS: Record<string, { value: string; label: string }[]> = {
+    postgres: [
+        { value: 'disable', label: 'Disable' },
+        { value: 'require', label: 'Require' },
+        { value: 'verify-ca', label: 'Verify CA' },
+        { value: 'verify-full', label: 'Verify Full' },
+    ],
+    mysql: [
+        { value: 'disable', label: 'Disable' },
+        { value: 'require', label: 'Require' },
+    ],
+}
 
 interface SetupStageProps {
     connections: DBConnView[]
@@ -54,6 +73,13 @@ export function SetupStage({ connections, onConnect, onRefreshConnections }: Set
         name: '', driver: 'sqlite', host: '', port: 0,
         database: '', username: '', password: '', sslMode: 'disable',
     })
+    const [sslOpen, setSslOpen] = useState(false)
+    const [sslExtras, setSslExtras] = useState<SSLExtras>({})
+    const [editingPasswordId, setEditingPasswordId] = useState<string | null>(null)
+    const [pendingPassword, setPendingPassword] = useState('')
+
+    const showSsl = form.driver === 'postgres' || form.driver === 'mysql'
+    const sslModes = useMemo(() => SSL_MODE_OPTIONS[form.driver] ?? [], [form.driver])
 
     const handlePickFile = async () => {
         try {
@@ -70,6 +96,15 @@ export function SetupStage({ connections, onConnect, onRefreshConnections }: Set
         }
     }
 
+    const handlePickCert = async (field: keyof SSLExtras) => {
+        try {
+            const path = await rpcCall('PickCertificateFile')
+            if (path) setSslExtras(prev => ({ ...prev, [field]: path }))
+        } catch (e) {
+            console.error('Certificate file picker error:', e)
+        }
+    }
+
     const handleCreate = async () => {
         if (!form.name.trim()) { setError('Connection name is required'); return }
         if (form.driver === 'sqlite' && !form.host.trim()) { setError('Select a database file'); return }
@@ -79,7 +114,12 @@ export function SetupStage({ connections, onConnect, onRefreshConnections }: Set
         setError('')
         setTesting(true)
         try {
-            const conn = await rpcCall('CreateDatabaseConnection', form)
+            const hasExtras = Object.values(sslExtras).some(v => v)
+            const payload: CreateDBConnInput = {
+                ...form,
+                ...(hasExtras ? { extraJson: JSON.stringify(sslExtras) } : {}),
+            }
+            const conn = await rpcCall('CreateDatabaseConnection', payload)
             await rpcCall('TestDatabaseConnection', conn.id)
             onRefreshConnections()
             onConnect(conn.id)
@@ -90,11 +130,16 @@ export function SetupStage({ connections, onConnect, onRefreshConnections }: Set
         }
     }
 
-    const handleUseExisting = async (connId: string) => {
+    const handleUseExisting = async (connId: string, password?: string) => {
         setError('')
         setTesting(true)
         try {
+            if (password) {
+                await rpcCall('UpdateDatabaseConnectionPassword', connId, password)
+            }
             await rpcCall('TestDatabaseConnection', connId)
+            setEditingPasswordId(null)
+            setPendingPassword('')
             onConnect(connId)
         } catch (e: any) {
             setError(`Connection failed: ${e.message || e}`)
@@ -102,8 +147,6 @@ export function SetupStage({ connections, onConnect, onRefreshConnections }: Set
             setTesting(false)
         }
     }
-
-    const driverInfo = DRIVER_OPTIONS.find(d => d.value === form.driver)
 
     return (
         <div className="flex flex-col h-full p-5 gap-4 overflow-y-auto">
@@ -160,29 +203,78 @@ export function SetupStage({ connections, onConnect, onRefreshConnections }: Set
                     ) : (
                         connections.map(c => {
                             const drv = DRIVER_OPTIONS.find(d => d.value === c.driver)
+                            const isEditing = editingPasswordId === c.id
                             return (
-                                <button
-                                    key={c.id}
-                                    onClick={() => handleUseExisting(c.id)}
-                                    disabled={testing}
-                                    className="flex items-center gap-3 p-3 rounded-lg bg-elevated border border-border-subtle
-                                               hover:border-accent hover:bg-hover transition-all text-left group
-                                               disabled:opacity-50 disabled:cursor-wait"
-                                >
-                                    <span className="flex items-center">{drv?.icon}</span>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-text-primary text-sm font-medium truncate">{c.name}</p>
-                                        <p className="text-text-muted text-xs font-mono truncate">
-                                            {c.driver === 'sqlite' ? c.host : `${c.host}:${c.port}/${c.database}`}
-                                        </p>
+                                <div key={c.id} className="rounded-lg bg-elevated border border-border-subtle hover:border-accent transition-all">
+                                    <div className="flex items-center gap-3 p-3">
+                                        <button
+                                            onClick={() => handleUseExisting(c.id)}
+                                            disabled={testing}
+                                            className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:opacity-50 disabled:cursor-wait"
+                                        >
+                                            <span className="flex items-center">{drv?.icon}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-text-primary text-sm font-medium truncate">{c.name}</p>
+                                                <p className="text-text-muted text-xs font-mono truncate">
+                                                    {c.driver === 'sqlite' ? c.host : `${c.host}:${c.port}/${c.database}`}
+                                                </p>
+                                            </div>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-accent bg-accent-muted px-1.5 py-0.5 rounded font-mono">
+                                                {c.driver}
+                                            </span>
+                                        </button>
+                                        {c.driver !== 'sqlite' && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    if (isEditing) {
+                                                        setEditingPasswordId(null)
+                                                        setPendingPassword('')
+                                                    } else {
+                                                        setEditingPasswordId(c.id)
+                                                        setPendingPassword('')
+                                                    }
+                                                }}
+                                                className={`p-1.5 rounded-md transition-all flex-shrink-0 ${
+                                                    isEditing
+                                                        ? 'bg-accent-muted text-accent'
+                                                        : 'text-text-muted hover:text-text-primary hover:bg-hover'
+                                                }`}
+                                                title="Update password"
+                                            >
+                                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                                    <path d="M8 1a4 4 0 0 0-4 4v3H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V5a4 4 0 0 0-4-4zm-2 4a2 2 0 1 1 4 0v3H6V5z" fill="currentColor" />
+                                                </svg>
+                                            </button>
+                                        )}
                                     </div>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-accent bg-accent-muted px-1.5 py-0.5 rounded font-mono">
-                                        {c.driver}
-                                    </span>
-                                    <svg className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 16 16" fill="none">
-                                        <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                    </svg>
-                                </button>
+                                    {isEditing && (
+                                        <div className="flex gap-2 px-3 pb-3 border-t border-border-subtle pt-2.5">
+                                            <input
+                                                type="password"
+                                                className="flex-1 px-3 py-1.5 bg-surface border border-border-default rounded-lg text-text-primary text-xs
+                                                           placeholder:text-text-muted focus:border-accent focus:outline-none transition-colors"
+                                                placeholder="New password"
+                                                value={pendingPassword}
+                                                onChange={e => setPendingPassword(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter' && pendingPassword) {
+                                                        handleUseExisting(c.id, pendingPassword)
+                                                    }
+                                                }}
+                                                autoFocus
+                                            />
+                                            <button
+                                                onClick={() => handleUseExisting(c.id, pendingPassword)}
+                                                disabled={testing || !pendingPassword}
+                                                className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-medium
+                                                           hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {testing ? 'Connecting...' : 'Connect'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             )
                         })
                     )}
@@ -358,6 +450,124 @@ export function SetupStage({ connections, onConnect, onRefreshConnections }: Set
                                 </div>
                             </div>
                         </>
+                    )}
+
+                    {/* SSL/TLS Section */}
+                    {showSsl && (
+                        <div className="border border-border-subtle rounded-lg overflow-hidden">
+                            <button
+                                type="button"
+                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-hover transition-colors"
+                                onClick={() => setSslOpen(v => !v)}
+                            >
+                                <span className="flex items-center gap-1.5">
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                                        <path d="M8 1a4 4 0 0 0-4 4v3H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V5a4 4 0 0 0-4-4zm-2 4a2 2 0 1 1 4 0v3H6V5z" fill="currentColor" />
+                                    </svg>
+                                    SSL / TLS
+                                    {form.sslMode !== 'disable' && (
+                                        <span className="text-[10px] font-bold text-accent bg-accent-muted px-1 py-0.5 rounded">
+                                            {form.sslMode}
+                                        </span>
+                                    )}
+                                </span>
+                                <svg
+                                    width="12" height="12" viewBox="0 0 16 16" fill="none"
+                                    className={`transition-transform ${sslOpen ? 'rotate-180' : ''}`}
+                                >
+                                    <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                            {sslOpen && (
+                                <div className="flex flex-col gap-2.5 px-3 pb-3 border-t border-border-subtle pt-2.5">
+                                    {/* SSL Mode */}
+                                    <div>
+                                        <label className="text-text-secondary text-xs font-medium mb-1 block">SSL Mode</label>
+                                        <select
+                                            className="w-full px-3 py-2 bg-elevated border border-border-default rounded-lg text-text-primary text-sm
+                                                       focus:border-accent focus:outline-none transition-colors appearance-none cursor-pointer"
+                                            value={form.sslMode}
+                                            onChange={e => setForm(f => ({ ...f, sslMode: e.target.value }))}
+                                        >
+                                            {sslModes.map(m => (
+                                                <option key={m.value} value={m.value}>{m.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Certificate fields (only when mode != disable) */}
+                                    {form.sslMode !== 'disable' && (
+                                        <>
+                                            {/* CA Certificate */}
+                                            <div>
+                                                <label className="text-text-secondary text-xs font-medium mb-1 block">CA Certificate</label>
+                                                <div className="flex gap-1.5">
+                                                    <input
+                                                        className="flex-1 px-3 py-1.5 bg-elevated border border-border-default rounded-lg text-text-primary text-xs
+                                                                   font-mono placeholder:text-text-muted focus:border-accent focus:outline-none transition-colors"
+                                                        placeholder="/path/to/ca.pem"
+                                                        value={sslExtras.sslRootCert ?? ''}
+                                                        onChange={e => setSslExtras(p => ({ ...p, sslRootCert: e.target.value }))}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handlePickCert('sslRootCert')}
+                                                        className="px-2 py-1.5 bg-elevated border border-border-default rounded-lg text-text-secondary
+                                                                   hover:border-accent hover:text-accent transition-all text-xs flex-shrink-0"
+                                                    >
+                                                        Browse
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Client Certificate */}
+                                            <div>
+                                                <label className="text-text-secondary text-xs font-medium mb-1 block">Client Certificate</label>
+                                                <div className="flex gap-1.5">
+                                                    <input
+                                                        className="flex-1 px-3 py-1.5 bg-elevated border border-border-default rounded-lg text-text-primary text-xs
+                                                                   font-mono placeholder:text-text-muted focus:border-accent focus:outline-none transition-colors"
+                                                        placeholder="/path/to/client-cert.pem"
+                                                        value={sslExtras.sslCert ?? ''}
+                                                        onChange={e => setSslExtras(p => ({ ...p, sslCert: e.target.value }))}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handlePickCert('sslCert')}
+                                                        className="px-2 py-1.5 bg-elevated border border-border-default rounded-lg text-text-secondary
+                                                                   hover:border-accent hover:text-accent transition-all text-xs flex-shrink-0"
+                                                    >
+                                                        Browse
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Client Key */}
+                                            <div>
+                                                <label className="text-text-secondary text-xs font-medium mb-1 block">Client Key</label>
+                                                <div className="flex gap-1.5">
+                                                    <input
+                                                        className="flex-1 px-3 py-1.5 bg-elevated border border-border-default rounded-lg text-text-primary text-xs
+                                                                   font-mono placeholder:text-text-muted focus:border-accent focus:outline-none transition-colors"
+                                                        placeholder="/path/to/client-key.pem"
+                                                        value={sslExtras.sslKey ?? ''}
+                                                        onChange={e => setSslExtras(p => ({ ...p, sslKey: e.target.value }))}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handlePickCert('sslKey')}
+                                                        className="px-2 py-1.5 bg-elevated border border-border-default rounded-lg text-text-secondary
+                                                                   hover:border-accent hover:text-accent transition-all text-xs flex-shrink-0"
+                                                    >
+                                                        Browse
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     {/* Connect Button */}

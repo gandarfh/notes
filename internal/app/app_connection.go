@@ -52,3 +52,15 @@ func (a *App) PickDatabaseFile() (string, error) {
 	})
 	return path, err
 }
+
+// PickCertificateFile opens a native file picker for selecting a TLS certificate or key file.
+func (a *App) PickCertificateFile() (string, error) {
+	path, err := wailsRuntime.OpenFileDialog(a.ctx, wailsRuntime.OpenDialogOptions{
+		Title: "Select Certificate File",
+		Filters: []wailsRuntime.FileFilter{
+			{DisplayName: "Certificate Files", Pattern: "*.pem;*.crt;*.key;*.cer;*.ca"},
+			{DisplayName: "All Files", Pattern: "*.*"},
+		},
+	})
+	return path, err
+}

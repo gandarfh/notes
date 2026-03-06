@@ -47,6 +47,7 @@ declare global {
           ListDatabaseConnections(): Promise<DBConnView[]>
           CreateDatabaseConnection(input: CreateDBConnInput): Promise<DBConnView>
           UpdateDatabaseConnection(id: string, input: CreateDBConnInput): Promise<void>
+          UpdateDatabaseConnectionPassword(id: string, password: string): Promise<void>
           DeleteDatabaseConnection(id: string): Promise<void>
           TestDatabaseConnection(id: string): Promise<void>
           IntrospectDatabase(connectionID: string): Promise<SchemaInfo>
@@ -56,6 +57,7 @@ declare global {
           ClearCachedResult(blockID: string): Promise<void>
           SaveBlockDatabaseConfig(blockID: string, config: string): Promise<void>
           PickDatabaseFile(): Promise<string>
+          PickCertificateFile(): Promise<string>
           ApplyMutations(connectionID: string, table: string, mutations: Mutation[]): Promise<MutationResult>
           // Local Database plugin
           CreateLocalDatabase(blockID: string, name: string): Promise<LocalDatabase>
@@ -270,6 +272,7 @@ export interface CreateDBConnInput {
   username: string
   password: string
   sslMode: string
+  extraJson?: string
 }
 
 export interface QueryResultView {

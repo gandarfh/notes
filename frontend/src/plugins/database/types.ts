@@ -22,6 +22,7 @@ export interface CreateDBConnInput {
     username: string
     password: string
     sslMode: string
+    extraJson?: string
 }
 
 export interface QueryResultView {

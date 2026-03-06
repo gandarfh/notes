@@ -18,28 +18,34 @@ func (a *App) ListDatabaseConnections() ([]domain.DatabaseConnection, error) {
 
 func (a *App) CreateDatabaseConnection(input CreateDBConnInput) (*domain.DatabaseConnection, error) {
 	return a.database.CreateConnection(service.CreateDBConnInput{
-		Name:     input.Name,
-		Driver:   input.Driver,
-		Host:     input.Host,
-		Port:     input.Port,
-		Database: input.Database,
-		Username: input.Username,
-		Password: input.Password,
-		SSLMode:  input.SSLMode,
+		Name:      input.Name,
+		Driver:    input.Driver,
+		Host:      input.Host,
+		Port:      input.Port,
+		Database:  input.Database,
+		Username:  input.Username,
+		Password:  input.Password,
+		SSLMode:   input.SSLMode,
+		ExtraJSON: input.ExtraJSON,
 	})
 }
 
 func (a *App) UpdateDatabaseConnection(id string, input CreateDBConnInput) error {
 	return a.database.UpdateConnection(id, service.CreateDBConnInput{
-		Name:     input.Name,
-		Driver:   input.Driver,
-		Host:     input.Host,
-		Port:     input.Port,
-		Database: input.Database,
-		Username: input.Username,
-		Password: input.Password,
-		SSLMode:  input.SSLMode,
+		Name:      input.Name,
+		Driver:    input.Driver,
+		Host:      input.Host,
+		Port:      input.Port,
+		Database:  input.Database,
+		Username:  input.Username,
+		Password:  input.Password,
+		SSLMode:   input.SSLMode,
+		ExtraJSON: input.ExtraJSON,
 	})
+}
+
+func (a *App) UpdateDatabaseConnectionPassword(id, password string) error {
+	return a.database.UpdateConnectionPassword(id, password)
 }
 
 func (a *App) DeleteDatabaseConnection(id string) error {

@@ -14,14 +14,15 @@ type DBConnView struct {
 
 // CreateDBConnInput is the input for creating/updating a database connection.
 type CreateDBConnInput struct {
-	Name     string `json:"name"`
-	Driver   string `json:"driver"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Database string `json:"database"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	SSLMode  string `json:"sslMode"`
+	Name      string `json:"name"`
+	Driver    string `json:"driver"`
+	Host      string `json:"host"`
+	Port      int    `json:"port"`
+	Database  string `json:"database"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	SSLMode   string `json:"sslMode"`
+	ExtraJSON string `json:"extraJson"`
 }
 
 // QueryResultView is the frontend view of a query result.

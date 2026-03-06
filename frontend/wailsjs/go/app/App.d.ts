@@ -124,6 +124,8 @@ export function LoadUndoTree(arg1:string):Promise<storage.UndoTree>;
 
 export function OpenBlockInEditor(arg1:string,arg2:number):Promise<void>;
 
+export function PickCertificateFile():Promise<string>;
+
 export function PickDatabaseFile():Promise<string>;
 
 export function PickETLFile():Promise<string>;
@@ -181,6 +183,8 @@ export function UpdateCanvasEntity(arg1:string,arg2:domain.CanvasEntityPatch):Pr
 export function UpdateConnection(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function UpdateDatabaseConnection(arg1:string,arg2:app.CreateDBConnInput):Promise<void>;
+
+export function UpdateDatabaseConnectionPassword(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateDrawingData(arg1:string,arg2:string):Promise<void>;
 

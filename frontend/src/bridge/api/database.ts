@@ -21,6 +21,8 @@ export const databaseAPI = {
         go().CreateDatabaseConnection(input),
     updateConnection: (id: string, input: CreateDBConnInput): Promise<void> =>
         go().UpdateDatabaseConnection(id, input),
+    updateConnectionPassword: (id: string, password: string): Promise<void> =>
+        go().UpdateDatabaseConnectionPassword(id, password),
     deleteConnection: (id: string): Promise<void> =>
         go().DeleteDatabaseConnection(id),
     testConnection: (id: string): Promise<void> =>
@@ -40,6 +42,8 @@ export const databaseAPI = {
         go().SaveBlockDatabaseConfig(blockID, config),
     pickFile: (): Promise<string> =>
         go().PickDatabaseFile(),
+    pickCertificateFile: (): Promise<string> =>
+        go().PickCertificateFile(),
     applyMutations: (connectionID: string, table: string, mutations: Mutation[]): Promise<MutationResult> =>
         go().ApplyMutations(connectionID, table, mutations),
 }

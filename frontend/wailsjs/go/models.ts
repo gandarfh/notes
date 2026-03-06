@@ -9,6 +9,7 @@ export namespace app {
 	    username: string;
 	    password: string;
 	    sslMode: string;
+	    extraJson: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new CreateDBConnInput(source);
@@ -24,6 +25,7 @@ export namespace app {
 	        this.username = source["username"];
 	        this.password = source["password"];
 	        this.sslMode = source["sslMode"];
+	        this.extraJson = source["extraJson"];
 	    }
 	}
 	export class HTTPResponse {
