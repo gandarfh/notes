@@ -1,5 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
 import type { DBConnView, QueryResultView, SchemaInfo, Mutation } from './types'
+import { SchemaSidebar } from './SchemaSidebar'
+import { TableDetailView } from './TableDetailView'
 import { EJSON } from 'bson'
 import { QueryEditor } from './QueryEditor'
 import { ResultsTable } from './ResultsTable'
@@ -236,6 +238,23 @@ export function QueryStage({
         queryRef.current = val
     }, [])
 
+    // Schema browser states
+    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [selectedTable, setSelectedTable] = useState<string | null>(null)
+
+    const tableCount = schema?.tables?.length ?? 0
+
+    const selectedTableInfo = useMemo(() => {
+        if (!selectedTable || !schema?.tables) return null
+        return schema.tables.find(t => t.name === selectedTable) ?? null
+    }, [selectedTable, schema])
+
+    const handleQueryTable = useCallback((query: string) => {
+        queryRef.current = query
+        setSelectedTable(null)
+        onExecute(query)
+    }, [onExecute])
+
     // When collections load and none selected, pick the first
     if (isMongo && !selectedCollection && collections.length > 0) {
         setSelectedCollection(collections[0])
@@ -362,6 +381,30 @@ export function QueryStage({
                     <span className="w-3.5 h-3.5 border-2 border-text-muted/20 border-t-accent rounded-full animate-spin" />
                 )}
 
+                {/* Tables toggle */}
+                {!isMongo && (
+                    <button
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium font-sans
+                                    border transition-all cursor-pointer
+                                    ${sidebarOpen
+                                        ? 'bg-accent-muted text-accent border-accent/30'
+                                        : 'bg-elevated text-text-secondary border-border-subtle hover:text-text-primary hover:border-border-default'
+                                    }`}
+                        onClick={() => { setSidebarOpen(v => !v); if (sidebarOpen) setSelectedTable(null) }}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5" />
+                            <path d="M3 9h18M3 15h18M9 9v12" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+                        </svg>
+                        Tables
+                        {tableCount > 0 && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-text-muted/10 text-text-muted leading-none">
+                                {tableCount}
+                            </span>
+                        )}
+                    </button>
+                )}
+
                 {/* Spacer */}
                 <div className="flex-1" />
 
@@ -392,44 +435,69 @@ export function QueryStage({
                 </button>
             </div>
 
-            {/* ── Query editor ── */}
-            <div className="flex-[0_0_40%] min-h-[90px] border-b border-border-default overflow-hidden relative">
-                <QueryEditor
-                    value={decoded.filter}
-                    onChange={handleQueryChange}
-                    onExecute={handleExecute}
-                    driver={driver}
-                    schema={schema}
-                    placeholder={placeholder}
-                    selectedCollection={isMongo ? selectedCollection : undefined}
-                />
-            </div>
-
-            {/* ── Results ── */}
-            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-                {result ? (
-                    <ResultsTable
-                        result={result}
-                        loading={loading}
-                        isCached={isCached}
-                        onFetchMore={onFetchMore}
-                        onApplyMutations={onApplyMutations}
+            {/* ── Body: sidebar + main content ── */}
+            <div className="flex-1 flex flex-row overflow-hidden min-h-0">
+                {/* Schema sidebar */}
+                {sidebarOpen && !isMongo && (
+                    <SchemaSidebar
+                        schema={schema}
+                        schemaLoading={schemaLoading ?? false}
+                        selectedTable={selectedTable}
+                        onSelectTable={setSelectedTable}
                     />
-                ) : (
-                    <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
-                        <div className="text-center">
-                            <svg className="w-8 h-8 mx-auto mb-2 opacity-30" viewBox="0 0 24 24" fill="none">
-                                <path d="M3 3h18v18H3V3z" stroke="currentColor" strokeWidth="1.2" />
-                                <path d="M3 9h18M9 9v12" stroke="currentColor" strokeWidth="1.2" />
-                            </svg>
-                            {isMongo ? (
-                                <p>Write a filter like <code className="px-1.5 py-0.5 bg-elevated rounded text-xs border border-border-subtle font-mono">{'{ status: "active" }'}</code> and press <kbd className="px-1.5 py-0.5 bg-elevated rounded text-xs border border-border-subtle font-mono">⌘ Enter</kbd></p>
+                )}
+
+                {/* Main content */}
+                <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                    {selectedTableInfo ? (
+                        /* Table detail view */
+                        <TableDetailView
+                            table={selectedTableInfo}
+                            onBack={() => setSelectedTable(null)}
+                            onQueryTable={handleQueryTable}
+                        />
+                    ) : (<>
+                        {/* ── Query editor ── */}
+                        <div className="flex-[0_0_40%] min-h-[90px] border-b border-border-default overflow-hidden relative">
+                            <QueryEditor
+                                value={decoded.filter}
+                                onChange={handleQueryChange}
+                                onExecute={handleExecute}
+                                driver={driver}
+                                schema={schema}
+                                placeholder={placeholder}
+                                selectedCollection={isMongo ? selectedCollection : undefined}
+                            />
+                        </div>
+
+                        {/* ── Results ── */}
+                        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+                            {result ? (
+                                <ResultsTable
+                                    result={result}
+                                    loading={loading}
+                                    isCached={isCached}
+                                    onFetchMore={onFetchMore}
+                                    onApplyMutations={onApplyMutations}
+                                />
                             ) : (
-                                <p>Write a query and press <kbd className="px-1.5 py-0.5 bg-elevated rounded text-xs border border-border-subtle font-mono">⌘ Enter</kbd> to run</p>
+                                <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
+                                    <div className="text-center">
+                                        <svg className="w-8 h-8 mx-auto mb-2 opacity-30" viewBox="0 0 24 24" fill="none">
+                                            <path d="M3 3h18v18H3V3z" stroke="currentColor" strokeWidth="1.2" />
+                                            <path d="M3 9h18M9 9v12" stroke="currentColor" strokeWidth="1.2" />
+                                        </svg>
+                                        {isMongo ? (
+                                            <p>Write a filter like <code className="px-1.5 py-0.5 bg-elevated rounded text-xs border border-border-subtle font-mono">{'{ status: "active" }'}</code> and press <kbd className="px-1.5 py-0.5 bg-elevated rounded text-xs border border-border-subtle font-mono">⌘ Enter</kbd></p>
+                                        ) : (
+                                            <p>Write a query and press <kbd className="px-1.5 py-0.5 bg-elevated rounded text-xs border border-border-subtle font-mono">⌘ Enter</kbd> to run</p>
+                                        )}
+                                    </div>
+                                </div>
                             )}
                         </div>
-                    </div>
-                )}
+                    </>)}
+                </div>
             </div>
         </div>
     )
