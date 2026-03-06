@@ -155,6 +155,7 @@ interface QueryStageProps {
     onFetchMore: () => void
     onChangeConnection: (connId: string) => void
     onApplyMutations?: (mutations: Mutation[]) => Promise<void>
+    onUpdatePassword?: (connId: string, password: string) => Promise<void>
     schemaLoading?: boolean
 }
 
@@ -200,6 +201,7 @@ export function QueryStage({
     onFetchMore,
     onChangeConnection,
     onApplyMutations,
+    onUpdatePassword,
     schemaLoading,
 }: QueryStageProps) {
     const driver = connection?.driver || 'sqlite'
@@ -254,6 +256,27 @@ export function QueryStage({
         setSelectedTable(null)
         onExecute(query)
     }, [onExecute])
+
+    // Password update popover
+    const [showPasswordPopover, setShowPasswordPopover] = useState(false)
+    const [newPassword, setNewPassword] = useState('')
+    const [passwordSaving, setPasswordSaving] = useState(false)
+    const [passwordError, setPasswordError] = useState('')
+
+    const handleSavePassword = useCallback(async () => {
+        if (!connection?.id || !onUpdatePassword || !newPassword) return
+        setPasswordSaving(true)
+        setPasswordError('')
+        try {
+            await onUpdatePassword(connection.id, newPassword)
+            setNewPassword('')
+            setShowPasswordPopover(false)
+        } catch (e: any) {
+            setPasswordError(e.message || 'Failed to update password')
+        } finally {
+            setPasswordSaving(false)
+        }
+    }, [connection?.id, onUpdatePassword, newPassword])
 
     // When collections load and none selected, pick the first
     if (isMongo && !selectedCollection && collections.length > 0) {
@@ -341,6 +364,47 @@ export function QueryStage({
                         ))}
                     </select>
                 </div>
+
+                {/* Password update button */}
+                {onUpdatePassword && driver !== 'sqlite' && (
+                    <div className="relative">
+                        <button
+                            className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all cursor-pointer
+                                        ${showPasswordPopover
+                                            ? 'bg-accent-muted text-accent border-accent/30'
+                                            : 'bg-elevated text-text-muted border-border-subtle hover:text-text-primary hover:border-border-default'
+                                        }`}
+                            onClick={() => { setShowPasswordPopover(v => !v); setPasswordError(''); setNewPassword('') }}
+                            title="Update password"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                                <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                                <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                        </button>
+                        {showPasswordPopover && (
+                            <div className="db-password-popover">
+                                <div className="db-password-popover-label">Update password</div>
+                                <input
+                                    className="db-password-popover-input"
+                                    type="password"
+                                    placeholder="New password"
+                                    value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') handleSavePassword(); if (e.key === 'Escape') setShowPasswordPopover(false) }}
+                                    autoFocus
+                                />
+                                {passwordError && <div className="db-password-popover-error">{passwordError}</div>}
+                                <div className="db-password-popover-actions">
+                                    <button className="db-password-popover-cancel" onClick={() => setShowPasswordPopover(false)}>Cancel</button>
+                                    <button className="db-password-popover-save" onClick={handleSavePassword} disabled={passwordSaving || !newPassword}>
+                                        {passwordSaving ? 'Saving...' : 'Save'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* MongoDB: Collection + Operation pickers */}
                 {isMongo && (collections.length > 0 || selectedCollection) && (<>

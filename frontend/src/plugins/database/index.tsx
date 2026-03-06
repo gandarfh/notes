@@ -161,6 +161,16 @@ function DatabaseRenderer({ block, isEditing, isSelected, ctx }: PluginRendererP
         rpc.call<DBConnView[]>('ListDatabaseConnections').then(setConnections)
     }, [rpc])
 
+    const handleUpdatePassword = useCallback(async (connId: string, password: string) => {
+        await rpc.call('UpdateDatabaseConnectionPassword', connId, password)
+        // Re-introspect to verify the new password works
+        setSchemaLoading(true)
+        rpc.call<SchemaInfo>('IntrospectDatabase', connId)
+            .then(setSchema)
+            .catch(console.error)
+            .finally(() => setSchemaLoading(false))
+    }, [rpc])
+
     // Stage 1: Setup (no connection configured)
     if (!connectionId) {
         return (
@@ -190,6 +200,7 @@ function DatabaseRenderer({ block, isEditing, isSelected, ctx }: PluginRendererP
                 onFetchMore={handleFetchMore}
                 onChangeConnection={handleConnect}
                 onApplyMutations={handleApplyMutations}
+                onUpdatePassword={handleUpdatePassword}
                 schemaLoading={schemaLoading}
             />
         </div>

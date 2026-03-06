@@ -440,13 +440,15 @@
   /* ── Schema Sidebar ── */
 
   .db-schema-sidebar {
-    width: 200px;
-    min-width: 200px;
+    min-width: 160px;
+    width: fit-content;
+    max-width: 40%;
     border-right: 1px solid var(--color-border-subtle);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     background: var(--color-surface);
+    flex-shrink: 0;
   }
 
   .db-schema-sidebar-header {
@@ -500,7 +502,9 @@
   .db-schema-list {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 4px;
+    min-height: 0;
   }
 
   .db-schema-loading,
@@ -528,6 +532,7 @@
     cursor: pointer;
     transition: all 0.1s;
     text-align: left;
+    white-space: nowrap;
   }
 
   .db-table-item:hover {
@@ -653,4 +658,91 @@
   .db-query-table-btn:hover {
     background: var(--color-accent);
     color: white;
+  }
+
+  /* ── Password Popover ── */
+
+  .db-password-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 50;
+    width: 240px;
+    padding: 10px;
+    background: var(--color-elevated);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .db-password-popover-label {
+    font-size: 0.769rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+
+  .db-password-popover-input {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 4px;
+    color: var(--color-text-primary);
+    font-size: 0.846rem;
+    font-family: var(--font-mono);
+    outline: none;
+    transition: border-color 0.12s;
+  }
+
+  .db-password-popover-input:focus {
+    border-color: var(--color-accent);
+  }
+
+  .db-password-popover-error {
+    font-size: 0.769rem;
+    color: var(--color-error);
+  }
+
+  .db-password-popover-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  .db-password-popover-cancel,
+  .db-password-popover-save {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.769rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition: all 0.12s;
+  }
+
+  .db-password-popover-cancel {
+    background: transparent;
+    color: var(--color-text-muted);
+  }
+
+  .db-password-popover-cancel:hover {
+    color: var(--color-text-primary);
+  }
+
+  .db-password-popover-save {
+    background: var(--color-accent);
+    color: white;
+  }
+
+  .db-password-popover-save:hover {
+    background: var(--color-accent-hover);
+  }
+
+  .db-password-popover-save:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }

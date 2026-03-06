@@ -280,7 +280,7 @@ func formatValue(v any) any {
 }
 
 func (c *sqlConnector) Introspect(ctx context.Context) (*SchemaInfo, error) {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	switch c.driverName {
