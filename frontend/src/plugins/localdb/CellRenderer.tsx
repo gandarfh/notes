@@ -4,6 +4,7 @@ import { DayPicker } from 'react-day-picker'
 import { format, parse, parseISO, isValid } from 'date-fns'
 import type { ColumnDef } from './types'
 import { TimerCell, parseTimerValue } from './TimerCell'
+import { tagColorStyle } from './ColumnEditor'
 
 // ── Cell Renderer ──────────────────────────────────────────
 // Polymorphic cell renderer based on column type.
@@ -26,9 +27,9 @@ export function CellRenderer({ column, value, onChange, isEditing }: CellRendere
         case 'datetime':
             return <DatePickerCell value={String(value ?? '')} onChange={onChange} showTime={true} />
         case 'select':
-            return <SelectCell value={String(value ?? '')} options={column.options || []} onChange={onChange} />
+            return <SelectCell value={String(value ?? '')} options={column.options || []} optionColors={column.optionColors} onChange={onChange} />
         case 'multi-select':
-            return <MultiSelectCell value={(value as string[]) || []} options={column.options || []} onChange={onChange} />
+            return <MultiSelectCell value={(value as string[]) || []} options={column.options || []} optionColors={column.optionColors} onChange={onChange} />
         case 'checkbox':
             return <CheckboxCell value={Boolean(value)} onChange={onChange} />
         case 'url':
@@ -281,7 +282,7 @@ function DatePickerCell({ value, onChange, showTime }: {
 
 // ── Select Cell ────────────────────────────────────────────
 
-function SelectCell({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
+function SelectCell({ value, options, optionColors, onChange }: { value: string; options: string[]; optionColors?: Record<string, string>; onChange: (v: string) => void }) {
     const [open, setOpen] = useState(false)
     const triggerRef = useRef<HTMLDivElement>(null)
 
@@ -296,7 +297,7 @@ function SelectCell({ value, options, onChange }: { value: string; options: stri
     return (
         <div className="ldb-cell-select" ref={triggerRef}>
             <button className="ldb-select-trigger" onClick={() => setOpen(!open)}>
-                {value ? <span className="ldb-tag" data-value={value}>{value}</span> : <span className="ldb-cell-placeholder">Select...</span>}
+                {value ? <span className="ldb-tag" style={tagColorStyle(optionColors?.[value])}>{value}</span> : <span className="ldb-cell-placeholder">Select...</span>}
             </button>
 
             <PortalDropdown anchorRef={triggerRef} open={open} onClose={() => setOpen(false)}>
@@ -307,7 +308,7 @@ function SelectCell({ value, options, onChange }: { value: string; options: stri
                             className={`ldb-select-option ${opt === value ? 'active' : ''}`}
                             onClick={() => { onChange(opt); closeAndRefocus() }}
                         >
-                            <span className="ldb-tag" data-value={opt}>{opt}</span>
+                            <span className="ldb-tag" style={tagColorStyle(optionColors?.[opt])}>{opt}</span>
                         </div>
                     ))}
                     {value && (
@@ -323,7 +324,7 @@ function SelectCell({ value, options, onChange }: { value: string; options: stri
 
 // ── Multi-Select Cell ──────────────────────────────────────
 
-function MultiSelectCell({ value, options, onChange }: { value: string[]; options: string[]; onChange: (v: string[]) => void }) {
+function MultiSelectCell({ value, options, optionColors, onChange }: { value: string[]; options: string[]; optionColors?: Record<string, string>; onChange: (v: string[]) => void }) {
     const [open, setOpen] = useState(false)
     const triggerRef = useRef<HTMLDivElement>(null)
 
@@ -339,7 +340,7 @@ function MultiSelectCell({ value, options, onChange }: { value: string[]; option
         <div className="ldb-cell-select" ref={triggerRef}>
             <button className="ldb-select-trigger" onClick={() => setOpen(!open)}>
                 {value.length > 0
-                    ? value.map(v => <span key={v} className="ldb-tag" data-value={v}>{v}</span>)
+                    ? value.map(v => <span key={v} className="ldb-tag" style={tagColorStyle(optionColors?.[v])}>{v}</span>)
                     : <span className="ldb-cell-placeholder">Select...</span>
                 }
             </button>
@@ -352,7 +353,7 @@ function MultiSelectCell({ value, options, onChange }: { value: string[]; option
                             className={`ldb-select-option ${value.includes(opt) ? 'active' : ''}`}
                             onClick={() => toggle(opt)}
                         >
-                            <span className="ldb-tag" data-value={opt}>{opt}</span>
+                            <span className="ldb-tag" style={tagColorStyle(optionColors?.[opt])}>{opt}</span>
                             {value.includes(opt) && <span className="ldb-check">✓</span>}
                         </div>
                     ))}
