@@ -8,6 +8,10 @@ export const createNotebookSlice: StateCreator<AppState, [], [], NotebookSlice> 
     pages: [],
     activeNotebookId: null,
     activePageId: null,
+    activePageType: 'canvas' as const,
+    activeBoardMode: 'document' as const,
+    activeBoardContent: '',
+    activeBoardLayout: '[]',
     initializing: !!localStorage.getItem('notes:lastPageId'),
     expandedNotebooks: new Set<string>(),
 
@@ -77,6 +81,11 @@ export const createNotebookSlice: StateCreator<AppState, [], [], NotebookSlice> 
 
     createPage: async (notebookId, name) => {
         const page = await api.createPage(notebookId, name)
+        set(s => ({ pages: [...s.pages, page] }))
+    },
+
+    createBoardPage: async (notebookId, name) => {
+        const page = await api.createBoardPage(notebookId, name)
         set(s => ({ pages: [...s.pages, page] }))
     },
 

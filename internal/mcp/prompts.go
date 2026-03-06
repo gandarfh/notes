@@ -58,14 +58,13 @@ func (s *Server) handleDashboardPrompt(ctx context.Context, req mcp.GetPromptReq
 				Role: mcp.RoleUser,
 				Content: mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf(`Create a dashboard about "%s" on the active page. Follow these steps:
+					Text: fmt.Sprintf(`Create a dashboard about "%s" on the active page. Follow these steps in order — do not create charts before data exists.
 
-1. First, use write_markdown to create a title block with a header: "# %s Dashboard"
-2. Create a LocalDB (create_local_database) with relevant columns for tracking data
-3. Add sample rows to the LocalDB using add_localdb_rows  
-4. Create a chart (create_chart) linked to the LocalDB
-
-Make sure each block is well-positioned using auto-layout. The dashboard should look professional and organized.`, topic, topic),
+1. write_markdown — create a title block: "# %s Dashboard"
+2. create_local_database — define relevant columns, save the returned blockId
+3. add_localdb_rows — insert sample data using the blockId from step 2
+4. list_localdb_rows — verify data was inserted and confirm column names
+5. create_chart — only now, using the exact column names from step 4`, topic, topic),
 				},
 			},
 		},
@@ -107,15 +106,28 @@ func (s *Server) handleDataPipelinePrompt(ctx context.Context, req mcp.GetPrompt
 				Role: mcp.RoleUser,
 				Content: mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf(`Set up a data pipeline: %s. Follow these steps:
+					Text: fmt.Sprintf(`Set up a data pipeline: %s. Follow these steps strictly in order — each depends on the previous one.
 
-1. Use write_markdown to create a header explaining the pipeline
-2. Create a LocalDB (create_local_database) to store the data with appropriate columns
-3. Create an ETL job (create_etl_job) with source type "%s" targeting the LocalDB
-4. Create a chart (create_chart) linked to the LocalDB to visualize the data
-5. Optionally, add a drawing diagram showing the data flow: Source → ETL → LocalDB → Chart
+1. Create the data source for type "%s":
+   - http_block: create_http_block with the endpoint, then execute_http_request to test
+   - database: create_query_block to verify the query
+   - csv/json: use preview_etl_source to validate the file path
+   - http: just have the URL ready
+   Save any returned block IDs for the ETL config.
 
-The pipeline should be ready to run with run_etl_job.`, description, sourceType),
+2. preview_etl_source — preview the source data to see actual column names and shape.
+
+3. create_local_database — columns matching the preview from step 2. Save the returned blockId.
+
+4. create_etl_job — connect source to LocalDB, include transforms as needed. Save the returned jobId.
+
+5. run_etl_job — populate the LocalDB. Wait for completion.
+
+6. list_localdb_rows + read_localdb_content — verify data loaded and get exact column schema.
+
+7. create_chart or batch_create_charts — only after step 6, using exact column names from the schema.
+
+Do not create charts before the ETL job runs. Do not guess column names. Do not skip the preview step.`, description, sourceType),
 				},
 			},
 		},
@@ -131,16 +143,19 @@ func (s *Server) handleSystemDiagramPrompt(ctx context.Context, req mcp.GetPromp
 				Role: mcp.RoleUser,
 				Content: mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf(`Create a system architecture diagram for "%s" using the drawing tools. Follow these steps:
+					Text: fmt.Sprintf(`Create a system architecture diagram for "%s" using the drawing tools. 
 
-1. Identify the main components of the system
-2. Use add_drawing_element to create a rectangle for each component, with descriptive text
-3. Use add_drawing_arrow to connect related components, showing data flow or dependencies
-4. Add labels to arrows using update_arrow_label to describe the connections
-5. Use arrange_drawing_elements to ensure the layout is clean
-6. Add a write_markdown block with a legend or description of the architecture
+IMPORTANT VISIBILITY RULES:
+- Use SAFE COLORS for theme compatibility: Indigo (#6366f1), Emerald (#10b981), Rose (#ef4444), Blue (#3b82f6), Amber (#f59e0b), Violet (#8b5cf6), Gray (#6b7280).
+- ALWAYS use #e8e8f0 for strokeColor to ensure visibility in both Dark and Light themes.
 
-Use consistent colors: #3b82f6 for primary components, #10b981 for databases, #f59e0b for external services.`, systemName),
+Follow these steps:
+1. Identify the main components of the system.
+2. Use add_drawing_element to create shapes (use fillColor from safe colors, strokeColor: #e8e8f0).
+3. Use add_drawing_arrow to connect components and update_arrow_label for descriptions.
+4. Add a write_markdown block explaining the architecture.
+
+Suggested Colors: #6366f1 (Services), #10b981 (Databases), #f59e0b (External APIs).`, systemName),
 				},
 			},
 		},

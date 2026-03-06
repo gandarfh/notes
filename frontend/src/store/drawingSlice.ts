@@ -10,8 +10,8 @@ export const createDrawingSlice: StateCreator<AppState, [], [], DrawingSlice> = 
     boardStyle: (localStorage.getItem('boardStyle') as 'clean' | 'sketchy') || 'clean',
     styleDefaults: (() => {
         const base = {
-            strokeColor: '#e0e0e0', strokeWidth: 2, backgroundColor: 'transparent',
-            fontSize: 14, fontFamily: 'Inter', fontWeight: 400, textColor: '#e0e0e0',
+            strokeColor: '', strokeWidth: 2, backgroundColor: 'transparent',
+            fontSize: 14, fontFamily: 'Architects Daughter', fontWeight: 400, textColor: '',
             borderRadius: 0, opacity: 1, fillStyle: 'hachure',
             strokeDasharray: '', textAlign: 'center', verticalAlign: 'center',
         }
@@ -29,11 +29,7 @@ export const createDrawingSlice: StateCreator<AppState, [], [], DrawingSlice> = 
     setDrawingSubTool: (tool) => set({ drawingSubTool: tool }),
     setBoardStyle: (style) => {
         localStorage.setItem('boardStyle', style)
-        const fontCss = style === 'sketchy'
-            ? "'Caveat', cursive"
-            : "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
-        document.documentElement.style.setProperty('--font-sans', fontCss)
-        document.documentElement.style.fontSize = style === 'sketchy' ? '17px' : '13px'
+        document.documentElement.style.setProperty('--font-sans', "'Architects Daughter'")
         set({ boardStyle: style })
     },
     setStyleDefaults: (type, patch) => set(s => ({

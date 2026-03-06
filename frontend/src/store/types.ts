@@ -1,4 +1,4 @@
-import type { Block, Connection, Notebook, Page, PageState } from '../bridge/wails'
+import type { Block, Connection, CanvasEntity, CanvasConnection, CanvasEntityPatch, CanvasEntityPatchWithID, Notebook, Page, PageState, PageType, BoardMode } from '../bridge/wails'
 import { api, onEvent } from '../bridge/wails'
 
 // ── Types ──────────────────────────────────────────────────
@@ -16,6 +16,10 @@ export interface NotebookSlice {
     pages: Page[]
     activeNotebookId: string | null
     activePageId: string | null
+    activePageType: PageType
+    activeBoardMode: BoardMode
+    activeBoardContent: string
+    activeBoardLayout: string
     initializing: boolean
     expandedNotebooks: Set<string>
 
@@ -29,6 +33,7 @@ export interface NotebookSlice {
 
     loadPages: (notebookId: string) => Promise<void>
     createPage: (notebookId: string, name: string) => Promise<void>
+    createBoardPage: (notebookId: string, name: string) => Promise<void>
     renamePage: (id: string, name: string) => Promise<void>
     deletePage: (id: string) => Promise<void>
     selectPage: (id: string) => Promise<void>
@@ -38,8 +43,10 @@ export interface NotebookSlice {
 
 export interface CanvasSlice {
     viewport: ViewportState
+    canvasContainerWidth: number
 
     setViewport: (x: number, y: number, zoom: number) => void
+    setCanvasContainerWidth: (width: number) => void
     pan: (dx: number, dy: number) => void
     zoomTo: (zoom: number, cx?: number, cy?: number) => void
     resetZoom: () => void
@@ -62,7 +69,7 @@ export interface BlockSlice {
     moveBlock: (id: string, x: number, y: number) => void
     resizeBlock: (id: string, w: number, h: number) => void
 
-    createBlock: (type: string, x: number, y: number, w: number, h: number) => Promise<Block | null>
+    createBlock: (type: string, x: number, y: number, w: number, h: number, viewMode?: string) => Promise<Block | null>
     deleteBlock: (id: string) => Promise<void>
     saveBlockPosition: (id: string) => void
     saveBlockContent: (id: string, content: string) => void
@@ -120,9 +127,49 @@ export interface ConnectionSlice {
     deleteConnection: (id: string) => Promise<void>
 }
 
+// ── Entity Slice (unified canvas entities) ────────────────
+
+export interface EntitySlice {
+    entities: Map<string, CanvasEntity>
+    canvasConnections: CanvasConnection[]
+
+    setEntities: (entities: CanvasEntity[]) => void
+    addEntity: (entity: CanvasEntity) => void
+    removeEntity: (id: string) => void
+    updateEntity: (id: string, patch: Partial<CanvasEntity>) => void
+    setCanvasConnections: (conns: CanvasConnection[]) => void
+    addCanvasConnection: (conn: CanvasConnection) => void
+    removeCanvasConnection: (id: string) => void
+
+    createEntity: (type: string, x: number, y: number, w: number, h: number) => Promise<CanvasEntity | null>
+    deleteEntity: (id: string) => Promise<void>
+    saveEntityPatch: (id: string, patch: CanvasEntityPatch) => void
+    batchUpdateEntities: (patches: CanvasEntityPatchWithID[]) => Promise<void>
+    updateEntityZOrder: (orderedIDs: string[]) => Promise<void>
+    createCanvasConnection: (fromId: string, toId: string) => Promise<void>
+    deleteCanvasConnection: (id: string) => Promise<void>
+
+    getDomEntities: () => CanvasEntity[]
+    getCanvasEntities: () => CanvasEntity[]
+}
+
+// ── Selection Slice (unified selection) ────────────────────
+
+export interface SelectionSlice {
+    selectedIds: Set<string>
+
+    select: (id: string) => void
+    selectMultiple: (ids: string[]) => void
+    addToSelection: (id: string) => void
+    removeFromSelection: (id: string) => void
+    toggleSelection: (id: string) => void
+    clearSelection: () => void
+    isSelected: (id: string) => boolean
+}
+
 // ── Combined Store ─────────────────────────────────────────
 
-export type AppState = NotebookSlice & CanvasSlice & BlockSlice & DrawingSlice & ConnectionSlice & {
+export type AppState = NotebookSlice & CanvasSlice & BlockSlice & DrawingSlice & ConnectionSlice & EntitySlice & SelectionSlice & {
     /** Load full page state (blocks + connections + viewport + drawing) */
     loadPageState: (pageId: string) => Promise<void>
 

@@ -12,6 +12,7 @@ const tools: { id: DrawingSubTool | 'block'; icon: React.ReactNode; title: strin
     { id: 'ellipse' as DrawingSubTool, title: 'Ellipse (3)', key: '3', icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><ellipse cx="10" cy="10" rx="7" ry="5.5" stroke="currentColor" strokeWidth="1.3" /></svg> },
     { id: 'diamond' as DrawingSubTool, title: 'Diamond (4)', key: '4', icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l8 8-8 8-8-8z" stroke="currentColor" strokeWidth="1.3" /></svg> },
     { id: 'ortho-arrow' as DrawingSubTool, title: 'Arrow (5)', key: '5', icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 16h7V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /><path d="M8 7l3-3 3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg> },
+    { id: 'group' as DrawingSubTool, title: 'Group / Bounded Context (G)', key: 'g', icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="4.5" width="14" height="11" rx="1" stroke="currentColor" strokeWidth="1.3" strokeDasharray="3 2" /><text x="5" y="9" fontSize="6" fill="currentColor" fontWeight="600">Abc</text></svg> },
     { id: 'freedraw' as DrawingSubTool, title: 'Free Draw (6)', key: '6', icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 17c2-4 4-7 6-9s5-3 7-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /><circle cx="16" cy="5" r="1.5" stroke="currentColor" strokeWidth="1.3" /></svg> },
     { id: 'text' as DrawingSubTool, title: 'Text (T)', key: 't', icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><text x="5.5" y="16" fontSize="15" fontWeight="700" fill="currentColor">T</text></svg> },
     {
@@ -46,7 +47,7 @@ const tools: { id: DrawingSubTool | 'block'; icon: React.ReactNode; title: strin
 
 // Groups
 const GROUP_1 = ['draw-select']
-const GROUP_2 = ['rectangle', 'ellipse', 'diamond', 'ortho-arrow']
+const GROUP_2 = ['rectangle', 'ellipse', 'diamond', 'group', 'ortho-arrow']
 const GROUP_3 = ['freedraw', 'text']
 const GROUP_4 = ['block', 'db-block', 'code-block', 'localdb-block', 'chart-block', 'etl-block', 'http-block']
 

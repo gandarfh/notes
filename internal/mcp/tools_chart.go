@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -26,7 +27,7 @@ Example: [{"type":"group","groupBy":["category"],"metrics":[{"column":"sales","a
 
 func (s *Server) registerChartTools() {
 	s.mcp.AddTool(mcp.NewTool("create_chart",
-		mcp.WithDescription("Create a chart block linked to a LocalDB. Supports powerful data pipeline stages (filter, group, join, pivot, compute, sort, percent, and more) applied in sequence to transform data before visualization."),
+		mcp.WithDescription("Create a chart block linked to a LocalDB. Supports data pipeline stages (filter, group, join, pivot, compute, sort, percent, etc.) applied in sequence before visualization. The LocalDB must already contain data. If using ETL, run the job first and verify with list_localdb_rows. Use read_localdb_content to get exact column names for xColumn/yColumn."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("localdbBlockId", mcp.Description("Block ID of the LocalDB data source"), mcp.Required()),
 		mcp.WithString("chartType", mcp.Description("Chart type: bar, line, area, pie, scatter, number, etc."), mcp.Required()),
@@ -37,7 +38,7 @@ func (s *Server) registerChartTools() {
 	), s.handleCreateChart)
 
 	s.mcp.AddTool(mcp.NewTool("batch_create_charts",
-		mcp.WithDescription("Create multiple chart blocks at once. Pass a JSON array of chart objects."),
+		mcp.WithDescription("Create multiple chart blocks at once. Pass a JSON array of chart objects. The LocalDB must already contain data. If using ETL, run the job first and verify with list_localdb_rows."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("charts",
 			mcp.Description("JSON array of chart objects [{localdbBlockId, chartType, xColumn, yColumn, title?, stagesJSON?, x?, y?, width?, height?}, ...]"),
@@ -63,7 +64,7 @@ func parseStagesJSON(raw any) ([]any, error) {
 		return nil, nil
 	}
 	var stages []any
-	if err := json.Unmarshal([]byte(jsonStr), &stages); err != nil {
+	if err := parseJSON(jsonStr, &stages); err != nil {
 		return nil, fmt.Errorf("parse stagesJSON: %w", err)
 	}
 	return stages, nil
@@ -215,7 +216,7 @@ func (s *Server) handleCreateChart(ctx context.Context, req mcp.CallToolRequest)
 	existing, _ := s.blocks.ListBlocks(pageID)
 	x, y := s.layout.NextPosition(existing, 540, 420)
 
-	block, err := s.blocks.CreateBlock(pageID, "chart", x, y, 540, 420)
+	block, err := s.blocks.CreateBlock(pageID, "chart", x, y, 540, 420, "dashboard")
 	if err != nil {
 		return nil, fmt.Errorf("create chart block: %w", err)
 	}
@@ -258,7 +259,7 @@ func resolveColumnRef(configJSON, ref string) string {
 			Name string `json:"name"`
 		} `json:"columns"`
 	}
-	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
+	if err := parseJSON(configJSON, &cfg); err != nil {
 		return ref
 	}
 	for _, col := range cfg.Columns {
@@ -289,8 +290,11 @@ func (s *Server) handleBatchCreateCharts(ctx context.Context, req mcp.CallToolRe
 		Width          *float64 `json:"width"`
 		Height         *float64 `json:"height"`
 	}
-	if err := json.Unmarshal([]byte(chartsJSON), &charts); err != nil {
-		return nil, fmt.Errorf("parse charts JSON: %w", err)
+	
+	dec := json.NewDecoder(strings.NewReader(chartsJSON))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&charts); err != nil {
+		return nil, fmt.Errorf("invalid charts JSON contract (check allowed fields): %w", err)
 	}
 	if len(charts) == 0 {
 		return nil, fmt.Errorf("charts array is empty")
@@ -328,7 +332,7 @@ func (s *Server) handleBatchCreateCharts(ctx context.Context, req mcp.CallToolRe
 			x, y = s.layout.NextPosition(existing, w, h)
 		}
 
-		block, err := s.blocks.CreateBlock(pageID, "chart", x, y, w, h)
+		block, err := s.blocks.CreateBlock(pageID, "chart", x, y, w, h, "dashboard")
 		if err != nil {
 			return nil, fmt.Errorf("create chart block: %w", err)
 		}

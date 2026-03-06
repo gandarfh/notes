@@ -1,48 +1,57 @@
-import { type DrawingElement, type AnchorPoint, type AnchorSide, type Connection, GRID, isArrowType } from './types'
+import { type DrawingElement, type AnchorPoint, type AnchorSide, type AnchorableRect, type Connection, isArrowType } from './types'
 import { computeOrthoRoute, enforceOrthogonality, type Rect } from './ortho'
+import { type DrawingEngine, SHAPE_IDS } from './drawing-wasm'
+
+const getEngine = (): DrawingEngine | null => (globalThis as any).__drawingEngine ?? null
 
 /** Get anchor points for a shape element */
 export function getAnchors(el: DrawingElement): AnchorPoint[] {
     if (el.type === 'line' || el.type === 'arrow' || el.type === 'ortho-arrow' ||
-        el.type === 'freedraw' || el.type === 'text') return []
+        el.type === 'freedraw' || el.type === 'text' || el.type === 'group') return []
 
-    const anchors: AnchorPoint[] = []
-    const sides: { side: AnchorSide; x1: number; y1: number; x2: number; y2: number }[] = [
-        { side: 'top', x1: el.x, y1: el.y, x2: el.x + el.width, y2: el.y },
-        { side: 'bottom', x1: el.x, y1: el.y + el.height, x2: el.x + el.width, y2: el.y + el.height },
-        { side: 'left', x1: el.x, y1: el.y, x2: el.x, y2: el.y + el.height },
-        { side: 'right', x1: el.x + el.width, y1: el.y, x2: el.x + el.width, y2: el.y + el.height },
-    ]
-
-    for (const s of sides) {
-        const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1)
-        const count = Math.max(1, Math.floor(len / GRID))
-        for (let i = 0; i <= count; i++) {
-            const t = count === 0 ? 0.5 : i / count
-            anchors.push({
-                elementId: el.id, side: s.side, t,
-                x: s.x1 + (s.x2 - s.x1) * t,
-                y: s.y1 + (s.y2 - s.y1) * t,
-            })
-        }
+    const engine = getEngine()
+    if (engine && SHAPE_IDS[el.type] !== undefined) {
+        try {
+            const wasmAnchors = engine.getAnchors(el.type, el.width, el.height)
+            return wasmAnchors.map(a => ({
+                elementId: el.id,
+                side: a.side as AnchorSide,
+                t: a.t,
+                x: el.x + a.x,
+                y: el.y + a.y,
+            }))
+        } catch { /* WASM error */ }
     }
-    return anchors
+
+    return []
 }
 
-/** Resolve a connection to world coordinates */
-export function resolveAnchor(elements: DrawingElement[], conn: Connection): { x: number; y: number } | null {
+/** Resolve a connection to world coordinates (checks both drawing elements and optional block rects) */
+export function resolveAnchor(elements: DrawingElement[], conn: Connection, blockRects?: AnchorableRect[]): { x: number; y: number } | null {
     const el = elements.find(e => e.id === conn.elementId)
-    if (!el) return null
+    const rect: { x: number; y: number; width: number; height: number } | undefined =
+        el ?? blockRects?.find(r => r.id === conn.elementId)
+    if (!rect) return null
     switch (conn.side) {
-        case 'top': return { x: el.x + el.width * conn.t, y: el.y }
-        case 'bottom': return { x: el.x + el.width * conn.t, y: el.y + el.height }
-        case 'left': return { x: el.x, y: el.y + el.height * conn.t }
-        case 'right': return { x: el.x + el.width, y: el.y + el.height * conn.t }
+        case 'top': return { x: rect.x + rect.width * conn.t, y: rect.y }
+        case 'bottom': return { x: rect.x + rect.width * conn.t, y: rect.y + rect.height }
+        case 'left': return { x: rect.x, y: rect.y + rect.height * conn.t }
+        case 'right': return { x: rect.x + rect.width, y: rect.y + rect.height * conn.t }
     }
 }
 
-/** Find nearest anchor to a point */
-export function findNearestAnchor(elements: DrawingElement[], x: number, y: number, excludeId?: string): AnchorPoint | null {
+/** Get rectangular anchors for a simple rect (DOM blocks) — no WASM needed */
+export function getAnchorsForRect(rect: AnchorableRect): AnchorPoint[] {
+    return [
+        { elementId: rect.id, side: 'top',    t: 0.5, x: rect.x + rect.width / 2, y: rect.y },
+        { elementId: rect.id, side: 'bottom', t: 0.5, x: rect.x + rect.width / 2, y: rect.y + rect.height },
+        { elementId: rect.id, side: 'left',   t: 0.5, x: rect.x,                  y: rect.y + rect.height / 2 },
+        { elementId: rect.id, side: 'right',  t: 0.5, x: rect.x + rect.width,     y: rect.y + rect.height / 2 },
+    ]
+}
+
+/** Find nearest anchor to a point (searches both drawing elements and optional DOM block rects) */
+export function findNearestAnchor(elements: DrawingElement[], x: number, y: number, excludeId?: string, blockRects?: AnchorableRect[]): AnchorPoint | null {
     let best: AnchorPoint | null = null
     let bestDist = 20 // max snap distance
 
@@ -60,15 +69,79 @@ export function findNearestAnchor(elements: DrawingElement[], x: number, y: numb
             }
         }
     }
+
+    // Also check DOM block rects
+    if (blockRects) {
+        for (const rect of blockRects) {
+            if (rect.id === excludeId) continue
+            const margin = bestDist + 10
+            if (x < rect.x - margin || x > rect.x + rect.width + margin ||
+                y < rect.y - margin || y > rect.y + rect.height + margin) continue
+            for (const a of getAnchorsForRect(rect)) {
+                const d = Math.hypot(x - a.x, y - a.y)
+                if (d < bestDist) {
+                    bestDist = d
+                    best = a
+                }
+            }
+        }
+    }
+
     return best
 }
 
-/** Update arrows connected to a moved element.
- *  Always does a full path rebuild via computeOrthoRoute with all shapes as obstacles.
+/** Lightweight arrow update: resolves anchor positions and updates simple arrow endpoints
+ *  every frame without WASM re-routing. Skips ortho-arrows (handled by throttled updateConnectedArrows).
  */
-export function updateConnectedArrows(elements: DrawingElement[], movedElementId: string) {
-    // Collect all non-arrow shape rects once (reused for every arrow)
-    const shapeElements = elements.filter(e => !isArrowType(e))
+export function updateSimpleConnectedArrows(
+    elements: DrawingElement[],
+    movedElementId: string,
+    blockRects?: AnchorableRect[],
+) {
+    for (const el of elements) {
+        if (!isArrowType(el) || el.type === 'ortho-arrow') continue
+
+        const startMoved = el.startConnection?.elementId === movedElementId
+        const endMoved = el.endConnection?.elementId === movedElementId
+        if (!startMoved && !endMoved) continue
+
+        const startPt = el.startConnection ? resolveAnchor(elements, el.startConnection, blockRects) : null
+        const endPt = el.endConnection ? resolveAnchor(elements, el.endConnection, blockRects) : null
+
+        const hasValidPoints = el.points && el.points.length >= 2
+        const absStart = startPt ?? (hasValidPoints
+            ? { x: el.x + el.points![0][0], y: el.y + el.points![0][1] }
+            : { x: el.x, y: el.y })
+        const absEnd = endPt ?? (hasValidPoints
+            ? { x: el.x + el.points![el.points!.length - 1][0], y: el.y + el.points![el.points!.length - 1][1] }
+            : { x: el.x + el.width, y: el.y + el.height })
+
+        el.x = absStart.x
+        el.y = absStart.y
+        if (!el.points || el.points.length < 2) {
+            el.points = [[0, 0], [absEnd.x - el.x, absEnd.y - el.y]]
+        } else {
+            el.points[0] = [0, 0]
+            el.points[el.points.length - 1] = [absEnd.x - el.x, absEnd.y - el.y]
+        }
+
+        let maxPx = 0, maxPy = 0
+        for (const p of el.points!) {
+            const apx = Math.abs(p[0]), apy = Math.abs(p[1])
+            if (apx > maxPx) maxPx = apx
+            if (apy > maxPy) maxPy = apy
+        }
+        el.width = maxPx
+        el.height = maxPy
+    }
+}
+
+/** Update arrows connected to a moved element (drawing shape or DOM block).
+ *  Rebuilds path via computeOrthoRoute with nearby shapes as obstacles.
+ */
+export function updateConnectedArrows(elements: DrawingElement[], movedElementId: string, blockRects?: AnchorableRect[]) {
+    // Shapes list for lookups (computed once, filtering done per-arrow)
+    const shapeElements = elements.filter(e => !isArrowType(e) && e.type !== 'group')
 
     for (const el of elements) {
         if (!isArrowType(el)) continue
@@ -76,15 +149,19 @@ export function updateConnectedArrows(elements: DrawingElement[], movedElementId
         const startMoved = el.startConnection?.elementId === movedElementId
         const endMoved = el.endConnection?.elementId === movedElementId
         if (!startMoved && !endMoved) continue
-        if (!el.points || el.points.length < 2) continue
 
-        // Resolve current anchor positions
-        const startPt = el.startConnection ? resolveAnchor(elements, el.startConnection) : null
-        const endPt = el.endConnection ? resolveAnchor(elements, el.endConnection) : null
+        // Resolve current anchor positions (check both drawing elements and block rects)
+        const startPt = el.startConnection ? resolveAnchor(elements, el.startConnection, blockRects) : null
+        const endPt = el.endConnection ? resolveAnchor(elements, el.endConnection, blockRects) : null
 
-        // Determine absolute start/end positions
-        const absStart = startPt ?? { x: el.x + el.points[0][0], y: el.y + el.points[0][1] }
-        const absEnd = endPt ?? { x: el.x + el.points[el.points.length - 1][0], y: el.y + el.points[el.points.length - 1][1] }
+        // Determine absolute start/end positions — recover from corrupted/empty points
+        const hasValidPoints = el.points && el.points.length >= 2
+        const absStart = startPt ?? (hasValidPoints
+            ? { x: el.x + el.points![0][0], y: el.y + el.points![0][1] }
+            : { x: el.x, y: el.y })
+        const absEnd = endPt ?? (hasValidPoints
+            ? { x: el.x + el.points![el.points!.length - 1][0], y: el.y + el.points![el.points!.length - 1][1] }
+            : { x: el.x + el.width, y: el.y + el.height })
 
         // Update arrow origin to new start
         el.x = absStart.x
@@ -95,28 +172,60 @@ export function updateConnectedArrows(elements: DrawingElement[], movedElementId
             const dy = absEnd.y - absStart.y
 
             // Build obstacle rects relative to arrow origin (all shapes except src/dst)
-            const sR: Rect | undefined = el.startConnection
-                ? (() => { const s = shapeElements.find(e => e.id === el.startConnection!.elementId); return s ? { x: s.x - absStart.x, y: s.y - absStart.y, w: s.width, h: s.height } : undefined })()
-                : undefined
-            const eR: Rect | undefined = el.endConnection
-                ? (() => { const s = shapeElements.find(e => e.id === el.endConnection!.elementId); return s ? { x: s.x - absStart.x, y: s.y - absStart.y, w: s.width, h: s.height } : undefined })()
-                : undefined
+            // Search both drawing elements and block rects for connected entities
+            const findRect = (id?: string): Rect | undefined => {
+                if (!id) return undefined
+                const s = shapeElements.find(e => e.id === id)
+                if (s) return { x: s.x - absStart.x, y: s.y - absStart.y, w: s.width, h: s.height }
+                const b = blockRects?.find(r => r.id === id)
+                if (b) return { x: b.x - absStart.x, y: b.y - absStart.y, w: b.width, h: b.height }
+                return undefined
+            }
+            const sR = findRect(el.startConnection?.elementId)
+            const eR = findRect(el.endConnection?.elementId)
 
-            // Collect all other shapes as obstacles (arrow-local coords)
+            // Collect nearby shapes + blocks as obstacles (spatial filter by route corridor)
             const excludeIds = new Set([el.startConnection?.elementId, el.endConnection?.elementId].filter(Boolean))
-            const obstacleRects: Rect[] = shapeElements
-                .filter(e => !excludeIds.has(e.id))
-                .map(e => ({ x: e.x - absStart.x, y: e.y - absStart.y, w: e.width, h: e.height }))
+            const margin = 200
+            const minWx = absStart.x + Math.min(0, dx) - margin
+            const maxWx = absStart.x + Math.max(0, dx) + margin
+            const minWy = absStart.y + Math.min(0, dy) - margin
+            const maxWy = absStart.y + Math.max(0, dy) + margin
+
+            const obstacleRects: Rect[] = []
+            for (const e of shapeElements) {
+                if (excludeIds.has(e.id)) continue
+                if (e.x + e.width < minWx || e.x > maxWx || e.y + e.height < minWy || e.y > maxWy) continue
+                obstacleRects.push({ x: e.x - absStart.x, y: e.y - absStart.y, w: e.width, h: e.height })
+            }
+            if (blockRects) {
+                for (const r of blockRects) {
+                    if (excludeIds.has(r.id)) continue
+                    if (r.x + r.width < minWx || r.x > maxWx || r.y + r.height < minWy || r.y > maxWy) continue
+                    obstacleRects.push({ x: r.x - absStart.x, y: r.y - absStart.y, w: r.width, h: r.height })
+                }
+            }
 
             el.points = computeOrthoRoute(dx, dy, el.startConnection?.side, el.endConnection?.side, sR, eR, obstacleRects)
             enforceOrthogonality(el)
         } else {
             // Simple arrow — just update endpoints
-            el.points[0] = [0, 0]
-            el.points[el.points.length - 1] = [absEnd.x - absStart.x, absEnd.y - absStart.y]
+            if (!el.points || el.points.length < 2) {
+                el.points = [[0, 0], [absEnd.x - absStart.x, absEnd.y - absStart.y]]
+            } else {
+                el.points[0] = [0, 0]
+                el.points[el.points.length - 1] = [absEnd.x - absStart.x, absEnd.y - absStart.y]
+            }
         }
 
-        el.width = Math.abs((el.points[el.points.length - 1]?.[0] ?? 0))
-        el.height = Math.abs((el.points[el.points.length - 1]?.[1] ?? 0))
+        // Compute width/height from actual path bounds (not just last point)
+        let maxPx = 0, maxPy = 0
+        for (const p of el.points!) {
+            const apx = Math.abs(p[0]), apy = Math.abs(p[1])
+            if (apx > maxPx) maxPx = apx
+            if (apy > maxPy) maxPy = apy
+        }
+        el.width = maxPx
+        el.height = maxPy
     }
 }

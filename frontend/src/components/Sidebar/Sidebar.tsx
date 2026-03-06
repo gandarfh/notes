@@ -3,7 +3,7 @@ import { useAppStore } from '../../store'
 import { api } from '../../bridge/wails'
 import { registerModal } from '../../input'
 import type { Notebook, Page } from '../../bridge/wails'
-import { IconSparkles, IconFile } from '@tabler/icons-react'
+import { IconSparkles, IconFile, IconLayout } from '@tabler/icons-react'
 
 // ── Sidebar Toggle Button (always visible) ─────────────────
 
@@ -41,6 +41,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
     const selectNotebook = useAppStore(s => s.selectNotebook)
     const toggleNotebook = useAppStore(s => s.toggleNotebook)
     const createPage = useAppStore(s => s.createPage)
+    const createBoardPage = useAppStore(s => s.createBoardPage)
     const renamePage = useAppStore(s => s.renamePage)
     const deletePage = useAppStore(s => s.deletePage)
     const selectPage = useAppStore(s => s.selectPage)
@@ -104,6 +105,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
                             }}
                             onSelectPage={(id) => { selectPage(id); onClose() }}
                             onCreatePage={(name) => createPage(nb.id, name)}
+                            onCreateBoardPage={(name) => createBoardPage(nb.id, name)}
                             onRenamePage={renamePage}
                             onDeletePage={deletePage}
                             onRenameNotebook={(name) => renameNotebook(nb.id, name)}
@@ -173,6 +175,7 @@ interface NotebookItemProps {
     onToggle: () => void
     onSelectPage: (id: string) => void
     onCreatePage: (name: string) => void
+    onCreateBoardPage: (name: string) => void
     onRenamePage: (id: string, name: string) => void
     onDeletePage: (id: string) => void
     onRenameNotebook: (name: string) => void
@@ -181,10 +184,10 @@ interface NotebookItemProps {
 
 function NotebookItem({
     notebook, isActive, isExpanded, activePageId,
-    onToggle, onSelectPage, onCreatePage,
+    onToggle, onSelectPage, onCreatePage, onCreateBoardPage,
     onRenamePage, onDeletePage, onRenameNotebook, onDeleteNotebook,
 }: NotebookItemProps) {
-    const [showInlineInput, setShowInlineInput] = useState(false)
+    const [showInlineInput, setShowInlineInput] = useState<false | 'page' | 'board'>(false)
     const [pages, setPages] = useState<Page[]>([])
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'notebook' | 'page'; pageId?: string } | null>(null)
     const [renaming, setRenaming] = useState<{ type: 'notebook' | 'page'; pageId?: string } | null>(null)
@@ -240,7 +243,9 @@ function NotebookItem({
                                 : 'text-text-muted hover:bg-hover hover:text-text-secondary'
                                 }`}
                         >
-                            <span className="text-[0.769rem] opacity-50"><IconFile size={12} /></span>
+                            <span className="text-[0.769rem] opacity-50">
+                                {page.pageType === 'board' ? <IconLayout size={12} /> : <IconFile size={12} />}
+                            </span>
                             {renaming?.type === 'page' && renaming.pageId === page.id ? (
                                 <InlineInput
                                     placeholder="Page name..."
@@ -260,23 +265,34 @@ function NotebookItem({
 
                     {showInlineInput ? (
                         <InlineInput
-                            placeholder="Page name..."
+                            placeholder={showInlineInput === 'board' ? 'Board name...' : 'Page name...'}
                             onSubmit={async (name) => {
-                                onCreatePage(name)
+                                if (showInlineInput === 'board') {
+                                    onCreateBoardPage(name)
+                                } else {
+                                    onCreatePage(name)
+                                }
                                 setShowInlineInput(false)
-                                // Wait for backend, then refresh pages list
                                 await new Promise(r => setTimeout(r, 100))
                                 api.listPages(notebook.id).then(p => setPages(p || []))
                             }}
                             onCancel={() => setShowInlineInput(false)}
                         />
                     ) : (
-                        <button
-                            onClick={() => setShowInlineInput(true)}
-                            className="flex items-center gap-1.5 px-2.5 py-1 mt-0.5 rounded-sm cursor-pointer text-text-muted text-xs border-none bg-transparent w-full transition-all duration-100 hover:bg-hover hover:text-text-secondary"
-                        >
-                            <span>+</span> Add Page
-                        </button>
+                        <div className="flex items-center gap-0.5 mt-0.5">
+                            <button
+                                onClick={() => setShowInlineInput('page')}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm cursor-pointer text-text-muted text-xs border-none bg-transparent flex-1 transition-all duration-100 hover:bg-hover hover:text-text-secondary"
+                            >
+                                <span>+</span> Page
+                            </button>
+                            <button
+                                onClick={() => setShowInlineInput('board')}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm cursor-pointer text-text-muted text-xs border-none bg-transparent flex-1 transition-all duration-100 hover:bg-hover hover:text-text-secondary"
+                            >
+                                <span>+</span> Board
+                            </button>
+                        </div>
                     )}
                 </div>
             )}

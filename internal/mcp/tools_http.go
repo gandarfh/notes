@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -39,7 +40,7 @@ func (s *Server) handleCreateHTTPBlock(ctx context.Context, req mcp.CallToolRequ
 	existing, _ := s.blocks.ListBlocks(pageID)
 	x, y := s.layout.NextPosition(existing, 540, 480)
 
-	block, err := s.blocks.CreateBlock(pageID, "http", x, y, 540, 480)
+	block, err := s.blocks.CreateBlock(pageID, "http", x, y, 540, 480, "dashboard")
 	if err != nil {
 		return nil, fmt.Errorf("create http block: %w", err)
 	}
@@ -55,7 +56,9 @@ func (s *Server) handleCreateHTTPBlock(ctx context.Context, req mcp.CallToolRequ
 	}
 	if headersStr != "" {
 		var headers map[string]string
-		if err := json.Unmarshal([]byte(headersStr), &headers); err == nil {
+		dec := json.NewDecoder(strings.NewReader(headersStr))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&headers); err == nil {
 			config["headers"] = headers
 		}
 	}
@@ -82,7 +85,7 @@ func (s *Server) handleExecuteHTTPRequest(ctx context.Context, req mcp.CallToolR
 
 	// Parse the HTTP config from block content
 	var config map[string]any
-	if err := json.Unmarshal([]byte(block.Content), &config); err != nil {
+	if err := parseJSON(block.Content, &config); err != nil {
 		return nil, fmt.Errorf("parse HTTP config: %w", err)
 	}
 

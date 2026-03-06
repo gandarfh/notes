@@ -1,13 +1,15 @@
 import { create } from 'zustand'
 import { api, onEvent } from '../bridge/wails'
-import type { Block } from '../bridge/wails'
+import type { Block, CanvasEntity } from '../bridge/wails'
 import type { AppState } from './types'
 import { useUndoTree } from './useUndoTree'
-import { captureSnapshot } from './helpers'
+import { captureSnapshot, mergeBlocks } from './helpers'
 import { createNotebookSlice } from './notebookSlice'
 import { createCanvasSlice, createBlockSlice } from './canvasSlice'
 import { createDrawingSlice } from './drawingSlice'
 import { createConnectionSlice } from './connectionSlice'
+import { createEntitySlice } from './entitySlice'
+import { createSelectionSlice } from './selectionSlice'
 import { pluginBus } from '../plugins/sdk/runtime/eventBus'
 import useToastStore from './toastSlice'
 
@@ -24,26 +26,7 @@ async function reloadWithUndo(get: () => AppState, pageId: string, label: string
         const selectedId = get().selectedBlockId
         const editingId = get().editingBlockId
 
-        // Smart merge: preserve position/size of blocks the user is actively
-        // interacting with (selected/editing/fullscreen). Other blocks accept
-        // MCP changes including position updates. New blocks added, deleted removed.
-        const merged = new Map<string, Block>()
-        for (const [id, newBlock] of incoming) {
-            const existing = current.get(id)
-            if (existing && (id === selectedId || id === editingId)) {
-                // User is interacting with this block — keep current position/size
-                merged.set(id, {
-                    ...newBlock,
-                    x: existing.x,
-                    y: existing.y,
-                    width: existing.width,
-                    height: existing.height,
-                })
-            } else {
-                // Not interacting — accept full DB state (including MCP moves)
-                merged.set(id, newBlock)
-            }
-        }
+        const merged = mergeBlocks(incoming, current, new Set([selectedId, editingId]))
 
         set({
             blocks: merged,
@@ -67,6 +50,8 @@ export const useAppStore = create<AppState>((...a) => ({
     ...createBlockSlice(...a),
     ...createDrawingSlice(...a),
     ...createConnectionSlice(...a),
+    ...createEntitySlice(...a),
+    ...createSelectionSlice(...a),
 
     // ── Cross-slice actions ────────────────────────────────
 
@@ -75,6 +60,9 @@ export const useAppStore = create<AppState>((...a) => ({
         set({
             blocks: new Map(),
             connections: [],
+            entities: new Map(),
+            canvasConnections: [],
+            selectedIds: new Set(),
             drawingData: '',
             selectedBlockId: null,
             editingBlockId: null,
@@ -85,11 +73,20 @@ export const useAppStore = create<AppState>((...a) => ({
             const blocks = new Map<string, Block>()
                 ; (ps.blocks || []).forEach(b => blocks.set(b.id, b))
 
+            const entities = new Map<string, CanvasEntity>()
+                ; (ps.entities || []).forEach(e => entities.set(e.id, e))
+
             set({
                 viewport: { x: ps.page.viewportX, y: ps.page.viewportY, zoom: ps.page.viewportZoom || 1 },
                 blocks,
                 connections: ps.connections || [],
+                entities,
+                canvasConnections: ps.canvasConnections || [],
                 drawingData: ps.page.drawingData || '',
+                activePageType: ps.page.pageType || 'canvas',
+                activeBoardMode: ps.page.boardMode || 'document',
+                activeBoardContent: ps.page.boardContent || '',
+                activeBoardLayout: ps.page.boardLayout || '[]',
             })
 
             await useUndoTree.getState().loadTree(pageId)

@@ -1,65 +1,245 @@
-package service_test
+package service
 
 import (
 	"testing"
-	"time"
 
-	"notes/internal/service"
+	"notes/internal/storage"
+	"notes/internal/testutil"
 )
 
-// ─────────────────────────────────────────────────────────────
-// LocalDBService unit tests
-// Only tests paths that don't require a real SQLite store.
-// ─────────────────────────────────────────────────────────────
+func newLocalDBService(t *testing.T) *LocalDBService {
+	t.Helper()
+	db := testutil.NewTestDB(t)
+	store := storage.NewLocalDatabaseStore(db)
+	return NewLocalDBService(store)
+}
 
-func TestLocalDBService_NewLocalDBService(t *testing.T) {
-	svc := service.NewLocalDBService(nil)
-	if svc == nil {
-		t.Fatal("expected non-nil LocalDBService")
+func TestLocalDBService_CreateDatabase(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	db, err := svc.CreateDatabase("block-1", "Users")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	if db.ID == "" {
+		t.Error("ID should be auto-generated")
+	}
+	if db.BlockID != "block-1" {
+		t.Errorf("blockID = %q", db.BlockID)
+	}
+	if db.Name != "Users" {
+		t.Errorf("name = %q", db.Name)
+	}
+	if db.ConfigJSON != "{}" {
+		t.Errorf("config = %q, want {}", db.ConfigJSON)
 	}
 }
 
-func TestLocalDBService_GetDatabaseStats_MethodExists(t *testing.T) {
-	svc := service.NewLocalDBService(nil)
-	// Compile-time check: method must exist with correct signature
-	_ = svc.GetDatabaseStats
+func TestLocalDBService_GetDatabase(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	created, _ := svc.CreateDatabase("block-1", "Users")
+
+	// GetDatabase uses GetDatabaseByBlock
+	got, err := svc.GetDatabase("block-1")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.ID != created.ID {
+		t.Errorf("id = %q, want %q", got.ID, created.ID)
+	}
+}
+
+func TestLocalDBService_UpdateConfig(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	db, _ := svc.CreateDatabase("block-1", "Users")
+
+	config := `{"columns":[{"id":"c1","type":"text"}]}`
+	if err := svc.UpdateConfig(db.ID, config); err != nil {
+		t.Fatalf("update config: %v", err)
+	}
+
+	got, _ := svc.GetDatabase("block-1")
+	if got.ConfigJSON != config {
+		t.Errorf("config = %q", got.ConfigJSON)
+	}
+}
+
+func TestLocalDBService_RenameDatabase(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	db, _ := svc.CreateDatabase("block-1", "Old")
+
+	if err := svc.RenameDatabase(db.ID, "New"); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+
+	got, _ := svc.GetDatabase("block-1")
+	if got.Name != "New" {
+		t.Errorf("name = %q", got.Name)
+	}
+}
+
+func TestLocalDBService_DeleteDatabase(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	db, _ := svc.CreateDatabase("block-1", "Users")
+
+	if err := svc.DeleteDatabase(db.ID); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	_, err := svc.GetDatabase("block-1")
+	if err == nil {
+		t.Fatal("expected error after delete")
+	}
+}
+
+func TestLocalDBService_ListDatabases(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	svc.CreateDatabase("block-1", "A")
+	svc.CreateDatabase("block-2", "B")
+
+	list, err := svc.ListDatabases()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("len = %d, want 2", len(list))
+	}
+}
+
+func TestLocalDBService_GetDatabaseStats(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	db, _ := svc.CreateDatabase("block-1", "Users")
+
+	stats, err := svc.GetDatabaseStats(db.ID)
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	if stats.RowCount != 0 {
+		t.Errorf("rowCount = %d, want 0", stats.RowCount)
+	}
+
+	svc.CreateRow(db.ID, `{"name":"alice"}`)
+	svc.CreateRow(db.ID, `{"name":"bob"}`)
+
+	stats, _ = svc.GetDatabaseStats(db.ID)
+	if stats.RowCount != 2 {
+		t.Errorf("rowCount = %d, want 2", stats.RowCount)
+	}
+}
+
+// ── Row Tests ───────────────────────────────────────────────
+
+func TestLocalDBService_CreateAndListRows(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	db, _ := svc.CreateDatabase("block-1", "Users")
+
+	row, err := svc.CreateRow(db.ID, `{"name":"alice"}`)
+	if err != nil {
+		t.Fatalf("create row: %v", err)
+	}
+	if row.ID == "" {
+		t.Error("ID should be auto-generated")
+	}
+	if row.DataJSON != `{"name":"alice"}` {
+		t.Errorf("data = %q", row.DataJSON)
+	}
+
+	rows, _ := svc.ListRows(db.ID)
+	if len(rows) != 1 {
+		t.Fatalf("len = %d, want 1", len(rows))
+	}
+}
+
+func TestLocalDBService_UpdateRow(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	db, _ := svc.CreateDatabase("block-1", "Users")
+	row, _ := svc.CreateRow(db.ID, `{"name":"old"}`)
+
+	if err := svc.UpdateRow(row.ID, `{"name":"new"}`); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	rows, _ := svc.ListRows(db.ID)
+	if rows[0].DataJSON != `{"name":"new"}` {
+		t.Errorf("data = %q", rows[0].DataJSON)
+	}
+}
+
+func TestLocalDBService_DeleteRow(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	db, _ := svc.CreateDatabase("block-1", "Users")
+	row, _ := svc.CreateRow(db.ID, `{}`)
+
+	if err := svc.DeleteRow(row.ID); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	rows, _ := svc.ListRows(db.ID)
+	if len(rows) != 0 {
+		t.Errorf("len = %d, want 0", len(rows))
+	}
+}
+
+func TestLocalDBService_DuplicateRow(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	db, _ := svc.CreateDatabase("block-1", "Users")
+	original, _ := svc.CreateRow(db.ID, `{"name":"alice"}`)
+
+	dup, err := svc.DuplicateRow(original.ID)
+	if err != nil {
+		t.Fatalf("duplicate: %v", err)
+	}
+
+	if dup.ID == original.ID {
+		t.Error("duplicate should have different ID")
+	}
+	if dup.DataJSON != original.DataJSON {
+		t.Errorf("data = %q, want %q", dup.DataJSON, original.DataJSON)
+	}
+	if dup.DatabaseID != original.DatabaseID {
+		t.Errorf("databaseID = %q", dup.DatabaseID)
+	}
+
+	rows, _ := svc.ListRows(db.ID)
+	if len(rows) != 2 {
+		t.Fatalf("len = %d, want 2", len(rows))
+	}
+}
+
+func TestLocalDBService_ReorderRows(t *testing.T) {
+	svc := newLocalDBService(t)
+
+	db, _ := svc.CreateDatabase("block-1", "Users")
+	r1, _ := svc.CreateRow(db.ID, `{"name":"a"}`)
+	r2, _ := svc.CreateRow(db.ID, `{"name":"b"}`)
+	r3, _ := svc.CreateRow(db.ID, `{"name":"c"}`)
+
+	// Reverse order
+	if err := svc.ReorderRows(db.ID, []string{r3.ID, r2.ID, r1.ID}); err != nil {
+		t.Fatalf("reorder: %v", err)
+	}
+
+	rows, _ := svc.ListRows(db.ID)
+	if rows[0].ID != r3.ID {
+		t.Errorf("first row = %q, want %q", rows[0].ID, r3.ID)
+	}
 }
 
 func TestLocalDBService_BatchUpdateRows_Noop(t *testing.T) {
-	// BatchUpdateRows is a no-op placeholder — should not error
-	svc := service.NewLocalDBService(nil)
+	svc := newLocalDBService(t)
 	err := svc.BatchUpdateRows("db-1", `[{"rowId":"r1","data":{}}]`)
 	if err != nil {
-		t.Errorf("BatchUpdateRows no-op returned unexpected error: %v", err)
+		t.Errorf("BatchUpdateRows noop returned error: %v", err)
 	}
-}
-
-func TestLocalDBService_LocalDBStats_Fields(t *testing.T) {
-	// Verify LocalDBStats struct has the expected fields (compile-time check)
-	stats := &service.LocalDBStats{
-		RowCount:    10,
-		LastUpdated: time.Now(),
-	}
-	if stats.RowCount != 10 {
-		t.Errorf("expected RowCount=10, got %d", stats.RowCount)
-	}
-}
-
-func TestLocalDBService_MethodsExist(t *testing.T) {
-	svc := service.NewLocalDBService(nil)
-	// Compile-time checks for all exported methods
-	_ = svc.CreateDatabase
-	_ = svc.GetDatabase
-	_ = svc.UpdateConfig
-	_ = svc.RenameDatabase
-	_ = svc.DeleteDatabase
-	_ = svc.ListDatabases
-	_ = svc.GetDatabaseStats
-	_ = svc.CreateRow
-	_ = svc.ListRows
-	_ = svc.UpdateRow
-	_ = svc.DeleteRow
-	_ = svc.DuplicateRow
-	_ = svc.ReorderRows
-	_ = svc.BatchUpdateRows
 }

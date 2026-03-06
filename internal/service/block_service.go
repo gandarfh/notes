@@ -31,7 +31,7 @@ func NewBlockService(store *storage.BlockStore, dataDir string, emitter EventEmi
 }
 
 // CreateBlock creates a new block on a page.
-func (s *BlockService) CreateBlock(pageID, blockType string, x, y, width, height float64) (*domain.Block, error) {
+func (s *BlockService) CreateBlock(pageID, blockType string, x, y, width, height float64, viewMode string) (*domain.Block, error) {
 	id := uuid.New().String()
 
 	// Type-specific defaults
@@ -46,15 +46,20 @@ func (s *BlockService) CreateBlock(pageID, blockType string, x, y, width, height
 		ext = ".txt"
 	}
 
+	if viewMode == "" {
+		viewMode = domain.BlockViewDashboard
+	}
+
 	b := &domain.Block{
-		ID:      id,
-		PageID:  pageID,
-		Type:    domain.BlockType(blockType),
-		X:       x,
-		Y:       y,
-		Width:   width,
-		Height:  height,
-		Content: content,
+		ID:       id,
+		PageID:   pageID,
+		Type:     domain.BlockType(blockType),
+		X:        x,
+		Y:        y,
+		Width:    width,
+		Height:   height,
+		Content:  content,
+		ViewMode: viewMode,
 	}
 
 	// Auto-create backing file for editable block types

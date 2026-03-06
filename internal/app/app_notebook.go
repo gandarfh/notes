@@ -68,6 +68,22 @@ func (a *App) UpdateDrawingData(pageID string, data string) error {
 	return a.notebooks.UpdateDrawingData(pageID, data)
 }
 
+func (a *App) CreateBoardPage(notebookID, name string) (*domain.Page, error) {
+	return a.notebooks.CreateBoardPage(notebookID, name)
+}
+
+func (a *App) UpdateBoardContent(pageID, content string) error {
+	return a.notebooks.UpdateBoardContent(pageID, content)
+}
+
+func (a *App) UpdateBoardLayout(pageID, layout string) error {
+	return a.notebooks.UpdateBoardLayout(pageID, layout)
+}
+
+func (a *App) UpdateBoardMode(pageID, mode string) error {
+	return a.notebooks.UpdateBoardMode(pageID, mode)
+}
+
 func (a *App) DeletePage(id string) error {
 	return a.notebooks.DeletePage(id)
 }

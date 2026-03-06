@@ -12,6 +12,8 @@ export function ApplyMutations(arg1:string,arg2:string,arg3:Array<dbclient.Mutat
 
 export function ApproveAction(arg1:string):Promise<void>;
 
+export function BatchUpdateCanvasEntities(arg1:Array<domain.CanvasEntityPatchWithID>):Promise<void>;
+
 export function BatchUpdateLocalDBRows(arg1:string,arg2:string):Promise<void>;
 
 export function ChangeBlockFileExt(arg1:string,arg2:string):Promise<string>;
@@ -20,7 +22,13 @@ export function ClearCachedResult(arg1:string):Promise<void>;
 
 export function CloseEditor():Promise<void>;
 
-export function CreateBlock(arg1:string,arg2:string,arg3:number,arg4:number,arg5:number,arg6:number):Promise<domain.Block>;
+export function CreateBlock(arg1:string,arg2:string,arg3:number,arg4:number,arg5:number,arg6:number,arg7:string):Promise<domain.Block>;
+
+export function CreateBoardPage(arg1:string,arg2:string):Promise<domain.Page>;
+
+export function CreateCanvasConnection(arg1:string,arg2:string,arg3:string):Promise<domain.CanvasConnection>;
+
+export function CreateCanvasEntity(arg1:string,arg2:string,arg3:number,arg4:number,arg5:number,arg6:number):Promise<domain.CanvasEntity>;
 
 export function CreateConnection(arg1:string,arg2:string,arg3:string):Promise<domain.Connection>;
 
@@ -37,6 +45,10 @@ export function CreateNotebook(arg1:string):Promise<domain.Notebook>;
 export function CreatePage(arg1:string,arg2:string):Promise<domain.Page>;
 
 export function DeleteBlock(arg1:string):Promise<void>;
+
+export function DeleteCanvasConnection(arg1:string):Promise<void>;
+
+export function DeleteCanvasEntity(arg1:string):Promise<void>;
 
 export function DeleteConnection(arg1:string):Promise<void>;
 
@@ -66,6 +78,10 @@ export function FetchMoreRows(arg1:string,arg2:number):Promise<app.QueryResultVi
 
 export function GetCachedResult(arg1:string):Promise<app.QueryResultView>;
 
+export function GetCanvasConnection(arg1:string):Promise<domain.CanvasConnection>;
+
+export function GetCanvasEntity(arg1:string):Promise<domain.CanvasEntity>;
+
 export function GetETLJob(arg1:string):Promise<etl.SyncJob>;
 
 export function GetImageData(arg1:string):Promise<string>;
@@ -79,6 +95,10 @@ export function GetPageState(arg1:string):Promise<domain.PageState>;
 export function GoToUndoNode(arg1:string,arg2:string):Promise<void>;
 
 export function IntrospectDatabase(arg1:string):Promise<dbclient.SchemaInfo>;
+
+export function ListCanvasConnections(arg1:string):Promise<Array<domain.CanvasConnection>>;
+
+export function ListCanvasEntities(arg1:string):Promise<Array<domain.CanvasEntity>>;
 
 export function ListDatabaseConnections():Promise<Array<domain.DatabaseConnection>>;
 
@@ -146,6 +166,16 @@ export function UpdateBlockFilePath(arg1:string,arg2:string):Promise<string>;
 
 export function UpdateBlockPosition(arg1:string,arg2:number,arg3:number,arg4:number,arg5:number):Promise<void>;
 
+export function UpdateBoardContent(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateBoardLayout(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateBoardMode(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateCanvasConnection(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string,arg8:string,arg9:number,arg10:number):Promise<void>;
+
+export function UpdateCanvasEntity(arg1:string,arg2:domain.CanvasEntityPatch):Promise<void>;
+
 export function UpdateConnection(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function UpdateDatabaseConnection(arg1:string,arg2:app.CreateDBConnInput):Promise<void>;
@@ -153,6 +183,8 @@ export function UpdateDatabaseConnection(arg1:string,arg2:app.CreateDBConnInput)
 export function UpdateDrawingData(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateETLJob(arg1:string,arg2:service.CreateETLJobInput):Promise<void>;
+
+export function UpdateEntityZOrder(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function UpdateLocalDBRow(arg1:string,arg2:string):Promise<void>;
 

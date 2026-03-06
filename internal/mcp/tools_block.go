@@ -158,7 +158,7 @@ func (s *Server) handleCreateBlock(ctx context.Context, req mcp.CallToolRequest)
 		x, y = s.layout.NextPosition(existing, w, h)
 	}
 
-	block, err := s.blocks.CreateBlock(pageID, blockType, x, y, w, h)
+	block, err := s.blocks.CreateBlock(pageID, blockType, x, y, w, h, "dashboard")
 	if err != nil {
 		return nil, fmt.Errorf("create block: %w", err)
 	}
@@ -389,8 +389,11 @@ func (s *Server) handleBatchUpdateBlocks(ctx context.Context, req mcp.CallToolRe
 		Width   *float64 `json:"width"`
 		Height  *float64 `json:"height"`
 	}
-	if err := json.Unmarshal([]byte(patchesJSON), &patches); err != nil {
-		return nil, fmt.Errorf("parse patches JSON: %w", err)
+	
+	dec := json.NewDecoder(strings.NewReader(patchesJSON))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&patches); err != nil {
+		return nil, fmt.Errorf("invalid patches JSON contract (check allowed fields): %w", err)
 	}
 	if len(patches) == 0 {
 		return nil, fmt.Errorf("patches array is empty")
@@ -514,35 +517,11 @@ func splitIDs(s string) []string {
 		return nil
 	}
 	var ids []string
-	for _, part := range splitString(s, ',') {
-		trimmed := trimSpace(part)
+	for _, part := range strings.Split(s, ",") {
+		trimmed := strings.TrimSpace(part)
 		if trimmed != "" {
 			ids = append(ids, trimmed)
 		}
 	}
 	return ids
-}
-
-func splitString(s string, sep byte) []string {
-	var result []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == sep {
-			result = append(result, s[start:i])
-			start = i + 1
-		}
-	}
-	result = append(result, s[start:])
-	return result
-}
-
-func trimSpace(s string) string {
-	start, end := 0, len(s)
-	for start < end && s[start] == ' ' {
-		start++
-	}
-	for end > start && s[end-1] == ' ' {
-		end--
-	}
-	return s[start:end]
 }

@@ -21,8 +21,8 @@ func (s *BlockStore) CreateBlock(b *domain.Block) error {
 	b.CreatedAt = now
 	b.UpdatedAt = now
 	_, err := s.db.Conn().Exec(
-		`INSERT INTO blocks (id, page_id, type, x, y, width, height, content, file_path, style_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		b.ID, b.PageID, b.Type, b.X, b.Y, b.Width, b.Height, b.Content, b.FilePath, b.StyleJSON, b.CreatedAt, b.UpdatedAt,
+		`INSERT INTO blocks (id, page_id, type, x, y, width, height, content, file_path, style_json, view_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		b.ID, b.PageID, b.Type, b.X, b.Y, b.Width, b.Height, b.Content, b.FilePath, b.StyleJSON, b.ViewMode, b.CreatedAt, b.UpdatedAt,
 	)
 	return err
 }
@@ -30,8 +30,8 @@ func (s *BlockStore) CreateBlock(b *domain.Block) error {
 func (s *BlockStore) GetBlock(id string) (*domain.Block, error) {
 	b := &domain.Block{}
 	err := s.db.Conn().QueryRow(
-		`SELECT id, page_id, type, x, y, width, height, content, file_path, style_json, created_at, updated_at FROM blocks WHERE id = ?`, id,
-	).Scan(&b.ID, &b.PageID, &b.Type, &b.X, &b.Y, &b.Width, &b.Height, &b.Content, &b.FilePath, &b.StyleJSON, &b.CreatedAt, &b.UpdatedAt)
+		`SELECT id, page_id, type, x, y, width, height, content, file_path, style_json, view_mode, created_at, updated_at FROM blocks WHERE id = ?`, id,
+	).Scan(&b.ID, &b.PageID, &b.Type, &b.X, &b.Y, &b.Width, &b.Height, &b.Content, &b.FilePath, &b.StyleJSON, &b.ViewMode, &b.CreatedAt, &b.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("get block: %w", err)
 	}
@@ -40,7 +40,7 @@ func (s *BlockStore) GetBlock(id string) (*domain.Block, error) {
 
 func (s *BlockStore) ListBlocks(pageID string) ([]domain.Block, error) {
 	rows, err := s.db.Conn().Query(
-		`SELECT id, page_id, type, x, y, width, height, content, file_path, style_json, created_at, updated_at FROM blocks WHERE page_id = ? ORDER BY created_at ASC`,
+		`SELECT id, page_id, type, x, y, width, height, content, file_path, style_json, view_mode, created_at, updated_at FROM blocks WHERE page_id = ? ORDER BY created_at ASC`,
 		pageID,
 	)
 	if err != nil {
@@ -51,7 +51,7 @@ func (s *BlockStore) ListBlocks(pageID string) ([]domain.Block, error) {
 	var blocks []domain.Block
 	for rows.Next() {
 		var b domain.Block
-		if err := rows.Scan(&b.ID, &b.PageID, &b.Type, &b.X, &b.Y, &b.Width, &b.Height, &b.Content, &b.FilePath, &b.StyleJSON, &b.CreatedAt, &b.UpdatedAt); err != nil {
+		if err := rows.Scan(&b.ID, &b.PageID, &b.Type, &b.X, &b.Y, &b.Width, &b.Height, &b.Content, &b.FilePath, &b.StyleJSON, &b.ViewMode, &b.CreatedAt, &b.UpdatedAt); err != nil {
 			return nil, err
 		}
 		blocks = append(blocks, b)
@@ -62,8 +62,8 @@ func (s *BlockStore) ListBlocks(pageID string) ([]domain.Block, error) {
 func (s *BlockStore) UpdateBlock(b *domain.Block) error {
 	b.UpdatedAt = time.Now()
 	_, err := s.db.Conn().Exec(
-		`UPDATE blocks SET type = ?, x = ?, y = ?, width = ?, height = ?, content = ?, file_path = ?, style_json = ?, updated_at = ? WHERE id = ?`,
-		b.Type, b.X, b.Y, b.Width, b.Height, b.Content, b.FilePath, b.StyleJSON, b.UpdatedAt, b.ID,
+		`UPDATE blocks SET type = ?, x = ?, y = ?, width = ?, height = ?, content = ?, file_path = ?, style_json = ?, view_mode = ?, updated_at = ? WHERE id = ?`,
+		b.Type, b.X, b.Y, b.Width, b.Height, b.Content, b.FilePath, b.StyleJSON, b.ViewMode, b.UpdatedAt, b.ID,
 	)
 	return err
 }
@@ -101,9 +101,9 @@ func (s *BlockStore) ReplacePageBlocks(pageID string, blocks []domain.Block) err
 	now := time.Now()
 	for _, b := range blocks {
 		_, err := tx.Exec(
-			`INSERT INTO blocks (id, page_id, type, x, y, width, height, content, file_path, style_json, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			b.ID, pageID, b.Type, b.X, b.Y, b.Width, b.Height, b.Content, b.FilePath, b.StyleJSON, now, now,
+			`INSERT INTO blocks (id, page_id, type, x, y, width, height, content, file_path, style_json, view_mode, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			b.ID, pageID, b.Type, b.X, b.Y, b.Width, b.Height, b.Content, b.FilePath, b.StyleJSON, b.ViewMode, now, now,
 		)
 		if err != nil {
 			return fmt.Errorf("insert block %s: %w", b.ID, err)

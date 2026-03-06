@@ -12,9 +12,9 @@ interface ShapeState {
 
 export class ShapeHandler implements InteractionHandler {
     private s: ShapeState = { isDrawing: false, dragStart: { x: 0, y: 0 } }
-    private shapeType: 'rectangle' | 'ellipse' | 'diamond'
+    private shapeType: 'rectangle' | 'ellipse' | 'diamond' | 'group'
 
-    constructor(shapeType: 'rectangle' | 'ellipse' | 'diamond') {
+    constructor(shapeType: 'rectangle' | 'ellipse' | 'diamond' | 'group') {
         this.shapeType = shapeType
     }
 
@@ -27,12 +27,12 @@ export class ShapeHandler implements InteractionHandler {
         this.s.isDrawing = true
         this.s.dragStart = { x: ctx.snap(world.x), y: ctx.snap(world.y) }
 
-        const d = ctx.getDefaults(this.shapeType)
+        const d = ctx.getDefaults(this.shapeType === 'group' ? 'rectangle' : this.shapeType)
         ctx.currentElement = {
             id: genId(), type: this.shapeType,
             x: this.s.dragStart.x, y: this.s.dragStart.y, width: 0, height: 0,
             strokeColor: d.strokeColor, strokeWidth: d.strokeWidth,
-            backgroundColor: d.backgroundColor,
+            backgroundColor: this.shapeType === 'group' ? 'transparent' : d.backgroundColor,
             fontSize: d.fontSize, fontFamily: d.fontFamily, fontWeight: d.fontWeight,
             textColor: d.textColor, borderRadius: d.borderRadius,
             opacity: d.opacity, fillStyle: d.fillStyle as 'solid' | 'hachure',

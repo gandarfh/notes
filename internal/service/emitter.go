@@ -1,6 +1,9 @@
 package service
 
-import "context"
+import (
+	"context"
+	"sync"
+)
 
 // ─────────────────────────────────────────────────────────────
 // EventEmitter — decouples services from wailsRuntime
@@ -16,6 +19,7 @@ type EventEmitter interface {
 
 // MockEmitter is a test-friendly EventEmitter that records all calls.
 type MockEmitter struct {
+	mu     sync.Mutex
 	Events []EmittedEvent
 }
 
@@ -26,5 +30,7 @@ type EmittedEvent struct {
 }
 
 func (m *MockEmitter) Emit(_ context.Context, event string, data any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.Events = append(m.Events, EmittedEvent{Event: event, Data: data})
 }

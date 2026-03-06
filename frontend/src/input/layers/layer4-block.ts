@@ -2,9 +2,10 @@ import { GRID_SIZE, snapToGrid as snap } from '../../constants'
 /**
  * Layer 4: Block — Vim-like block navigation and actions.
  *
- * j/k/h/l navigation, Enter/i edit, d/x/Delete/Backspace delete,
- * o create, H/M/L align, F fullscreen, Escape deselect.
+ * j/k/h/l navigation, Enter/i edit, d/x delete (vim keys),
+ * o create, H/M/L align, F fullscreen.
  *
+ * Delete/Backspace and Escape are handled by Layer 3 (unified for blocks + shapes).
  * Only active when NOT editing and no drawing element is selected.
  */
 import { registerLayer } from '../InputManager'
@@ -79,11 +80,9 @@ export function initLayer4(cb: BlockLayerCallbacks) {
                     return false
                 }
 
-                // ── Delete ──
+                // ── Delete (vim keys only — Delete/Backspace handled by Layer 3 SelectHandler) ──
                 case 'd':
-                case 'x':
-                case 'Delete':
-                case 'Backspace': {
+                case 'x': {
                     if (selectedBlockId) {
                         deleteBlock(selectedBlockId)
                         return true
@@ -121,13 +120,7 @@ export function initLayer4(cb: BlockLayerCallbacks) {
                     if (selectedBlockId) { fullscreenBlock(selectedBlockId); return true }
                     return false
 
-                // ── Deselect ──
-                case 'Escape':
-                    if (selectedBlockId) {
-                        selectBlock(null)
-                        return true
-                    }
-                    return false
+                // Escape handled by Layer 3 (unified clear of blocks + shapes)
 
                 default:
                     return false

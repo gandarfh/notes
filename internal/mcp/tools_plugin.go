@@ -63,7 +63,7 @@ func (s *Server) registerPluginTools() {
 			}
 			existing, _ := s.blocks.ListBlocks(pageID)
 			x, y := s.layout.NextPosition(existing, 480, 360)
-			block, err := s.blocks.CreateBlock(pageID, blockType, x, y, 480, 360)
+			block, err := s.blocks.CreateBlock(pageID, blockType, x, y, 480, 360, "dashboard")
 			if err != nil {
 				return nil, err
 			}

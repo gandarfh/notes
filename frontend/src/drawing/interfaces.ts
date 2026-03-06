@@ -2,7 +2,7 @@
 // Core abstractions for the extensible canvas architecture.
 // Adding a new tool = implement InteractionHandler.
 
-import type { DrawingElement, DrawingSubTool, AnchorPoint } from './types'
+import type { DrawingElement, DrawingSubTool, AnchorPoint, AnchorableRect } from './types'
 
 // ── Geometry ───────────────────────────────────────────────
 
@@ -28,6 +28,8 @@ export interface EditorRequest {
     // Shape dimensions for flex centering (only for centered text inside shapes)
     shapeWidth?: number
     shapeHeight?: number
+    /** Optional background color for the editor (e.g. group labels with pill background) */
+    background?: string
     onCommit: (text: string) => void
     onCancel?: () => void
 }
@@ -50,6 +52,9 @@ export interface DrawingContext {
     elements: DrawingElement[]
     selectedElement: DrawingElement | null
     currentElement: DrawingElement | null
+
+    // ── DOM block rects (for unified anchor snapping) ──
+    blockRects: AnchorableRect[]
 
     // ── Multi-selection ──
     selectedElements: Set<string>
@@ -82,6 +87,18 @@ export interface DrawingContext {
     // ── Style Defaults (per element type) ──
     getDefaults(type: string): import('../store/types').ElementStyleDefaults
     setDefaults(type: string, patch: Partial<import('../store/types').ElementStyleDefaults>): void
+
+    // ── Canvas Connections (cross-type entity connections) ──
+    onCanvasConnectionCreated?(fromEntityId: string, toEntityId: string): void
+
+    // ── Unified entity operations (blocks via store, shapes via refs) ──
+    /** IDs of blocks currently in the unified selection (from store.selectedIds) */
+    getSelectedBlockIds(): string[]
+    /** In board mode, returns { colW, rowH } for grid-snapped arrow-key nudge */
+    getDashboardGrid?(): { colW: number; rowH: number } | null
+    onMoveBlocks?(moves: Array<{id: string, x: number, y: number}>): void
+    onDeleteBlocks?(ids: string[]): void
+    onSelectEntities?(ids: string[]): void
 }
 
 // ── Interaction Handler ────────────────────────────────────

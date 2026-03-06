@@ -127,9 +127,12 @@ function ApprovalToast({
                 <div className="mcp-approval-desc">{action.description}</div>
                 {meta.elementIds && meta.elementIds.length > 0 && (
                     <div className="mcp-approval-targets">
-                        {meta.elementIds.map(id => (
-                            <span key={id} className="mcp-target-badge">{id}</span>
-                        ))}
+                        <span className="mcp-target-badge">{meta.elementIds.length} element{meta.elementIds.length !== 1 ? 's' : ''}</span>
+                    </div>
+                )}
+                {meta.blockIds && meta.blockIds.length > 0 && (
+                    <div className="mcp-approval-targets">
+                        <span className="mcp-target-badge">{meta.blockIds.length} block{meta.blockIds.length !== 1 ? 's' : ''}</span>
                     </div>
                 )}
             </div>

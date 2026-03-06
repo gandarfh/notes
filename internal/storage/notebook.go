@@ -74,9 +74,18 @@ func (s *NotebookStore) CreatePage(p *domain.Page) error {
 	now := time.Now()
 	p.CreatedAt = now
 	p.UpdatedAt = now
+	if p.PageType == "" {
+		p.PageType = "canvas"
+	}
+	if p.BoardLayout == "" {
+		p.BoardLayout = "[]"
+	}
+	if p.BoardMode == "" {
+		p.BoardMode = "document"
+	}
 	_, err := s.db.Conn().Exec(
-		`INSERT INTO pages (id, notebook_id, name, sort_order, viewport_x, viewport_y, viewport_zoom, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		p.ID, p.NotebookID, p.Name, p.Order, p.ViewportX, p.ViewportY, p.ViewportZoom, p.CreatedAt, p.UpdatedAt,
+		`INSERT INTO pages (id, notebook_id, name, sort_order, page_type, viewport_x, viewport_y, viewport_zoom, board_content, board_layout, board_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		p.ID, p.NotebookID, p.Name, p.Order, p.PageType, p.ViewportX, p.ViewportY, p.ViewportZoom, p.BoardContent, p.BoardLayout, p.BoardMode, p.CreatedAt, p.UpdatedAt,
 	)
 	return err
 }
@@ -84,8 +93,8 @@ func (s *NotebookStore) CreatePage(p *domain.Page) error {
 func (s *NotebookStore) GetPage(id string) (*domain.Page, error) {
 	p := &domain.Page{}
 	err := s.db.Conn().QueryRow(
-		`SELECT id, notebook_id, name, sort_order, viewport_x, viewport_y, viewport_zoom, COALESCE(drawing_data, '') as drawing_data, created_at, updated_at FROM pages WHERE id = ?`, id,
-	).Scan(&p.ID, &p.NotebookID, &p.Name, &p.Order, &p.ViewportX, &p.ViewportY, &p.ViewportZoom, &p.DrawingData, &p.CreatedAt, &p.UpdatedAt)
+		`SELECT id, notebook_id, name, sort_order, COALESCE(page_type, 'canvas') as page_type, viewport_x, viewport_y, viewport_zoom, COALESCE(drawing_data, '') as drawing_data, COALESCE(board_content, '') as board_content, COALESCE(board_layout, '[]') as board_layout, COALESCE(board_mode, 'document') as board_mode, created_at, updated_at FROM pages WHERE id = ?`, id,
+	).Scan(&p.ID, &p.NotebookID, &p.Name, &p.Order, &p.PageType, &p.ViewportX, &p.ViewportY, &p.ViewportZoom, &p.DrawingData, &p.BoardContent, &p.BoardLayout, &p.BoardMode, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("get page: %w", err)
 	}
@@ -94,7 +103,7 @@ func (s *NotebookStore) GetPage(id string) (*domain.Page, error) {
 
 func (s *NotebookStore) ListPages(notebookID string) ([]domain.Page, error) {
 	rows, err := s.db.Conn().Query(
-		`SELECT id, notebook_id, name, sort_order, viewport_x, viewport_y, viewport_zoom, created_at, updated_at FROM pages WHERE notebook_id = ? ORDER BY sort_order ASC`,
+		`SELECT id, notebook_id, name, sort_order, COALESCE(page_type, 'canvas') as page_type, viewport_x, viewport_y, viewport_zoom, COALESCE(board_mode, 'document') as board_mode, created_at, updated_at FROM pages WHERE notebook_id = ? ORDER BY sort_order ASC`,
 		notebookID,
 	)
 	if err != nil {
@@ -105,7 +114,7 @@ func (s *NotebookStore) ListPages(notebookID string) ([]domain.Page, error) {
 	var pages []domain.Page
 	for rows.Next() {
 		var p domain.Page
-		if err := rows.Scan(&p.ID, &p.NotebookID, &p.Name, &p.Order, &p.ViewportX, &p.ViewportY, &p.ViewportZoom, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.NotebookID, &p.Name, &p.Order, &p.PageType, &p.ViewportX, &p.ViewportY, &p.ViewportZoom, &p.BoardMode, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		pages = append(pages, p)
@@ -116,8 +125,8 @@ func (s *NotebookStore) ListPages(notebookID string) ([]domain.Page, error) {
 func (s *NotebookStore) UpdatePage(p *domain.Page) error {
 	p.UpdatedAt = time.Now()
 	_, err := s.db.Conn().Exec(
-		`UPDATE pages SET name = ?, sort_order = ?, viewport_x = ?, viewport_y = ?, viewport_zoom = ?, drawing_data = ?, updated_at = ? WHERE id = ?`,
-		p.Name, p.Order, p.ViewportX, p.ViewportY, p.ViewportZoom, p.DrawingData, p.UpdatedAt, p.ID,
+		`UPDATE pages SET name = ?, sort_order = ?, page_type = ?, viewport_x = ?, viewport_y = ?, viewport_zoom = ?, drawing_data = ?, board_content = ?, board_layout = ?, board_mode = ?, updated_at = ? WHERE id = ?`,
+		p.Name, p.Order, p.PageType, p.ViewportX, p.ViewportY, p.ViewportZoom, p.DrawingData, p.BoardContent, p.BoardLayout, p.BoardMode, p.UpdatedAt, p.ID,
 	)
 	return err
 }

@@ -229,6 +229,7 @@ export namespace domain {
 	    content: string;
 	    filePath: string;
 	    styleJson: string;
+	    viewMode: string;
 	    // Go type: time
 	    createdAt: any;
 	    // Go type: time
@@ -250,8 +251,183 @@ export namespace domain {
 	        this.content = source["content"];
 	        this.filePath = source["filePath"];
 	        this.styleJson = source["styleJson"];
+	        this.viewMode = source["viewMode"];
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class CanvasConnection {
+	    id: string;
+	    pageId: string;
+	    fromEntityId: string;
+	    toEntityId: string;
+	    fromSide: string;
+	    fromT: number;
+	    toSide: string;
+	    toT: number;
+	    label: string;
+	    color: string;
+	    style: string;
+	    // Go type: time
+	    createdAt: any;
+	    // Go type: time
+	    updatedAt: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new CanvasConnection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.pageId = source["pageId"];
+	        this.fromEntityId = source["fromEntityId"];
+	        this.toEntityId = source["toEntityId"];
+	        this.fromSide = source["fromSide"];
+	        this.fromT = source["fromT"];
+	        this.toSide = source["toSide"];
+	        this.toT = source["toT"];
+	        this.label = source["label"];
+	        this.color = source["color"];
+	        this.style = source["style"];
+	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class CanvasEntity {
+	    id: string;
+	    pageId: string;
+	    type: string;
+	    renderMode: string;
+	    zIndex: number;
+	    x: number;
+	    y: number;
+	    width: number;
+	    height: number;
+	    content?: string;
+	    filePath?: string;
+	    canvasProps?: string;
+	    // Go type: time
+	    createdAt: any;
+	    // Go type: time
+	    updatedAt: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new CanvasEntity(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.pageId = source["pageId"];
+	        this.type = source["type"];
+	        this.renderMode = source["renderMode"];
+	        this.zIndex = source["zIndex"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.width = source["width"];
+	        this.height = source["height"];
+	        this.content = source["content"];
+	        this.filePath = source["filePath"];
+	        this.canvasProps = source["canvasProps"];
+	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class CanvasEntityPatch {
+	    type?: string;
+	    x?: number;
+	    y?: number;
+	    width?: number;
+	    height?: number;
+	    zIndex?: number;
+	    content?: string;
+	    filePath?: string;
+	    canvasProps?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CanvasEntityPatch(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.width = source["width"];
+	        this.height = source["height"];
+	        this.zIndex = source["zIndex"];
+	        this.content = source["content"];
+	        this.filePath = source["filePath"];
+	        this.canvasProps = source["canvasProps"];
+	    }
+	}
+	export class CanvasEntityPatchWithID {
+	    id: string;
+	    patch: CanvasEntityPatch;
+	
+	    static createFrom(source: any = {}) {
+	        return new CanvasEntityPatchWithID(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.patch = this.convertValues(source["patch"], CanvasEntityPatch);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -501,10 +677,14 @@ export namespace domain {
 	    notebookId: string;
 	    name: string;
 	    order: number;
+	    pageType: string;
 	    viewportX: number;
 	    viewportY: number;
 	    viewportZoom: number;
 	    drawingData: string;
+	    boardContent: string;
+	    boardLayout: string;
+	    boardMode: string;
 	    // Go type: time
 	    createdAt: any;
 	    // Go type: time
@@ -520,10 +700,14 @@ export namespace domain {
 	        this.notebookId = source["notebookId"];
 	        this.name = source["name"];
 	        this.order = source["order"];
+	        this.pageType = source["pageType"];
 	        this.viewportX = source["viewportX"];
 	        this.viewportY = source["viewportY"];
 	        this.viewportZoom = source["viewportZoom"];
 	        this.drawingData = source["drawingData"];
+	        this.boardContent = source["boardContent"];
+	        this.boardLayout = source["boardLayout"];
+	        this.boardMode = source["boardMode"];
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	        this.updatedAt = this.convertValues(source["updatedAt"], null);
 	    }
@@ -550,6 +734,8 @@ export namespace domain {
 	    page: Page;
 	    blocks: Block[];
 	    connections: Connection[];
+	    entities: CanvasEntity[];
+	    canvasConnections: CanvasConnection[];
 	
 	    static createFrom(source: any = {}) {
 	        return new PageState(source);
@@ -560,6 +746,8 @@ export namespace domain {
 	        this.page = this.convertValues(source["page"], Page);
 	        this.blocks = this.convertValues(source["blocks"], Block);
 	        this.connections = this.convertValues(source["connections"], Connection);
+	        this.entities = this.convertValues(source["entities"], CanvasEntity);
+	        this.canvasConnections = this.convertValues(source["canvasConnections"], CanvasConnection);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

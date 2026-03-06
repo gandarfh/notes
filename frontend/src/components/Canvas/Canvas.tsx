@@ -1,4 +1,4 @@
-import { GRID_SIZE } from '../../constants'
+import { GRID_SIZE, DASHBOARD_COLS, DASHBOARD_ROW_HEIGHT, DASHBOARD_GAP } from '../../constants'
 import { useRef, useEffect, useCallback, useMemo } from 'react'
 import { useAppStore } from '../../store'
 import type { ElementTypeCategory, ElementStyleDefaults } from '../../store/types'
@@ -9,6 +9,12 @@ import { StylePanel } from '../StylePanel/StylePanel'
 import { useDrawing } from '../../hooks/useDrawing'
 import { usePerfMonitor } from '../../hooks/usePerfMonitor'
 import { setClearDrawingSelection, closeEditorGlobal } from '../../input/drawingBridge'
+import { nextPosition, dashboardSnap } from '../../layout/dashboardLayout'
+import type { Rect } from '../../layout/dashboardLayout'
+import { toLayoutItem, layoutToPixelUpdates, GridUnitCache } from '../../layout/gridConvert'
+import { ReactGridLayout, verticalCompactor } from 'react-grid-layout'
+import 'react-grid-layout/css/styles.css'
+import 'react-resizable/css/styles.css'
 
 // ── Connection Layer ───────────────────────────────────────
 
@@ -92,6 +98,9 @@ function PhantomStylePanel({ drawingSubTool }: { drawingSubTool: string }) {
     )
 }
 
+// ── Module-level cache: grid units survive component unmount ──
+const gridUnitCache = new GridUnitCache()
+
 // ── Canvas ─────────────────────────────────────────────────
 
 interface CanvasProps {
@@ -103,12 +112,15 @@ export function Canvas({ onEditBlock }: CanvasProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const connectorSvgRef = useRef<SVGSVGElement>(null)
     const drawingSvgRef = useRef<HTMLCanvasElement>(null)
+    const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
     const drawingLayerRef = useRef<HTMLDivElement>(null)
     const blockLayerRef = useRef<HTMLDivElement>(null)
     const drawingSubTool = useAppStore(s => s.drawingSubTool)
 
     const blocks = useAppStore(s => s.blocks)
     const selectBlock = useAppStore(s => s.selectBlock)
+    const activePageType = useAppStore(s => s.activePageType)
+    const canvasContainerWidth = useAppStore(s => s.canvasContainerWidth)
 
     const isPanningRef = useRef(false)
     const lastMouseRef = useRef({ x: 0, y: 0 })
@@ -122,12 +134,37 @@ export function Canvas({ onEditBlock }: CanvasProps) {
 
     // ── Drawing hook ──
     const onBlockCreate = useCallback(async (type: string, x: number, y: number, w: number, h: number) => {
-        const block = await useAppStore.getState().createBlock(type, x, y, w, h)
-        if (block) useAppStore.getState().selectBlock(block.id)
+        const store = useAppStore.getState()
+        let finalX = x, finalY = y, finalW = w, finalH = h
+
+        if (store.activePageType === 'board') {
+            const containerEl = containerRef.current
+            const measuredW = containerEl ? containerEl.getBoundingClientRect().width : store.canvasContainerWidth
+            const colW = measuredW / DASHBOARD_COLS
+            const snapped = dashboardSnap(x, y, w, h, colW)
+            finalW = snapped.w
+            finalH = snapped.h
+
+            // Collect existing block rects
+            const existing: Rect[] = []
+            for (const b of store.blocks.values()) {
+                existing.push({ x: b.x, y: b.y, w: b.width, h: b.height })
+            }
+
+            const pos = nextPosition(existing, finalW, finalH, colW)
+            finalX = pos.x
+            finalY = pos.y
+        }
+
+        const block = await store.createBlock(type, finalX, finalY, finalW, finalH, 'dashboard')
+        if (block) {
+            store.selectBlock(block.id)
+        }
     }, [])
 
-    const { editorRequest, setEditorRequest, blockPreview, drawingCursor, renderDrawing, eventConsumedRef, styleSelection, updateSelectedStyle, clearDrawingSelection, reorderSelected, alignSelected, multiSelected } = useDrawing(
+    const { editorRequest, closeEditor, blockPreview, drawingCursor, renderDrawing, eventConsumedRef, styleSelection, updateSelectedStyle, clearDrawingSelection, reorderSelected, alignSelected, multiSelected, renderedViewportRef } = useDrawing(
         drawingSvgRef,
+        overlayCanvasRef,
         containerRef,
         onBlockCreate,
     )
@@ -138,10 +175,30 @@ export function Canvas({ onEditBlock }: CanvasProps) {
         return () => setClearDrawingSelection(null)
     }, [clearDrawingSelection])
 
+    // ── Track container width for dashboard grid snapping ──
+    useEffect(() => {
+        const el = containerRef.current
+        if (!el) return
+        const obs = new ResizeObserver(entries => {
+            const w = entries[0]?.contentRect.width
+            if (w && w > 0) useAppStore.getState().setCanvasContainerWidth(w)
+        })
+        obs.observe(el)
+        return () => obs.disconnect()
+    }, [])
+
+    const isDashboard = activePageType === 'board'
+
     usePerfMonitor()
 
     // ── Apply viewport directly to DOM (no React re-render) ──
     const applyViewport = useCallback((v: { x: number; y: number; zoom: number }) => {
+        // In board mode, viewport is locked — skip all transforms
+        if (useAppStore.getState().activePageType === 'board') {
+            renderDrawing({ x: 0, y: 0, zoom: 1 })
+            return
+        }
+
         const w = window as any
         w.__perfMark?.('applyViewport')
 
@@ -186,10 +243,36 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             }
         }
 
-        // Canvas re-render needed — canvas is not CSS-transformed, viewport is in the context
+        // CSS compensation: shift stale canvas image to match block layer position
+        // until the Worker delivers a fresh frame. Only applies during pure pan
+        // (zoom unchanged) — during zoom, translate-only compensation would misalign
+        // the rasterized content, causing visible flicker.
+        const rv = renderedViewportRef.current
+        const zoomUnchanged = Math.abs(v.zoom - rv.zoom) < 0.001
+        const dx = v.x - rv.x
+        const dy = v.y - rv.y
+        const needsCompensation = zoomUnchanged && (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5)
+        const canvasTransform = needsCompensation ? `translate3d(${dx}px, ${dy}px, 0)` : ''
+        if (drawingSvgRef.current) {
+            drawingSvgRef.current.style.transform = canvasTransform
+        }
+        if (overlayCanvasRef.current) {
+            overlayCanvasRef.current.style.transform = canvasTransform
+        }
+
+        // Canvas re-render needed — Worker applies viewport via Canvas2D context
         renderDrawing(v)
         w.__perfEnd?.('applyViewport')
-    }, [renderDrawing])
+    }, [renderDrawing, renderedViewportRef])
+
+    // ── Lock viewport on entering board mode ──
+    useEffect(() => {
+        if (!isDashboard) return
+        const v = { x: 0, y: 0, zoom: 1 }
+        viewportRef.current = v
+        const store = useAppStore.getState()
+        store.setViewport(0, 0, 1)
+    }, [isDashboard])
 
     // Keep viewportRef in sync with store (for external viewport changes like double-click zoom)
     useEffect(() => {
@@ -237,26 +320,28 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             }
         }
 
-        // Always deselect block on left-click unless clicking on a block
-        if (e.button === 0 && !isOnBlock) {
+        // Deselect block on left-click outside blocks — but ONLY if the drawing
+        // layer didn't consume the event (it manages unified selectedIds itself)
+        if (e.button === 0 && !isOnBlock && !eventConsumedRef.current) {
             selectBlock(null)
         }
 
-        // Always clear drawing selection when clicking on a block
-        if (isOnBlock) {
+        // Clear drawing selection when clicking on a block (unless drawing consumed it,
+        // which means it's a multi-selection group drag from the drawing layer)
+        if (isOnBlock && !eventConsumedRef.current) {
             clearDrawingSelection()
         }
 
         // Don't initiate pan or other canvas actions if drawing consumed the event
         if (eventConsumedRef.current || isOnBlock) return
 
-        if (e.button === 1) {
+        if (e.button === 1 && !isDashboard) {
             isPanningRef.current = true
             lastMouseRef.current = { x: e.clientX, y: e.clientY }
             if (containerRef.current) containerRef.current.style.cursor = 'grabbing'
             e.preventDefault()
         }
-    }, [selectBlock, eventConsumedRef, clearDrawingSelection])
+    }, [selectBlock, eventConsumedRef, clearDrawingSelection, isDashboard])
 
     useEffect(() => {
         const onMove = (e: MouseEvent) => {
@@ -338,7 +423,7 @@ export function Canvas({ onEditBlock }: CanvasProps) {
 
                 // Create image block and save image as file
                 const store = useAppStore.getState()
-                const block = await store.createBlock('image', worldX, worldY, blockW, blockH)
+                const block = await store.createBlock('image', worldX, worldY, blockW, blockH, 'dashboard')
                 if (block) {
                     // Immediately show the image using data URL
                     store.updateBlock(block.id, { content: dataUrl })
@@ -408,6 +493,10 @@ export function Canvas({ onEditBlock }: CanvasProps) {
                 el = el.parentElement
             }
 
+            // In board mode, let native scroll handle vertical scrolling
+            const isDash = useAppStore.getState().activePageType === 'board'
+            if (isDash) return // native scroll-y handles it
+
             e.preventDefault()
             const v = viewportRef.current
 
@@ -447,32 +536,90 @@ export function Canvas({ onEditBlock }: CanvasProps) {
     }, [applyViewport, commitViewport])
 
     const initV = viewportRef.current
-    const initDrawingTransform = `translate3d(${initV.x}px, ${initV.y}px, 0) scale(${initV.zoom})`
+    const initDrawingTransform = isDashboard ? 'none' : `translate3d(${initV.x}px, ${initV.y}px, 0) scale(${initV.zoom})`
     // Hybrid: CSS zoom for >100%, scale for ≤100%
-    const initBlockTransform = initV.zoom > 1
-        ? `translate3d(${initV.x / initV.zoom}px, ${initV.y / initV.zoom}px, 0)`
-        : `translate3d(${initV.x}px, ${initV.y}px, 0) scale(${initV.zoom})`
-    const initBlockZoom = initV.zoom > 1 ? initV.zoom : 1
-    const blockIds = useMemo(() => Array.from(blocks.keys()), [blocks])
+    const initBlockTransform = isDashboard
+        ? 'none'
+        : initV.zoom > 1
+            ? `translate3d(${initV.x / initV.zoom}px, ${initV.y / initV.zoom}px, 0)`
+            : `translate3d(${initV.x}px, ${initV.y}px, 0) scale(${initV.zoom})`
+    const initBlockZoom = isDashboard ? 1 : initV.zoom > 1 ? initV.zoom : 1
+    const blockIds = useMemo(() => {
+        if (isDashboard) {
+            return Array.from(blocks.values())
+                .filter(b => b.viewMode === 'dashboard')
+                .map(b => b.id)
+        }
+        return Array.from(blocks.keys())
+    }, [blocks, isDashboard])
+
+    // ── RGL layout for board mode ──
+    // Grid units are cached in a module-level Map (survives component unmount).
+    // Only recompute from pixels when a block has no cached entry (new block).
+    // colW is NOT a dependency — container resizes don't cause rounding drift.
+    const colW = canvasContainerWidth / DASHBOARD_COLS
+
+    const rglLayout = useMemo(() => {
+        if (!isDashboard) return []
+        const cw = useAppStore.getState().canvasContainerWidth / DASHBOARD_COLS
+        return gridUnitCache.buildLayout(
+            blockIds,
+            id => blocks.get(id),
+            cw,
+            DASHBOARD_ROW_HEIGHT,
+        )
+    }, [isDashboard, blockIds, blocks])
+
+    const handleLayoutChange = useCallback((layout: readonly import('react-grid-layout').LayoutItem[]) => {
+        if (!isDashboard) return
+
+        // Update cache with RGL's authoritative grid units
+        gridUnitCache.updateFromLayout(layout)
+
+        // Persist to store in pixels using current colW
+        const currentColW = useAppStore.getState().canvasContainerWidth / DASHBOARD_COLS
+        if (currentColW <= 0) return
+        const pixelUpdates = layoutToPixelUpdates(layout, currentColW, DASHBOARD_ROW_HEIGHT)
+        const store = useAppStore.getState()
+        for (const [id, pos] of pixelUpdates) {
+            const block = store.blocks.get(id)
+            if (!block) continue
+            const moved = block.x !== pos.x || block.y !== pos.y
+            const resized = block.width !== pos.width || block.height !== pos.height
+            if (moved) store.moveBlock(id, pos.x, pos.y)
+            if (resized) store.resizeBlock(id, pos.width, pos.height)
+            if (moved || resized) store.saveBlockPosition(id)
+        }
+    }, [isDashboard])
 
     return (
         <div
             ref={containerRef}
             data-role="canvas-container"
-            className="flex-1 relative overflow-hidden bg-app"
-            style={{ cursor: isPanningRef.current ? 'grabbing' : drawingCursor, contain: 'layout style paint' }}
+            className={`flex-1 relative bg-app ${isDashboard ? 'overflow-x-hidden overflow-y-auto' : 'overflow-hidden'}`}
+            style={{ cursor: isPanningRef.current ? 'grabbing' : drawingCursor, contain: isDashboard ? undefined : 'layout style paint' }}
             onMouseDown={onCanvasMouseDown}
         >
 
             {/* Connectors — screen space */}
             <svg ref={connectorSvgRef} className="absolute inset-0 w-full h-full pointer-events-none z-[2]" />
 
-            {/* Drawing canvas — direct child of container (canvas can't overflow like SVG).
-                Viewport transform is applied in the canvas context instead of CSS. */}
+            {/* Drawing canvas — transferred to Web Worker via OffscreenCanvas.
+                Worker handles all element rendering (WASM). */}
             <canvas
                 ref={drawingSvgRef}
                 className="drawing-canvas absolute inset-0 z-[1]"
-                style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
+                style={{ width: '100%', height: '100%', pointerEvents: 'none', willChange: 'transform', transformOrigin: '0 0' }}
+            />
+
+            {/* Overlay canvas — stays on main thread for selection UI + handler overlays.
+                No WASM calls, just lightweight Canvas2D (handles, box select, anchors). */}
+            {/* Overlay canvas — above blocks (z-[4]) for selection UI visibility.
+                pointer-events:none so it doesn't interfere with block interactions. */}
+            <canvas
+                ref={overlayCanvasRef}
+                className="drawing-overlay absolute inset-0 z-[4]"
+                style={{ width: '100%', height: '100%', pointerEvents: 'none', willChange: 'transform', transformOrigin: '0 0' }}
             />
 
             {/* Drawing overlay layer — INSIDE viewport transform (for inline editor) */}
@@ -485,35 +632,66 @@ export function Canvas({ onEditBlock }: CanvasProps) {
                 {editorRequest && (
                     <InlineEditor
                         request={editorRequest}
-                        onClose={() => setEditorRequest(null)}
+                        onClose={closeEditor}
                     />
                 )}
             </div>
 
-            {/* Block layer — INSIDE viewport transform */}
-            <div
-                ref={blockLayerRef}
-                id="block-layer"
-                className="absolute inset-0 z-[3]"
-                style={{ transform: initBlockTransform, zoom: initBlockZoom, transformOrigin: '0 0', pointerEvents: 'none', willChange: 'transform', backfaceVisibility: 'hidden' as const } as React.CSSProperties}
-            >
-                {blockIds.map(id => (
-                    <BlockContainer key={id} blockId={id} onEditBlock={onEditBlock} />
-                ))}
+            {/* Board mode: RGL-managed block layer */}
+            {isDashboard && colW > 0 && (
+                <div className="z-[3] relative" style={{ pointerEvents: 'auto' }}>
+                    <ReactGridLayout
+                        width={canvasContainerWidth}
+                        layout={rglLayout}
+                        gridConfig={{ cols: DASHBOARD_COLS, rowHeight: DASHBOARD_ROW_HEIGHT, margin: [DASHBOARD_GAP, DASHBOARD_GAP] as readonly [number, number] }}
+                        dragConfig={{ enabled: true, handle: '.block-header' }}
+                        resizeConfig={{ enabled: true, handles: ['se'] as const }}
+                        compactor={verticalCompactor}
+                        autoSize={true}
+                        onLayoutChange={handleLayoutChange}
+                    >
+                        {blockIds.map(id => (
+                            <div key={id}>
+                                <BlockContainer blockId={id} onEditBlock={onEditBlock} />
+                            </div>
+                        ))}
+                    </ReactGridLayout>
+                </div>
+            )}
 
-                {blockPreview && (
-                    <div
-                        className="absolute pointer-events-none z-[999] border-2 border-dashed border-accent rounded-md"
-                        style={{
-                            left: blockPreview.x,
-                            top: blockPreview.y,
-                            width: blockPreview.width,
-                            height: blockPreview.height,
-                            background: 'rgba(99, 102, 241, 0.06)',
-                        }}
-                    />
-                )}
-            </div>
+            {/* Canvas mode: free-positioned block layer */}
+            {!isDashboard && (
+                <div
+                    ref={blockLayerRef}
+                    id="block-layer"
+                    className="z-[3] absolute inset-0"
+                    style={{
+                        transform: initBlockTransform,
+                        zoom: initBlockZoom,
+                        transformOrigin: '0 0',
+                        pointerEvents: 'none',
+                        willChange: 'transform',
+                        backfaceVisibility: 'hidden' as const,
+                    } as React.CSSProperties}
+                >
+                    {blockIds.map(id => (
+                        <BlockContainer key={id} blockId={id} onEditBlock={onEditBlock} />
+                    ))}
+
+                    {blockPreview && (
+                        <div
+                            className="absolute pointer-events-none z-[999] border-2 border-dashed border-accent rounded-md"
+                            style={{
+                                left: blockPreview.x,
+                                top: blockPreview.y,
+                                width: blockPreview.width,
+                                height: blockPreview.height,
+                                background: 'rgba(99, 102, 241, 0.06)',
+                            }}
+                        />
+                    )}
+                </div>
+            )}
 
             <ConnectionLayer svgRef={connectorSvgRef} />
 

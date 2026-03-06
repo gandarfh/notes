@@ -27,3 +27,19 @@ export function setCloseEditor(fn: (() => void) | null) {
 export function closeEditorGlobal() {
     _closeEditor?.()
 }
+
+/**
+ * Global bridge for notifying drawing arrows when a block moves.
+ * Set by useDrawing, called by BlockContainer during and after drag.
+ * Accepts optional live position (x,y) for real-time updates during drag
+ * when the store hasn't been updated yet (DOM-only drag optimization).
+ */
+let _onBlockMoved: ((blockId: string, liveX?: number, liveY?: number) => void) | null = null
+
+export function setOnBlockMoved(fn: ((blockId: string, liveX?: number, liveY?: number) => void) | null) {
+    _onBlockMoved = fn
+}
+
+export function notifyBlockMoved(blockId: string, liveX?: number, liveY?: number) {
+    _onBlockMoved?.(blockId, liveX, liveY)
+}

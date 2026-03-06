@@ -3,6 +3,7 @@ import { Breadcrumb } from './components/Breadcrumb/Breadcrumb'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { Toolbar } from './components/Toolbar/Toolbar'
 import { Canvas } from './components/Canvas/Canvas'
+import { BoardPage } from './components/Board/BoardPage'
 import { UndoPanel } from './components/UndoPanel/UndoPanel'
 import { ToastContainer } from './components/Toast/Toast'
 import { ApprovalModal } from './components/MCP/ApprovalModal'
@@ -19,6 +20,7 @@ import logoSvg from './assets/images/logo.svg'
 
 export function App() {
     const activePageId = useAppStore(s => s.activePageId)
+    const activePageType = useAppStore(s => s.activePageType)
     const initializing = useAppStore(s => s.initializing)
     const loadNotebooks = useAppStore(s => s.loadNotebooks)
     const initEventListeners = useAppStore(s => s.initEventListeners)
@@ -107,8 +109,12 @@ export function App() {
 
             <main className="w-full h-full flex flex-col relative overflow-hidden pt-[72px]">
                 <div className="flex-1 flex relative overflow-hidden">
-                    <Canvas onEditBlock={editBlock} />
-                    {showUndoPanel && <UndoPanel />}
+                    {activePageType === 'board' ? (
+                        <BoardPage onEditBlock={editBlock} />
+                    ) : (
+                        <Canvas onEditBlock={editBlock} />
+                    )}
+                    {showUndoPanel && activePageType !== 'board' && <UndoPanel />}
                 </div>
 
                 {/* Empty State */}

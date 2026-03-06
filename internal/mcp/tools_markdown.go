@@ -46,7 +46,7 @@ func (s *Server) handleWriteMarkdown(ctx context.Context, req mcp.CallToolReques
 	existing, _ := s.blocks.ListBlocks(pageID)
 	x, y := s.layout.NextPosition(existing, 480, 360)
 
-	block, err := s.blocks.CreateBlock(pageID, "markdown", x, y, 480, 360)
+	block, err := s.blocks.CreateBlock(pageID, "markdown", x, y, 480, 360, "dashboard")
 	if err != nil {
 		return nil, fmt.Errorf("create markdown block: %w", err)
 	}

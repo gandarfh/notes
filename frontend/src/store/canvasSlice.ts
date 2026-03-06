@@ -7,8 +7,10 @@ import { pushUndo } from './helpers'
 
 export const createCanvasSlice: StateCreator<AppState, [], [], CanvasSlice> = (set, get) => ({
     viewport: { x: 0, y: 0, zoom: 1 },
+    canvasContainerWidth: 1200,
 
     setViewport: (x, y, zoom) => set({ viewport: { x, y, zoom } }),
+    setCanvasContainerWidth: (width) => set({ canvasContainerWidth: width }),
 
     pan: (dx, dy) => set(s => ({
         viewport: { ...s.viewport, x: s.viewport.x + dx, y: s.viewport.y + dy }
@@ -54,8 +56,11 @@ export const createBlockSlice: StateCreator<AppState, [], [], BlockSlice> = (set
     removeBlock: (id) => set(s => {
         const blocks = new Map(s.blocks)
         blocks.delete(id)
+        const selectedIds = new Set(s.selectedIds)
+        selectedIds.delete(id)
         return {
             blocks,
+            selectedIds,
             selectedBlockId: s.selectedBlockId === id ? null : s.selectedBlockId,
             editingBlockId: s.editingBlockId === id ? null : s.editingBlockId,
         }
@@ -68,7 +73,13 @@ export const createBlockSlice: StateCreator<AppState, [], [], BlockSlice> = (set
         return { blocks }
     }),
 
-    selectBlock: (id) => set({ selectedBlockId: id }),
+    selectBlock: (id) => set(s => ({
+        selectedBlockId: id,
+        // When selecting a specific block, reset unified selection to just that block.
+        // When deselecting (null), only clear selectedBlockId — don't wipe selectedIds
+        // because the drawing layer may be managing unified selection.
+        selectedIds: id ? new Set([id]) : s.selectedIds,
+    })),
     setEditing: (id) => set({ editingBlockId: id }),
 
     moveBlock: (id, x, y) => {
@@ -79,12 +90,12 @@ export const createBlockSlice: StateCreator<AppState, [], [], BlockSlice> = (set
         get().updateBlock(id, { width: w, height: h })
     },
 
-    createBlock: async (type, x, y, w, h) => {
+    createBlock: async (type, x, y, w, h, viewMode = 'dashboard') => {
         const { activePageId } = get()
         if (!activePageId) return null
         try {
             pushUndo(get, 'Create block')
-            const block = await api.createBlock(activePageId, type, x, y, w, h)
+            const block = await api.createBlock(activePageId, type, x, y, w, h, viewMode)
             get().addBlock(block)
             return block
         } catch (e) {

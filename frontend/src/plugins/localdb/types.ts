@@ -11,6 +11,7 @@ export interface ColumnDef {
     type: ColumnType
     width: number
     options?: string[]
+    optionColors?: Record<string, string>  // option label → color id (e.g. 'red', 'blue')
     formula?: string
     relationDbId?: string
     rollupRelCol?: string
@@ -22,12 +23,26 @@ export interface ViewConfig {
     groupByColumn?: string
     dateColumn?: string
     checkboxColumn?: string
+    sorting?: { id: string; desc: boolean }[]
+    filters?: { id: string; columnId: string; operator: string; value: unknown }[]
+    columnVisibility?: Record<string, boolean>
+}
+
+export interface SavedView {
+    id: string
+    name: string
+    layout: string
+    config: ViewConfig
 }
 
 export interface LocalDatabaseConfig {
     columns: ColumnDef[]
-    activeView: string
+    // Legacy single-view
+    activeView?: string
     viewConfig?: ViewConfig
+    // Multi-view system
+    views?: SavedView[]
+    activeViewId?: string
 }
 
 export interface LocalDatabase {

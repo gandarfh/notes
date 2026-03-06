@@ -1,11 +1,9 @@
-package service_test
+package service
 
 import (
 	"context"
 	"testing"
 	"time"
-
-	"notes/internal/service"
 )
 
 // ─────────────────────────────────────────────────────────────
@@ -13,7 +11,7 @@ import (
 // ─────────────────────────────────────────────────────────────
 
 func TestRunningGuard_TryLock(t *testing.T) {
-	var g service.ExportedRunningGuard
+	var g ExportedRunningGuard
 
 	if !g.TryLock("job-1") {
 		t.Fatal("expected first TryLock to succeed")
@@ -34,7 +32,7 @@ func TestRunningGuard_TryLock(t *testing.T) {
 }
 
 func TestRunningGuard_WaitAll(t *testing.T) {
-	var g service.ExportedRunningGuard
+	var g ExportedRunningGuard
 
 	if !g.TryLock("job-a") {
 		t.Fatal("expected lock to succeed")
@@ -61,12 +59,51 @@ func TestRunningGuard_WaitAll(t *testing.T) {
 	}
 }
 
+func TestRunningGuard_WaitAll_NoJobs(t *testing.T) {
+	var g ExportedRunningGuard
+
+	done := make(chan struct{})
+	go func() {
+		g.WaitAll(context.Background())
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("WaitAll should return immediately with no jobs")
+	}
+}
+
+func TestRunningGuard_WaitAll_ContextCancellation(t *testing.T) {
+	var g ExportedRunningGuard
+
+	g.TryLock("job-1")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		g.WaitAll(ctx)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("WaitAll should respect context cancellation")
+	}
+
+	g.Unlock("job-1")
+}
+
 // ─────────────────────────────────────────────────────────────
 // MockEmitter tests
 // ─────────────────────────────────────────────────────────────
 
 func TestMockEmitter_RecordsEvents(t *testing.T) {
-	m := &service.MockEmitter{}
+	m := &MockEmitter{}
 	ctx := context.Background()
 
 	m.Emit(ctx, "test:event", map[string]string{"foo": "bar"})
@@ -81,7 +118,7 @@ func TestMockEmitter_RecordsEvents(t *testing.T) {
 }
 
 func TestMockEmitter_LastEvent(t *testing.T) {
-	m := &service.MockEmitter{}
+	m := &MockEmitter{}
 	ctx := context.Background()
 
 	m.Emit(ctx, "a", "first")
