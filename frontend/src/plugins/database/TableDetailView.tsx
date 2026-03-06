@@ -32,7 +32,7 @@ export function TableDetailView({ table, onBack, onQueryTable }: TableDetailView
                         </tr>
                     </thead>
                     <tbody>
-                        {table.columns.map(col => (
+                        {(table.columns ?? []).map(col => (
                             <tr key={col.name}>
                                 <td className="db-col-name">{col.name}</td>
                                 <td><span className="db-col-type">{col.type}</span></td>
