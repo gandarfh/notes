@@ -128,6 +128,8 @@ export function PickDatabaseFile():Promise<string>;
 
 export function PickETLFile():Promise<string>;
 
+export function PickMarkdownFileContent():Promise<string>;
+
 export function PickTextFile():Promise<string>;
 
 export function PreviewETLSource(arg1:string,arg2:string):Promise<service.PreviewResult>;

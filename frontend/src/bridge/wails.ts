@@ -30,6 +30,7 @@ declare global {
           GetImageData(blockID: string): Promise<string>
           OpenBlockInEditor(blockID: string, lineNumber: number): Promise<void>
           PickTextFile(): Promise<string>
+          PickMarkdownFileContent(): Promise<string>
           UpdateBlockFilePath(blockID: string, filePath: string): Promise<string>
           ChangeBlockFileExt(blockID: string, newExt: string): Promise<string>
           CreateConnection(pageID: string, fromID: string, toID: string): Promise<Connection>

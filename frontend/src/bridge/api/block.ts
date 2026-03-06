@@ -23,6 +23,8 @@ export const blockAPI = {
         go().OpenBlockInEditor(id, lineNumber),
     pickTextFile: (): Promise<string> =>
         go().PickTextFile(),
+    pickMarkdownFileContent: (): Promise<string> =>
+        go().PickMarkdownFileContent(),
     updateBlockFilePath: (blockID: string, filePath: string): Promise<string> =>
         go().UpdateBlockFilePath(blockID, filePath),
     changeBlockFileExt: (blockID: string, newExt: string): Promise<string> =>

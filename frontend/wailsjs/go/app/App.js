@@ -242,6 +242,10 @@ export function PickETLFile() {
   return window['go']['app']['App']['PickETLFile']();
 }
 
+export function PickMarkdownFileContent() {
+  return window['go']['app']['App']['PickMarkdownFileContent']();
+}
+
 export function PickTextFile() {
   return window['go']['app']['App']['PickTextFile']();
 }

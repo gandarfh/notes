@@ -9,6 +9,8 @@ package app
 // OpenBlockInEditor/CloseEditor; app_undo.go handles RestorePageBlocks).
 
 import (
+	"os"
+
 	"notes/internal/domain"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -60,6 +62,25 @@ func (a *App) UpdateBlockFilePath(blockID, filePath string) (string, error) {
 
 func (a *App) ChangeBlockFileExt(blockID, newExt string) (string, error) {
 	return a.blocks.ChangeBlockFileExt(blockID, newExt)
+}
+
+// PickMarkdownFileContent opens a native file picker for .md files and returns the file content.
+func (a *App) PickMarkdownFileContent() (string, error) {
+	path, err := wailsRuntime.OpenFileDialog(a.ctx, wailsRuntime.OpenDialogOptions{
+		Title: "Select Markdown file",
+		Filters: []wailsRuntime.FileFilter{
+			{DisplayName: "Markdown", Pattern: "*.md"},
+			{DisplayName: "All Files", Pattern: "*.*"},
+		},
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 // PickTextFile opens a native file picker and returns the selected path.

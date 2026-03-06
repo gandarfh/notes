@@ -4,6 +4,7 @@ import Suggestion from '@tiptap/suggestion'
 import type { SuggestionOptions, SuggestionProps } from '@tiptap/suggestion'
 import { createRoot, type Root } from 'react-dom/client'
 import { BlockRegistry } from '../../../plugins/registry'
+import { api } from '../../../bridge/wails'
 import {
     IconAlignLeft,
     IconH1,
@@ -22,6 +23,7 @@ import {
     IconChevronRight,
     IconTable,
     IconPhoto,
+    IconFileImport,
 } from '@tabler/icons-react'
 import type { ComponentType } from 'react'
 
@@ -208,6 +210,36 @@ const basicCommands: SlashCommandItem[] = [
             if (url) {
                 editor.chain().focus().setImage({ src: url }).run()
             }
+        },
+    },
+    {
+        id: 'import-markdown',
+        label: 'Import Markdown',
+        icon: IconFileImport,
+        section: 'Basic',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).run()
+            api.pickMarkdownFileContent().then((content) => {
+                if (content) {
+                    editor.chain().selectAll().deleteSelection().run()
+                    const parsed = editor.storage.markdown?.parser?.parse(content)
+                    if (parsed) {
+                        editor.commands.insertContent(parsed)
+                        setTimeout(() => {
+                            editor.commands.setTextSelection(0)
+                            // Walk up DOM to find the actual scrolling container
+                            let el: HTMLElement | null = editor.view.dom
+                            while (el) {
+                                if (el.scrollHeight > el.clientHeight) {
+                                    el.scrollTop = 0
+                                    break
+                                }
+                                el = el.parentElement
+                            }
+                        }, 100)
+                    }
+                }
+            })
         },
     },
 ]
