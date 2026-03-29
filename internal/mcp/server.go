@@ -126,6 +126,14 @@ func (s *Server) emitBlocksChanged(ctx context.Context, pageID string) {
 	s.emitter.Emit(ctx, "mcp:blocks-changed", map[string]string{"pageId": pageID})
 }
 
+// emitBoardContentChanged notifies the frontend that the board document content has changed.
+func (s *Server) emitBoardContentChanged(ctx context.Context, pageID, content string) {
+	s.emitter.Emit(ctx, "mcp:board-content-changed", map[string]string{
+		"pageId":  pageID,
+		"content": content,
+	})
+}
+
 // textResult creates a simple text tool result.
 func textResult(text string) *mcp.CallToolResult {
 	return &mcp.CallToolResult{

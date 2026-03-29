@@ -32,6 +32,7 @@ async function reloadWithUndo(get: () => AppState, pageId: string, label: string
             blocks: merged,
             connections: ps.connections || [],
             drawingData: ps.page.drawingData || '',
+            activeBoardContent: ps.page.boardContent || '',
         })
 
         // Push undo snapshot so MCP changes can be undone
@@ -124,6 +125,14 @@ export const useAppStore = create<AppState>((...a) => ({
                 reloadWithUndo(get, activePageId, 'MCP: blocks changed')
                 // Also notify LocalDB/Chart plugins to refresh data (ETL may have changed rows)
                 pluginBus.emit('localdb:changed', {})
+            }
+        }))
+
+        // MCP: board content changed — update Tiptap document content
+        unsubs.push(onEvent('mcp:board-content-changed', (data: { pageId: string; content: string }) => {
+            const activePageId = get().activePageId
+            if (activePageId && data.pageId === activePageId) {
+                useAppStore.setState({ activeBoardContent: data.content })
             }
         }))
 

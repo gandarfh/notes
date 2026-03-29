@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"notes/internal/domain"
+
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -24,7 +26,7 @@ func (s *Server) registerNavigationTools() {
 
 	// ── create_page ────────────────────────────────────
 	s.mcp.AddTool(mcp.NewTool("create_page",
-		mcp.WithDescription("Create a new page in a notebook"),
+		mcp.WithDescription("Create a new page in a notebook. Supports canvas (default) and board page types."),
 		mcp.WithString("notebookId",
 			mcp.Description("ID of the notebook"),
 			mcp.Required(),
@@ -32,6 +34,12 @@ func (s *Server) registerNavigationTools() {
 		mcp.WithString("name",
 			mcp.Description("Name of the new page"),
 			mcp.Required(),
+		),
+		mcp.WithString("pageType",
+			mcp.Description("Page type: 'canvas' (default) or 'board'"),
+		),
+		mcp.WithString("boardMode",
+			mcp.Description("Board mode: 'document' (default), 'dashboard', or 'split'. Only used when pageType is 'board'."),
 		),
 	), s.handleCreatePage)
 
@@ -71,10 +79,42 @@ func (s *Server) handleCreatePage(ctx context.Context, req mcp.CallToolRequest) 
 	if notebookID == "" || name == "" {
 		return nil, fmt.Errorf("notebookId and name are required")
 	}
-	page, err := s.notebooks.CreatePage(notebookID, name)
-	if err != nil {
-		return nil, fmt.Errorf("create page: %w", err)
+
+	pageType := req.GetString("pageType", "")
+	boardMode := req.GetString("boardMode", "")
+
+	if pageType != "" && pageType != "canvas" && pageType != "board" {
+		return nil, fmt.Errorf("invalid pageType %q: must be 'canvas' or 'board'", pageType)
 	}
+	if boardMode != "" {
+		validModes := map[string]bool{"document": true, "dashboard": true, "split": true}
+		if !validModes[boardMode] {
+			return nil, fmt.Errorf("invalid boardMode %q: must be 'document', 'dashboard', or 'split'", boardMode)
+		}
+	}
+
+	var page *domain.Page
+	var err error
+
+	if pageType == "board" {
+		page, err = s.notebooks.CreateBoardPage(notebookID, name)
+		if err != nil {
+			return nil, fmt.Errorf("create board page: %w", err)
+		}
+		// Update board mode if not the default "document"
+		if boardMode != "" && boardMode != "document" {
+			if err := s.notebooks.UpdateBoardMode(page.ID, boardMode); err != nil {
+				return nil, fmt.Errorf("set board mode: %w", err)
+			}
+			page.BoardMode = boardMode
+		}
+	} else {
+		page, err = s.notebooks.CreatePage(notebookID, name)
+		if err != nil {
+			return nil, fmt.Errorf("create page: %w", err)
+		}
+	}
+
 	// Auto-set as active page
 	s.activePageID = page.ID
 	return jsonResult(page)

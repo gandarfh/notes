@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"notes/internal/domain"
@@ -27,6 +28,7 @@ func (s *Server) registerBlockTools() {
 		mcp.WithNumber("width", mcp.Description("Width (optional, uses plugin default)")),
 		mcp.WithNumber("height", mcp.Description("Height (optional, uses plugin default)")),
 		mcp.WithString("content", mcp.Description("Initial content for the block (optional)")),
+		mcp.WithString("viewMode", mcp.Description("Override view mode: 'document' or 'dashboard'. Auto-detected from page type if omitted.")),
 	), s.handleCreateBlock)
 
 	// ── update_block_content ───────────────────────────
@@ -129,6 +131,14 @@ func (s *Server) handleCreateBlock(ctx context.Context, req mcp.CallToolRequest)
 		return nil, err
 	}
 
+	// Fetch page to determine viewMode
+	pageState, err := s.notebooks.GetPageState(pageID)
+	if err != nil {
+		return nil, fmt.Errorf("get page state: %w", err)
+	}
+	viewMode := resolveViewMode(&pageState.Page, args)
+	isDocMode := viewMode == domain.BlockViewDocument
+
 	// Default sizes per block type
 	defaultSizes := map[string][2]float64{
 		"markdown": {480, 360},
@@ -147,18 +157,25 @@ func (s *Server) handleCreateBlock(ctx context.Context, req mcp.CallToolRequest)
 		defaults = [2]float64{480, 360} // fallback
 	}
 
-	w := getFloat(args, "width", defaults[0])
-	h := getFloat(args, "height", defaults[1])
+	var x, y, w, h float64
+	if isDocMode {
+		// Document mode: fixed position/size (same as frontend DocumentView)
+		x, y, w, h = 0, 0, 400, 300
+	} else {
+		w = getFloat(args, "width", defaults[0])
+		h = getFloat(args, "height", defaults[1])
 
-	// Auto-layout if position not provided
-	x, hasX := args["x"].(float64)
-	y, hasY := args["y"].(float64)
-	if !hasX || !hasY {
-		existing, _ := s.blocks.ListBlocks(pageID)
-		x, y = s.layout.NextPosition(existing, w, h)
+		// Auto-layout if position not provided
+		var hasX, hasY bool
+		x, hasX = args["x"].(float64)
+		y, hasY = args["y"].(float64)
+		if !hasX || !hasY {
+			existing, _ := s.blocks.ListBlocks(pageID)
+			x, y = s.layout.NextPosition(existing, w, h)
+		}
 	}
 
-	block, err := s.blocks.CreateBlock(pageID, blockType, x, y, w, h, "dashboard")
+	block, err := s.blocks.CreateBlock(pageID, blockType, x, y, w, h, viewMode)
 	if err != nil {
 		return nil, fmt.Errorf("create block: %w", err)
 	}
@@ -174,6 +191,21 @@ func (s *Server) handleCreateBlock(ctx context.Context, req mcp.CallToolRequest)
 			return nil, fmt.Errorf("set content: %w", err)
 		}
 		block.Content = content
+	}
+
+	// Document mode: inject blockEmbed into BoardContent
+	if isDocMode {
+		embedHTML := fmt.Sprintf(`<div data-block-embed="" blockid="%s" blocktype="%s" height="200"></div>`,
+			block.ID, blockType)
+		content := pageState.Page.BoardContent
+		if content != "" {
+			content += "\n\n"
+		}
+		content += embedHTML
+		if err := s.notebooks.UpdateBoardContent(pageID, content); err != nil {
+			return nil, fmt.Errorf("update board content: %w", err)
+		}
+		s.emitBoardContentChanged(ctx, pageID, content)
 	}
 
 	s.emitBlocksChanged(ctx, pageID)
@@ -249,6 +281,9 @@ func (s *Server) handleDeleteBlock(ctx context.Context, req mcp.CallToolRequest)
 	if err := s.blocks.DeleteBlock(ctx, block.ID); err != nil {
 		return nil, fmt.Errorf("delete block: %w", err)
 	}
+
+	// Clean up blockEmbed from BoardContent if applicable
+	s.cleanupBlockEmbed(ctx, block.PageID, block.ID)
 
 	s.emitBlocksChanged(ctx, block.PageID)
 	return textResult(fmt.Sprintf("Block %s deleted", block.ID)), nil
@@ -471,10 +506,38 @@ func (s *Server) handleBatchDeleteBlocks(ctx context.Context, req mcp.CallToolRe
 		deleted++
 	}
 
+	// Clean up blockEmbeds from BoardContent for all deleted blocks
 	if pageID != "" {
+		s.cleanupBlockEmbeds(ctx, pageID, ids)
 		s.emitBlocksChanged(ctx, pageID)
 	}
 	return textResult(fmt.Sprintf("Deleted %d blocks", deleted)), nil
+}
+
+// cleanupBlockEmbed removes a single block's embed from BoardContent if the page is a board.
+func (s *Server) cleanupBlockEmbed(ctx context.Context, pageID, blockID string) {
+	s.cleanupBlockEmbeds(ctx, pageID, []string{blockID})
+}
+
+// cleanupBlockEmbeds removes multiple block embeds from BoardContent if the page is a board.
+func (s *Server) cleanupBlockEmbeds(ctx context.Context, pageID string, blockIDs []string) {
+	ps, err := s.notebooks.GetPageState(pageID)
+	if err != nil || ps.Page.PageType != "board" || ps.Page.BoardContent == "" {
+		return
+	}
+	content := ps.Page.BoardContent
+	changed := false
+	for _, id := range blockIDs {
+		updated := removeBlockEmbed(content, id)
+		if updated != content {
+			content = updated
+			changed = true
+		}
+	}
+	if changed {
+		_ = s.notebooks.UpdateBoardContent(pageID, content)
+		s.emitBoardContentChanged(ctx, pageID, content)
+	}
 }
 
 // ── Helper types ───────────────────────────────────────────
@@ -524,4 +587,30 @@ func splitIDs(s string) []string {
 		}
 	}
 	return ids
+}
+
+// resolveViewMode derives the block viewMode from the page type/mode,
+// with an optional override from tool args.
+func resolveViewMode(page *domain.Page, args map[string]any) string {
+	// Allow explicit override
+	if vm, ok := args["viewMode"].(string); ok && (vm == domain.BlockViewDocument || vm == domain.BlockViewDashboard) {
+		return vm
+	}
+	// Auto-detect from page
+	if page.PageType == "board" {
+		switch page.BoardMode {
+		case "document", "split":
+			return domain.BlockViewDocument
+		default: // "dashboard" or empty
+			return domain.BlockViewDashboard
+		}
+	}
+	// Canvas pages: use "dashboard" (canvas renders all blocks regardless)
+	return domain.BlockViewDashboard
+}
+
+// removeBlockEmbed removes the blockEmbed HTML for a given blockID from content.
+func removeBlockEmbed(content, blockID string) string {
+	re := regexp.MustCompile(`\s*<div data-block-embed="" blockid="` + regexp.QuoteMeta(blockID) + `"[^>]*></div>`)
+	return strings.TrimSpace(re.ReplaceAllString(content, ""))
 }

@@ -96,9 +96,11 @@ interface Props {
 }
 
 export function DocumentView({ pageId }: Props) {
-  const initialContent = useAppStore((s) => s.activeBoardContent);
+  const boardContent = useAppStore((s) => s.activeBoardContent);
+  const initialContentRef = useRef(boardContent);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const editorRef = useRef<any>(null);
+  const isExternalUpdate = useRef(false);
 
   const saveContent = useCallback(
     (markdown: string) => {
@@ -137,7 +139,7 @@ export function DocumentView({ pageId }: Props) {
       BlockEmbedExtension,
       SlashMenuExtension,
     ],
-    content: initialContent || "",
+    content: initialContentRef.current || "",
     editorProps: {
       attributes: {
         class: "document-editor",
@@ -145,12 +147,27 @@ export function DocumentView({ pageId }: Props) {
       },
     },
     onUpdate({ editor }: any) {
+      if (isExternalUpdate.current) return;
       const md = (editor.storage as any).markdown?.getMarkdown?.() ?? "";
       saveContent(md);
     },
   } as any);
 
   editorRef.current = editor;
+
+  // Sync editor with external board content changes (e.g. MCP block creation)
+  useEffect(() => {
+    if (!editor || boardContent === undefined) return;
+    const currentMd =
+      (editor.storage as any)?.markdown?.getMarkdown?.() ?? "";
+    if (currentMd !== boardContent) {
+      isExternalUpdate.current = true;
+      editor.commands.setContent(boardContent || "");
+      queueMicrotask(() => {
+        isExternalUpdate.current = false;
+      });
+    }
+  }, [boardContent, editor]);
 
   // Handle block insertion from slash menu
   useEffect(() => {
