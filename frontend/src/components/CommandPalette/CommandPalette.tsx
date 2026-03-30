@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } fro
 import { useAppStore } from '../../store'
 import { api } from '../../bridge/wails'
 import type { Page } from '../../bridge/wails'
-import { IconPlus, IconNotebook, IconFile, IconLayout } from '@tabler/icons-react'
+import { IconPlus, IconNotebook, IconFile, IconLayout, IconMicrophone } from '@tabler/icons-react'
 
 interface CommandItem {
     id: string
@@ -22,6 +22,9 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
     const createNotebook = useAppStore(s => s.createNotebook)
     const createPage = useAppStore(s => s.createPage)
     const createBoardPage = useAppStore(s => s.createBoardPage)
+    const recordingActive = useAppStore(s => s.recordingActive)
+    const openRecordingForm = useAppStore(s => s.openRecordingForm)
+    const stopRecording = useAppStore(s => s.stopRecording)
 
     const [query, setQuery] = useState('')
     const [selectedIndex, setSelectedIndex] = useState(0)
@@ -83,6 +86,27 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
             })
         }
 
+        // Meeting recording
+        if (!recordingActive) {
+            result.push({
+                id: 'action-start-recording',
+                label: 'Iniciar Gravação de Reunião',
+                sublabel: 'gravar áudio do sistema + microfone',
+                icon: <IconMicrophone size={14} />,
+                type: 'action',
+                action: () => { openRecordingForm(); onClose() },
+            })
+        } else {
+            result.push({
+                id: 'action-stop-recording',
+                label: 'Parar Gravação',
+                sublabel: 'finalizar a gravação em andamento',
+                icon: <IconMicrophone size={14} />,
+                type: 'action',
+                action: () => { stopRecording(); onClose() },
+            })
+        }
+
         // Notebooks grouped with their pages
         for (const nb of notebooks) {
             const nbPages = allPages.filter(p => p.notebookId === nb.id)
@@ -118,7 +142,7 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
             item.label.toLowerCase().includes(q) ||
             (item.sublabel && item.sublabel.toLowerCase().includes(q))
         )
-    }, [mode, allPages, notebooks, activeNotebookId, query, selectNotebook, selectPage, onClose])
+    }, [mode, allPages, notebooks, activeNotebookId, query, selectNotebook, selectPage, onClose, recordingActive, openRecordingForm, stopRecording])
 
     // Keep selection in bounds
     useEffect(() => {

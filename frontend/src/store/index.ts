@@ -10,6 +10,7 @@ import { createDrawingSlice } from './drawingSlice'
 import { createConnectionSlice } from './connectionSlice'
 import { createEntitySlice } from './entitySlice'
 import { createSelectionSlice } from './selectionSlice'
+import { createRecordingSlice } from './recordingSlice'
 import { pluginBus } from '../plugins/sdk/runtime/eventBus'
 import useToastStore from './toastSlice'
 
@@ -53,6 +54,7 @@ export const useAppStore = create<AppState>((...a) => ({
     ...createConnectionSlice(...a),
     ...createEntitySlice(...a),
     ...createSelectionSlice(...a),
+    ...createRecordingSlice(...a),
 
     // ── Cross-slice actions ────────────────────────────────
 
@@ -185,6 +187,69 @@ export const useAppStore = create<AppState>((...a) => ({
         // MCP: approval dismissed (timeout)
         unsubs.push(onEvent('mcp:approval-dismissed', (data: any) => {
             pluginBus.emit('mcp:approval-dismissed', data)
+        }))
+
+        // Meeting: recording started
+        unsubs.push(onEvent('meeting:recording', (data: { meetingId: string; title: string }) => {
+            useAppStore.setState({
+                recordingActive: true,
+                recordingMeetingId: data.meetingId,
+                recordingTitle: data.title,
+                recordingStartedAt: new Date().toISOString(),
+                recordingError: null,
+            })
+        }))
+
+        // Meeting: recording stopped — pipeline begins
+        unsubs.push(onEvent('meeting:stopped', (data: { meetingId: string; title: string; status: string }) => {
+            useAppStore.setState({
+                recordingActive: false,
+                recordingMeetingId: null,
+                recordingTitle: null,
+                recordingStartedAt: null,
+                recordingFileSizeMb: 0,
+                recordingAudioLevel: 0,
+                // Pipeline starts, show processing state
+                processingStatus: 'transcribing' as const,
+                processingTitle: data.title,
+                processingMeetingId: data.meetingId,
+                processingError: null,
+            })
+        }))
+
+        // Meeting: pipeline status update (transcribing → analyzing)
+        unsubs.push(onEvent('meeting:status', (data: { meetingId: string; status: string; title: string; error?: string }) => {
+            if (data.status === 'error') {
+                useAppStore.setState({
+                    processingStatus: null,
+                    processingTitle: null,
+                    processingMeetingId: null,
+                    processingError: data.error || 'Erro no processamento',
+                    recordingError: data.error || 'Erro no processamento',
+                })
+            } else {
+                useAppStore.setState({
+                    processingStatus: data.status as 'transcribing' | 'analyzing' | 'generating',
+                    processingTitle: data.title,
+                    processingMeetingId: data.meetingId,
+                })
+            }
+        }))
+
+        // Meeting: pipeline complete
+        unsubs.push(onEvent('meeting:ready', (data: { meetingId: string; title: string; actionItemCount?: number }) => {
+            const count = data.actionItemCount || 0
+            useAppStore.setState({
+                processingStatus: null,
+                processingTitle: null,
+                processingMeetingId: null,
+                recordingCompletedTitle: data.title,
+                recordingCompletedMeetingId: data.meetingId,
+            })
+            useToastStore.getState().addToast(
+                `Reunião "${data.title}" processada. ${count} action item${count !== 1 ? 's' : ''}.`,
+                'success', 8000,
+            )
         }))
 
         return () => unsubs.forEach(fn => fn())

@@ -23,6 +23,10 @@
         <string>true</string>
         <key>NSHumanReadableCopyright</key>
         <string>{{.Info.Copyright}}</string>
+        <key>NSMicrophoneUsageDescription</key>
+        <string>Notes precisa de acesso ao microfone para gravar reuniões.</string>
+        <key>NSScreenCaptureUsageDescription</key>
+        <string>Notes precisa de permissão de gravação de tela para capturar áudio de reuniões.</string>
         {{if .Info.FileAssociations}}
         <key>CFBundleDocumentTypes</key>
         <array>

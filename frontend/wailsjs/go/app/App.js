@@ -166,8 +166,24 @@ export function GetLocalDatabaseStats(arg1) {
   return window['go']['app']['App']['GetLocalDatabaseStats'](arg1);
 }
 
+export function GetMeeting(arg1) {
+  return window['go']['app']['App']['GetMeeting'](arg1);
+}
+
+export function GetMeetingByPageID(arg1) {
+  return window['go']['app']['App']['GetMeetingByPageID'](arg1);
+}
+
+export function GetMeetingRefinementChat(arg1) {
+  return window['go']['app']['App']['GetMeetingRefinementChat'](arg1);
+}
+
 export function GetPageState(arg1) {
   return window['go']['app']['App']['GetPageState'](arg1);
+}
+
+export function GetRecordingStatus() {
+  return window['go']['app']['App']['GetRecordingStatus']();
 }
 
 export function GoToUndoNode(arg1, arg2) {
@@ -208,6 +224,10 @@ export function ListLocalDBRows(arg1) {
 
 export function ListLocalDatabases() {
   return window['go']['app']['App']['ListLocalDatabases']();
+}
+
+export function ListMeetings(arg1) {
+  return window['go']['app']['App']['ListMeetings'](arg1);
 }
 
 export function ListNotebooks() {
@@ -262,6 +282,10 @@ export function PushUndoNode(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['PushUndoNode'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function RefineMeetingNote(arg1, arg2) {
+  return window['go']['app']['App']['RefineMeetingNote'](arg1, arg2);
+}
+
 export function RejectAction(arg1) {
   return window['go']['app']['App']['RejectAction'](arg1);
 }
@@ -300,6 +324,14 @@ export function SaveBlockHTTPConfig(arg1, arg2) {
 
 export function SaveImageFile(arg1, arg2) {
   return window['go']['app']['App']['SaveImageFile'](arg1, arg2);
+}
+
+export function StartMeetingRecording(arg1, arg2) {
+  return window['go']['app']['App']['StartMeetingRecording'](arg1, arg2);
+}
+
+export function StopMeetingRecording() {
+  return window['go']['app']['App']['StopMeetingRecording']();
 }
 
 export function TerminalResize(arg1, arg2) {

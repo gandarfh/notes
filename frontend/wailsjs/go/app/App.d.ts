@@ -90,7 +90,15 @@ export function GetLocalDatabase(arg1:string):Promise<domain.LocalDatabase>;
 
 export function GetLocalDatabaseStats(arg1:string):Promise<service.LocalDBStats>;
 
+export function GetMeeting(arg1:string):Promise<domain.Meeting>;
+
+export function GetMeetingByPageID(arg1:string):Promise<domain.Meeting>;
+
+export function GetMeetingRefinementChat(arg1:string):Promise<Array<domain.ChatMessage>>;
+
 export function GetPageState(arg1:string):Promise<domain.PageState>;
+
+export function GetRecordingStatus():Promise<domain.RecordingStatus>;
 
 export function GoToUndoNode(arg1:string,arg2:string):Promise<void>;
 
@@ -111,6 +119,8 @@ export function ListETLSources():Promise<Array<etl.SourceSpec>>;
 export function ListLocalDBRows(arg1:string):Promise<Array<domain.LocalDBRow>>;
 
 export function ListLocalDatabases():Promise<Array<domain.LocalDatabase>>;
+
+export function ListMeetings(arg1:string):Promise<Array<domain.Meeting>>;
 
 export function ListNotebooks():Promise<Array<domain.Notebook>>;
 
@@ -138,6 +148,8 @@ export function PreviewETLSource(arg1:string,arg2:string):Promise<service.Previe
 
 export function PushUndoNode(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<storage.UndoNode>;
 
+export function RefineMeetingNote(arg1:string,arg2:string):Promise<string>;
+
 export function RejectAction(arg1:string):Promise<void>;
 
 export function RenameLocalDatabase(arg1:string,arg2:string):Promise<void>;
@@ -157,6 +169,10 @@ export function SaveBlockDatabaseConfig(arg1:string,arg2:string):Promise<void>;
 export function SaveBlockHTTPConfig(arg1:string,arg2:string):Promise<void>;
 
 export function SaveImageFile(arg1:string,arg2:string):Promise<string>;
+
+export function StartMeetingRecording(arg1:string,arg2:Array<string>):Promise<void>;
+
+export function StopMeetingRecording():Promise<domain.Meeting>;
 
 export function TerminalResize(arg1:number,arg2:number):Promise<void>;
 

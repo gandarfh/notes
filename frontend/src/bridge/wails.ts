@@ -103,6 +103,15 @@ declare global {
           ListCanvasConnections(pageID: string): Promise<CanvasConnection[]>
           UpdateCanvasConnection(id: string, fromEntityID: string, toEntityID: string, fromSide: string, toSide: string, label: string, color: string, style: string, fromT: number, toT: number): Promise<void>
           DeleteCanvasConnection(id: string): Promise<void>
+          // Meeting capture
+          StartMeetingRecording(title: string, participants: string[]): Promise<void>
+          StopMeetingRecording(): Promise<Meeting>
+          GetRecordingStatus(): Promise<RecordingStatus>
+          GetMeeting(meetingID: string): Promise<Meeting>
+          ListMeetings(date: string): Promise<Meeting[]>
+          RefineMeetingNote(meetingID: string, message: string): Promise<string>
+          GetMeetingRefinementChat(meetingID: string): Promise<ChatMessage[]>
+          GetMeetingByPageID(pageID: string): Promise<Meeting>
           // MCP approval
           ApproveAction(id: string): Promise<void>
           RejectAction(id: string): Promise<void>
@@ -474,6 +483,40 @@ export interface HTTPResponse {
   size: number
 }
 
+// ── Meeting Capture Types ─────────────────────────────────
+
+export interface Meeting {
+  id: string
+  pageId: string
+  notebookId: string
+  title: string
+  date: string
+  duration: string
+  participants: string[]
+  audioPath: string
+  transcriptJson: string
+  analysisJson: string
+  status: 'recording' | 'transcribing' | 'analyzing' | 'generating' | 'ready' | 'error'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RecordingStatus {
+  active: boolean
+  meetingId: string
+  title: string
+  startedAt: string
+  elapsedSecs: number
+  audioLevel: number
+  fileSizeMb: number
+  error?: string
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 // ── API exports ───────────────────────────────────────────
 // The flat `api` object is re-exported from the namespaced barrel
 // for full backward-compatibility. New code should import from
@@ -491,6 +534,7 @@ export {
   httpAPI,
   terminalAPI,
   connectionAPI,
+  meetingAPI,
 } from './api'
 
 export function onEvent(name: string, callback: (...args: any[]) => void): () => void {

@@ -273,6 +273,26 @@ func (db *DB) migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_canvas_connections_page ON canvas_connections(page_id)`,
 		// Block view mode isolation (document vs dashboard)
 		`ALTER TABLE blocks ADD COLUMN view_mode TEXT NOT NULL DEFAULT 'dashboard'`,
+		// Meeting Capture
+		`CREATE TABLE IF NOT EXISTS meetings (
+			id TEXT PRIMARY KEY,
+			page_id TEXT,
+			notebook_id TEXT,
+			title TEXT NOT NULL,
+			date DATETIME NOT NULL,
+			duration TEXT,
+			participants_json TEXT DEFAULT '[]',
+			audio_path TEXT,
+			transcript_json TEXT,
+			analysis_json TEXT,
+			refinement_chat_json TEXT DEFAULT '[]',
+			status TEXT NOT NULL DEFAULT 'recording',
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_meetings_date ON meetings(date)`,
+		`CREATE INDEX IF NOT EXISTS idx_meetings_status ON meetings(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_meetings_page ON meetings(page_id)`,
 	}
 
 	for _, m := range migrations {

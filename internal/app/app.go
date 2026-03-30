@@ -9,6 +9,7 @@ import (
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"notes/internal/meeting"
 	mcpserver "notes/internal/mcp"
 	"notes/internal/neovim"
 	"notes/internal/plugins"
@@ -39,6 +40,9 @@ type App struct {
 	localdb        *service.LocalDBService
 	database       *service.DatabaseService
 	window         *service.WindowSettingsService
+
+	// Meeting capture
+	meeting *service.MeetingService
 
 	// Plugin registry
 	pluginRegistry *service.GoPluginRegistry
@@ -117,6 +121,19 @@ func (a *App) Startup(ctx context.Context) {
 	a.canvasEntities = service.NewCanvasEntityService(canvasEntityStore, canvasConnStore, a)
 	a.window = service.NewWindowSettingsService(db)
 
+	// ── Meeting Capture ─────────────────────────────────────
+	meetingStore := storage.NewMeetingStore(db)
+	recorder := meeting.NewRecorder()
+	audioDir := filepath.Join(homeDir, ".notes", "audio")
+	// Transcriber: whisper.cpp (must be installed separately)
+	whisperBinary := "whisper-cli"
+	whisperModel := filepath.Join(homeDir, ".local", "share", "whisper", "ggml-large-v3.bin")
+	transcriber := meeting.NewTranscriber(whisperBinary, whisperModel, "pt")
+	// Analyzer: Claude Code CLI subprocess
+	claude := meeting.NewClaudeClient("sonnet")
+	analyzer := meeting.NewAnalyzer(claude)
+	a.meeting = service.NewMeetingService(meetingStore, recorder, transcriber, analyzer, a.notebooks, a.blocks, a.localdb, audioDir, a)
+
 	// Restore saved window size
 	win := a.window.LoadWindowSize()
 	wailsRuntime.WindowSetSize(ctx, win.Width, win.Height)
@@ -184,7 +201,15 @@ func (a *App) Shutdown(ctx context.Context) {
 		_ = a.window.SaveWindowSize(w, h)
 	}
 
-	// 2. Stop accepting new terminal/editor input
+	// 2. Stop active meeting recording
+	if a.meeting != nil {
+		status := a.meeting.GetRecordingStatus()
+		if status.Active {
+			a.meeting.StopRecording()
+		}
+	}
+
+	// 3. Stop accepting new terminal/editor input
 	if a.term != nil {
 		a.term.Close()
 	}

@@ -2,6 +2,7 @@ import './toolbar.css'
 import { useAppStore } from '../../store'
 import type { DrawingSubTool } from '../../store/types'
 import { useTheme } from '../../hooks/useTheme'
+import { RecordingIndicator } from '../RecordingIndicator/RecordingIndicator'
 
 const tools: { id: DrawingSubTool | 'block'; icon: React.ReactNode; title: string; key: string }[] = [
     {
@@ -94,6 +95,7 @@ export function Toolbar({ showUndoPanel, onToggleUndoPanel, onOpenPalette }: {
             </div>
 
             <div className="toolbar-right">
+                <RecordingIndicator />
                 <button
                     className="toolbar-btn"
                     title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}

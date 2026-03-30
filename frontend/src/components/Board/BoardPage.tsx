@@ -4,6 +4,7 @@ import { api } from '../../bridge/wails'
 import type { BoardMode } from '../../bridge/wails'
 import { DocumentView } from './DocumentView'
 import { Canvas } from '../Canvas/Canvas'
+import { MeetingChat } from '../MeetingChat/MeetingChat'
 import './BoardPage.css'
 
 const MIN_PANEL_WIDTH = 200
@@ -101,6 +102,7 @@ export function BoardPage({ onEditBlock }: BoardPageProps) {
                     )}
                 </div>
             )}
+            <MeetingChat />
         </div>
     )
 }

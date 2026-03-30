@@ -450,6 +450,20 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class ChatMessage {
+	    role: string;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ChatMessage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.role = source["role"];
+	        this.content = source["content"];
+	    }
+	}
 	export class Connection {
 	    id: string;
 	    pageId: string;
@@ -634,6 +648,65 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class Meeting {
+	    id: string;
+	    pageId: string;
+	    notebookId: string;
+	    title: string;
+	    // Go type: time
+	    date: any;
+	    duration: string;
+	    participants: string[];
+	    audioPath: string;
+	    transcriptJson: string;
+	    analysisJson: string;
+	    refinementChat: string;
+	    status: string;
+	    // Go type: time
+	    createdAt: any;
+	    // Go type: time
+	    updatedAt: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new Meeting(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.pageId = source["pageId"];
+	        this.notebookId = source["notebookId"];
+	        this.title = source["title"];
+	        this.date = this.convertValues(source["date"], null);
+	        this.duration = source["duration"];
+	        this.participants = source["participants"];
+	        this.audioPath = source["audioPath"];
+	        this.transcriptJson = source["transcriptJson"];
+	        this.analysisJson = source["analysisJson"];
+	        this.refinementChat = source["refinementChat"];
+	        this.status = source["status"];
+	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Notebook {
 	    id: string;
 	    name: string;
@@ -750,6 +823,51 @@ export namespace domain {
 	        this.connections = this.convertValues(source["connections"], Connection);
 	        this.entities = this.convertValues(source["entities"], CanvasEntity);
 	        this.canvasConnections = this.convertValues(source["canvasConnections"], CanvasConnection);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class RecordingStatus {
+	    active: boolean;
+	    meetingId: string;
+	    title: string;
+	    // Go type: time
+	    startedAt: any;
+	    elapsedSecs: number;
+	    audioLevel: number;
+	    fileSizeMb: number;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RecordingStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.active = source["active"];
+	        this.meetingId = source["meetingId"];
+	        this.title = source["title"];
+	        this.startedAt = this.convertValues(source["startedAt"], null);
+	        this.elapsedSecs = source["elapsedSecs"];
+	        this.audioLevel = source["audioLevel"];
+	        this.fileSizeMb = source["fileSizeMb"];
+	        this.error = source["error"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

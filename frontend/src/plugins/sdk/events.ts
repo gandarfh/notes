@@ -41,6 +41,14 @@ export interface WailsEventMap {
     'etl:job-completed': string  // payload is jobId string
     // Terminal PTY output (base64 encoded)
     'terminal:data': string
+    // Meeting recording started
+    'meeting:recording': { meetingId: string; title: string }
+    // Meeting recording stopped
+    'meeting:stopped': { meetingId: string; title: string; status: string }
+    // Meeting pipeline status update (transcribing, analyzing, error)
+    'meeting:status': { meetingId: string; status: string; title: string; error?: string }
+    // Meeting pipeline complete
+    'meeting:ready': { meetingId: string; title: string; actionItemCount?: number }
 }
 
 // ── Helper types ───────────────────────────────────────────

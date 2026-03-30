@@ -167,9 +167,40 @@ export interface SelectionSlice {
     isSelected: (id: string) => boolean
 }
 
+// ── Recording Slice ───────────────────────────────────────
+
+export interface RecordingSlice {
+    recordingActive: boolean
+    recordingMeetingId: string | null
+    recordingTitle: string | null
+    recordingStartedAt: string | null
+    recordingError: string | null
+    recordingFileSizeMb: number
+    recordingAudioLevel: number
+
+    // Post-recording processing state (transcribing/analyzing)
+    processingStatus: 'transcribing' | 'analyzing' | 'generating' | null
+    processingTitle: string | null
+    processingMeetingId: string | null
+    processingError: string | null
+
+    // Post-processing completed state (shows ✅ for a few seconds)
+    recordingCompletedTitle: string | null
+    recordingCompletedMeetingId: string | null
+
+    showRecordingForm: boolean
+
+    openRecordingForm: () => void
+    closeRecordingForm: () => void
+    startRecording: (title: string, participants: string[]) => Promise<void>
+    stopRecording: () => Promise<void>
+    pollRecordingStatus: () => Promise<void>
+    dismissCompleted: () => void
+}
+
 // ── Combined Store ─────────────────────────────────────────
 
-export type AppState = NotebookSlice & CanvasSlice & BlockSlice & DrawingSlice & ConnectionSlice & EntitySlice & SelectionSlice & {
+export type AppState = NotebookSlice & CanvasSlice & BlockSlice & DrawingSlice & ConnectionSlice & EntitySlice & SelectionSlice & RecordingSlice & {
     /** Load full page state (blocks + connections + viewport + drawing) */
     loadPageState: (pageId: string) => Promise<void>
 

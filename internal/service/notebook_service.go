@@ -116,6 +116,10 @@ func (s *NotebookService) CreatePage(notebookID, name string) (*domain.Page, err
 	return p, nil
 }
 
+func (s *NotebookService) GetPage(pageID string) (*domain.Page, error) {
+	return s.store.GetPage(pageID)
+}
+
 func (s *NotebookService) GetPageState(pageID string) (*domain.PageState, error) {
 	page, err := s.store.GetPage(pageID)
 	if err != nil {

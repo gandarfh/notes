@@ -12,6 +12,7 @@ export { canvasEntityAPI } from './canvasEntity'
 export { etlAPI } from './etl'
 export { localdbAPI } from './localdb'
 export { databaseAPI, httpAPI, terminalAPI, connectionAPI } from './database'
+export { meetingAPI } from './meeting'
 
 // ── Flat `api` object for backward compatibility ──────────
 // All existing code that imports `api` from bridge/wails continues to work.
@@ -22,6 +23,7 @@ import { canvasEntityAPI } from './canvasEntity'
 import { etlAPI } from './etl'
 import { localdbAPI } from './localdb'
 import { databaseAPI, httpAPI, terminalAPI, connectionAPI } from './database'
+import { meetingAPI } from './meeting'
 
 function go() { return window.go.app.App }
 
@@ -88,6 +90,9 @@ export const api = {
     executeHTTPRequest: httpAPI.executeRequest,
     saveBlockHTTPConfig: httpAPI.saveBlockConfig,
     listPageHTTPBlocks: etlAPI.listPageHTTPBlocks,
+
+    // ── Meeting capture ────────────────────────────────────
+    ...meetingAPI,
 
     // ── MCP approval ──────────────────────────────────────
     approveAction: (id: string) => go().ApproveAction(id),
