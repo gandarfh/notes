@@ -290,19 +290,34 @@ func (s *MeetingService) RefineMeetingNote(meetingID, message string) (string, e
 		json.Unmarshal([]byte(m.RefinementChat), &chatData)
 	}
 
-	// Build context prompt with current meeting state
+	// Build full prompt with context + chat history + new message
 	contextPrompt := s.buildRefinementContext(m)
 
-	// Call Claude with --resume if we have a session
+	// Build conversation history as part of the prompt
+	var historyBlock strings.Builder
+	if len(chatData.Messages) > 0 {
+		historyBlock.WriteString("\n\nHISTÓRICO DA CONVERSA:\n")
+		for _, msg := range chatData.Messages {
+			if msg.Role == "user" {
+				historyBlock.WriteString(fmt.Sprintf("Usuário: %s\n", msg.Content))
+			} else {
+				// Strip updates block from history
+				content := msg.Content
+				if idx := strings.Index(content, `{"updates"`); idx != -1 {
+					content = content[:idx]
+				}
+				historyBlock.WriteString(fmt.Sprintf("Assistente: %s\n", strings.TrimSpace(content)))
+			}
+		}
+	}
+
+	fullPrompt := fmt.Sprintf("%s\n\nMENSAGEM DO USUÁRIO:\n%s", historyBlock.String(), message)
+
+	// Always start fresh — --resume inherits the analysis session prompt which conflicts
 	opts := meeting.QueryOpts{
-		Prompt:       message,
+		Prompt:       fullPrompt,
 		SystemPrompt: refinementSystemPrompt + "\n\n" + contextPrompt,
 		MaxTurns:     3,
-	}
-	if chatData.SessionID != "" {
-		opts.ResumeSession = chatData.SessionID
-		// When resuming, system prompt is already set from first call
-		opts.SystemPrompt = ""
 	}
 
 	result, err := s.analyzer.Claude().Query(context.Background(), opts)
@@ -469,15 +484,29 @@ func (s *MeetingService) applyUpdates(m *domain.Meeting, updates *refinementUpda
 
 		case "summary":
 			if newText, ok := u.Changes["text"]; ok {
-				s.updateSummaryInHTML(m, newText)
+				s.updateSectionInHTML(m, "Resumo", newText)
+			}
+
+		case "participants":
+			if newText, ok := u.Changes["text"]; ok {
+				s.updateParticipantsInHTML(m, newText)
 			}
 		}
 	}
 
-	// Emit events so frontend refreshes
+	// Emit events so frontend refreshes blocks (LocalDB rows)
 	s.emitter.Emit(context.Background(), "mcp:blocks-changed", map[string]any{
 		"pageId": m.PageID,
 	})
+
+	// Emit board content changed so Tiptap document refreshes
+	page, err := s.notebooks.GetPage(m.PageID)
+	if err == nil {
+		s.emitter.Emit(context.Background(), "mcp:board-content-changed", map[string]any{
+			"pageId":  m.PageID,
+			"content": page.BoardContent,
+		})
+	}
 
 	return nil
 }
@@ -520,31 +549,60 @@ func (s *MeetingService) applyRowUpdate(dbID string, u refinementUpdate) error {
 	return nil
 }
 
-func (s *MeetingService) updateSummaryInHTML(m *domain.Meeting, newSummary string) {
+// updateSectionInHTML replaces the first <p> content after an <h2>Section</h2> heading.
+func (s *MeetingService) updateSectionInHTML(m *domain.Meeting, sectionName, newText string) {
 	page, err := s.notebooks.GetPage(m.PageID)
 	if err != nil {
 		return
 	}
 
-	// Replace summary section in HTML
 	html := page.BoardContent
-	summaryStart := strings.Index(html, "<h2>Resumo</h2>")
-	if summaryStart == -1 {
+	heading := fmt.Sprintf("<h2>%s</h2>", sectionName)
+	hStart := strings.Index(html, heading)
+	if hStart == -1 {
 		return
 	}
-	// Find the <p> after Resumo
-	pStart := strings.Index(html[summaryStart:], "<p>")
+	pStart := strings.Index(html[hStart:], "<p>")
 	if pStart == -1 {
 		return
 	}
-	pStart += summaryStart
+	pStart += hStart
 	pEnd := strings.Index(html[pStart:], "</p>")
 	if pEnd == -1 {
 		return
 	}
 	pEnd += pStart + len("</p>")
 
-	newHTML := html[:pStart] + "<p>" + htmlEscape(newSummary) + "</p>" + html[pEnd:]
+	newHTML := html[:pStart] + "<p>" + htmlEscape(newText) + "</p>" + html[pEnd:]
+	s.notebooks.UpdateBoardContent(m.PageID, newHTML)
+}
+
+// updateParticipantsInHTML replaces the participants line in the document header.
+func (s *MeetingService) updateParticipantsInHTML(m *domain.Meeting, newParticipants string) {
+	page, err := s.notebooks.GetPage(m.PageID)
+	if err != nil {
+		return
+	}
+
+	html := page.BoardContent
+	marker := "<strong>Participantes:</strong>"
+	pStart := strings.Index(html, marker)
+	if pStart == -1 {
+		return
+	}
+	// Walk back to find the <p> before the marker
+	lineStart := strings.LastIndex(html[:pStart], "<p>")
+	if lineStart == -1 {
+		return
+	}
+	lineEnd := strings.Index(html[lineStart:], "</p>")
+	if lineEnd == -1 {
+		return
+	}
+	lineEnd += lineStart + len("</p>")
+
+	newLine := fmt.Sprintf("<p><strong>Participantes:</strong> %s</p>", htmlEscape(newParticipants))
+	newHTML := html[:lineStart] + newLine + html[lineEnd:]
 	s.notebooks.UpdateBoardContent(m.PageID, newHTML)
 }
 

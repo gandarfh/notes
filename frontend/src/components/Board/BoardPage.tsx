@@ -4,7 +4,7 @@ import { api } from '../../bridge/wails'
 import type { BoardMode } from '../../bridge/wails'
 import { DocumentView } from './DocumentView'
 import { Canvas } from '../Canvas/Canvas'
-import { MeetingChat } from '../MeetingChat/MeetingChat'
+import { MeetingChatPanel, MeetingChatToggle, useMeetingForPage } from '../MeetingChat/MeetingChat'
 import './BoardPage.css'
 
 const MIN_PANEL_WIDTH = 200
@@ -17,7 +17,10 @@ export function BoardPage({ onEditBlock }: BoardPageProps) {
     const pageId = useAppStore(s => s.activePageId)
     const mode = useAppStore(s => s.activeBoardMode)
     const [splitRatio, setSplitRatio] = useState(0.5)
+    const [chatOpen, setChatOpen] = useState(false)
     const splitRef = useRef<HTMLDivElement>(null)
+
+    const meeting = useMeetingForPage(pageId)
 
     const setMode = useCallback(async (newMode: BoardMode) => {
         if (!pageId || newMode === mode) return
@@ -53,6 +56,26 @@ export function BoardPage({ onEditBlock }: BoardPageProps) {
 
     if (!pageId) return null
 
+    const mainContent = mode === 'split' ? (
+        <div className="board-split" ref={splitRef}>
+            <div className="board-split-panel" style={{ width: `${splitRatio * 100}%` }}>
+                <DocumentView pageId={pageId} />
+            </div>
+            <div className="board-split-divider" onMouseDown={handleDividerMouseDown} />
+            <div className="board-split-panel board-split-canvas" style={{ flex: 1 }}>
+                <Canvas onEditBlock={onEditBlock} />
+            </div>
+        </div>
+    ) : (
+        <div className="board-content">
+            {mode === 'document' ? (
+                <DocumentView pageId={pageId} />
+            ) : (
+                <Canvas onEditBlock={onEditBlock} />
+            )}
+        </div>
+    )
+
     return (
         <div className="board-page">
             <div className="board-header">
@@ -76,33 +99,21 @@ export function BoardPage({ onEditBlock }: BoardPageProps) {
                         Split
                     </button>
                 </div>
-            </div>
-            {mode === 'split' ? (
-                <div className="board-split" ref={splitRef}>
-                    <div
-                        className="board-split-panel"
-                        style={{ width: `${splitRatio * 100}%` }}
-                    >
-                        <DocumentView pageId={pageId} />
-                    </div>
-                    <div
-                        className="board-split-divider"
-                        onMouseDown={handleDividerMouseDown}
+                {meeting && (
+                    <MeetingChatToggle
+                        active={chatOpen}
+                        onClick={() => setChatOpen(prev => !prev)}
                     />
-                    <div className="board-split-panel board-split-canvas" style={{ flex: 1 }}>
-                        <Canvas onEditBlock={onEditBlock} />
-                    </div>
+                )}
+            </div>
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    {mainContent}
                 </div>
-            ) : (
-                <div className="board-content">
-                    {mode === 'document' ? (
-                        <DocumentView pageId={pageId} />
-                    ) : (
-                        <Canvas onEditBlock={onEditBlock} />
-                    )}
-                </div>
-            )}
-            <MeetingChat />
+                {chatOpen && meeting && (
+                    <MeetingChatPanel meeting={meeting} />
+                )}
+            </div>
         </div>
     )
 }
