@@ -32,11 +32,17 @@ getDrawingEngine().catch(() => { /* WASM load failure is non-fatal */ })
  * useDrawing — React hook that replaces CanvasDrawing class.
  * All state is in Zustand or refs. Zero DOM manipulation.
  */
+interface UseDrawingOptions {
+    /** Override blockRects (e.g. return empty in document mode where blocks are TipTap embeds) */
+    blockRectsOverride?: () => Array<{ id: string; x: number; y: number; width: number; height: number }>
+}
+
 export function useDrawing(
     svgRef: React.RefObject<HTMLCanvasElement | null>,
     overlayRef: React.RefObject<HTMLCanvasElement | null>,
     containerRef: React.RefObject<HTMLElement | null>,
     onBlockCreate: BlockCreationCallback,
+    options?: UseDrawingOptions,
 ) {
     // ── Local state (transient, not in store) ──
     const currentElementRef = useRef<DrawingElement | null>(null)
@@ -326,6 +332,7 @@ export function useDrawing(
         get clipboard() { return clipboardRef.current },
         set clipboard(v) { clipboardRef.current = v },
         get blockRects() {
+            if (options?.blockRectsOverride) return options.blockRectsOverride()
             const blocks = useAppStore.getState().blocks
             const rects: Array<{ id: string; x: number; y: number; width: number; height: number }> = []
             for (const b of blocks.values()) {

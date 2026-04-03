@@ -79,6 +79,9 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
 
     // Block creation is a no-op in document mode — blocks use TipTap embeds
     const onBlockCreate = useCallback(async () => {}, [])
+    // In document mode, blocks are TipTap embeds — their store positions are canvas/dashboard
+    // coords and must not be used as arrow routing obstacles
+    const emptyBlockRects = useCallback(() => [] as Array<{ id: string; x: number; y: number; width: number; height: number }>, [])
 
     const {
         editorRequest,
@@ -95,6 +98,7 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         overlayCanvasRef,
         wrapperRef,
         onBlockCreate,
+        { blockRectsOverride: emptyBlockRects },
     )
 
     // Register clearDrawingSelection globally
