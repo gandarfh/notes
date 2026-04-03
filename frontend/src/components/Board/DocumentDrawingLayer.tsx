@@ -24,6 +24,7 @@ interface DrawingCluster {
 /**
  * Groups drawing elements into vertical clusters.
  * Elements within `gap` pixels of each other vertically are merged.
+ * Cluster IDs are derived from spatial position for stability.
  */
 function computeClusters(elements: DrawingElement[], gap = 20): DrawingCluster[] {
     if (elements.length === 0) return []
@@ -42,21 +43,23 @@ function computeClusters(elements: DrawingElement[], gap = 20): DrawingCluster[]
         if (boxes[i].top <= current.bottom + gap) {
             current.bottom = Math.max(current.bottom, boxes[i].bottom)
         } else {
+            const top = current.top
             clusters.push({
-                id: `cluster-${clusters.length}`,
-                top: current.top,
+                id: `cluster-y${Math.round(top)}`,
+                top,
                 bottom: current.bottom,
-                height: current.bottom - current.top,
+                height: current.bottom - top,
             })
             current = { top: boxes[i].top, bottom: boxes[i].bottom }
         }
     }
 
+    const top = current.top
     clusters.push({
-        id: `cluster-${clusters.length}`,
-        top: current.top,
+        id: `cluster-y${Math.round(top)}`,
+        top,
         bottom: current.bottom,
-        height: current.bottom - current.top,
+        height: current.bottom - top,
     })
 
     return clusters
@@ -64,22 +67,23 @@ function computeClusters(elements: DrawingElement[], gap = 20): DrawingCluster[]
 
 export function DocumentDrawingLayer({ editor, children }: Props) {
     const wrapperRef = useRef<HTMLDivElement>(null)
-    const drawingSvgRef = useRef<HTMLCanvasElement>(null)
+    const drawingCanvasRef = useRef<HTMLCanvasElement>(null)
     const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
     const drawingLayerRef = useRef<HTMLDivElement>(null)
+    const spacerSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const drawingSubTool = useAppStore(s => s.drawingSubTool)
     const drawingData = useAppStore(s => s.drawingData)
 
     const isDrawingToolActive = drawingSubTool !== 'draw-select'
 
+    // Block creation is a no-op in document mode — blocks use TipTap embeds
     const onBlockCreate = useCallback(async () => {}, [])
 
     const {
         editorRequest,
         closeEditor,
         renderDrawing,
-        eventConsumedRef,
         clearDrawingSelection,
         styleSelection,
         updateSelectedStyle,
@@ -87,14 +91,11 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         alignSelected,
         multiSelected,
     } = useDrawing(
-        drawingSvgRef,
+        drawingCanvasRef,
         overlayCanvasRef,
         wrapperRef,
         onBlockCreate,
     )
-
-    // Suppress unused variable warning — eventConsumedRef is used by the drawing layer
-    void eventConsumedRef
 
     // Register clearDrawingSelection globally
     useEffect(() => {
@@ -115,8 +116,8 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         const obs = new ResizeObserver(() => {
             const height = el.scrollHeight
 
-            if (drawingSvgRef.current) {
-                drawingSvgRef.current.style.height = `${height}px`
+            if (drawingCanvasRef.current) {
+                drawingCanvasRef.current.style.height = `${height}px`
             }
             if (overlayCanvasRef.current) {
                 overlayCanvasRef.current.style.height = `${height}px`
@@ -132,20 +133,27 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         return () => obs.disconnect()
     }, [renderDrawing])
 
-    // Sync spacers when drawing data changes
+    // Sync spacers when drawing data changes (debounced to avoid 60fps TipTap thrashing)
     useEffect(() => {
         if (!editor) return
         if (!drawingData) return
 
-        let elements: DrawingElement[] = []
-        try {
-            elements = JSON.parse(drawingData)
-        } catch { return }
+        if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
+        spacerSyncTimerRef.current = setTimeout(() => {
+            let elements: DrawingElement[] = []
+            try {
+                elements = JSON.parse(drawingData)
+            } catch { return }
 
-        if (elements.length === 0) return
+            if (elements.length === 0) return
 
-        const clusters = computeClusters(elements)
-        syncSpacers(editor, clusters)
+            const clusters = computeClusters(elements)
+            syncSpacers(editor, clusters)
+        }, 300)
+
+        return () => {
+            if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
+        }
     }, [editor, drawingData])
 
     return (
@@ -157,7 +165,7 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
             {children}
 
             <canvas
-                ref={drawingSvgRef}
+                ref={drawingCanvasRef}
                 className="drawing-canvas"
             />
 
@@ -190,6 +198,7 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
 
 /**
  * Synchronize drawing spacer nodes in the TipTap editor with computed clusters.
+ * Inserts spacers at positions matching the cluster's vertical location in the document.
  */
 function syncSpacers(editor: Editor, clusters: DrawingCluster[]) {
     const { state } = editor
@@ -229,18 +238,44 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[]) {
         }
     }
 
-    // Insert new spacers
+    // Insert new spacers at positions matching the cluster's Y coordinate
     const newClusters = clusters.filter(c => !existingIds.has(c.id))
     for (const cluster of newClusters) {
         const spacerNode = editor.schema.nodes.drawingSpacer.create({
             spacerId: cluster.id,
             height: Math.round(cluster.height),
         })
-        const endPos = tr.doc.content.size
-        tr = tr.insert(endPos, spacerNode)
+
+        // Find the document position closest to the cluster's top Y coordinate
+        const insertPos = findInsertPosition(editor, tr.doc, cluster.top)
+        tr = tr.insert(insertPos, spacerNode)
     }
 
     if (tr.docChanged) {
         editor.view.dispatch(tr)
     }
+}
+
+/**
+ * Find the TipTap document position where a spacer should be inserted,
+ * based on the cluster's top Y coordinate. Walks top-level nodes and
+ * compares their vertical position to the target Y.
+ */
+function findInsertPosition(editor: Editor, doc: any, targetY: number): number {
+    const view = editor.view
+
+    let insertPos = doc.content.size // default: end of document
+
+    doc.forEach((node: any, offset: number) => {
+        try {
+            const coords = view.coordsAtPos(offset + 1)
+            if (coords.top > targetY && insertPos === doc.content.size) {
+                insertPos = offset
+            }
+        } catch {
+            // coordsAtPos can fail for unmounted nodes — skip
+        }
+    })
+
+    return insertPos
 }
