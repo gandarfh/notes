@@ -130,6 +130,11 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
             if (hit || isDrawingToolActive) {
                 // Clicking on a drawing element or using a creation tool — block text selection
                 e.preventDefault()
+                // Blur the editor so keyboard events (Delete, Esc, arrows) go to
+                // the drawing layer instead of the contentEditable TipTap editor
+                if (document.activeElement instanceof HTMLElement && document.activeElement.isContentEditable) {
+                    document.activeElement.blur()
+                }
             }
             // Otherwise: let the editor handle it (cursor/text selection)
         }
