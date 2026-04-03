@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../../store'
 import { useDrawing } from '../../hooks/useDrawing'
 import { InlineEditor } from '../Drawing/InlineEditor'
@@ -82,8 +82,6 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
     // coords and must not be used as arrow routing obstacles
     const emptyBlockRects = useCallback(() => [] as Array<{ id: string; x: number; y: number; width: number; height: number }>, [])
 
-    const [isInteracting, setIsInteracting] = useState(false)
-
     const {
         editorRequest,
         closeEditor,
@@ -108,6 +106,20 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         setClearDrawingSelection(clearDrawingSelection)
         return () => setClearDrawingSelection(null)
     }, [clearDrawingSelection])
+
+    // Prevent text selection when drawing consumes the pointer event.
+    // Uses native mousedown (fires after useDrawing's pointerdown sets eventConsumedRef).
+    useEffect(() => {
+        const el = wrapperRef.current
+        if (!el) return
+        const onMouseDown = (e: MouseEvent) => {
+            if (eventConsumedRef.current) {
+                e.preventDefault()
+            }
+        }
+        el.addEventListener('mousedown', onMouseDown)
+        return () => el.removeEventListener('mousedown', onMouseDown)
+    }, [eventConsumedRef])
 
     // Lock viewport to {0,0,1} and render
     useEffect(() => {
@@ -160,32 +172,11 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         }
     }, [editor, drawingData])
 
-    const handlePointerDown = useCallback(() => {
-        // Check after a microtask so useDrawing's native handler runs first
-        queueMicrotask(() => {
-            if (eventConsumedRef.current) {
-                setIsInteracting(true)
-            }
-        })
-    }, [eventConsumedRef])
-
-    const handlePointerUp = useCallback(() => {
-        setIsInteracting(false)
-    }, [])
-
-    const wrapperClasses = [
-        'doc-drawing-wrapper',
-        isDrawingToolActive ? 'drawing-active' : '',
-        isInteracting ? 'drawing-interacting' : '',
-    ].filter(Boolean).join(' ')
-
     return (
         <div
             ref={wrapperRef}
-            className={wrapperClasses}
+            className={`doc-drawing-wrapper ${isDrawingToolActive ? 'drawing-active' : ''}`}
             style={{ cursor: isDrawingToolActive ? 'crosshair' : undefined }}
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
         >
             {children}
 
