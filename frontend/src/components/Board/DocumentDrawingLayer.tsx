@@ -137,7 +137,7 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         return () => obs.disconnect()
     }, [renderDrawing])
 
-    // Sync spacers when drawing data changes (debounced to avoid 60fps TipTap thrashing)
+    // Sync spacers and highlight affected text when drawing data changes
     useEffect(() => {
         if (!editor) return
         if (!drawingData) return
@@ -149,12 +149,14 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
                 elements = JSON.parse(drawingData)
             } catch { return }
 
-            if (elements.length === 0) return
-
             const clusters = computeClusters(elements)
             const wrapperEl = wrapperRef.current
             if (!wrapperEl) return
-            syncSpacers(editor, clusters, wrapperEl)
+
+            if (elements.length > 0) {
+                syncSpacers(editor, clusters, wrapperEl)
+            }
+            highlightDisplacedNodes(editor, clusters, wrapperEl)
         }, 50)
 
         return () => {
@@ -298,4 +300,40 @@ function findInsertPosition(editor: Editor, doc: any, clusterTop: number, cluste
     })
 
     return insertPos
+}
+
+/**
+ * Add/remove a highlight class on TipTap nodes that overlap with drawing clusters.
+ * This gives visual feedback about which text will be displaced by spacers.
+ */
+function highlightDisplacedNodes(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTMLElement) {
+    const view = editor.view
+    const wrapperRect = wrapperEl.getBoundingClientRect()
+    const { doc } = editor.state
+
+    doc.forEach((node: any, offset: number) => {
+        if (node.type.name === 'drawingSpacer') return
+
+        try {
+            const domNode = view.nodeDOM(offset) as HTMLElement | null
+            if (!domNode || !(domNode instanceof HTMLElement)) return
+
+            const nodeRect = domNode.getBoundingClientRect()
+            const nodeTop = nodeRect.top - wrapperRect.top
+            const nodeBottom = nodeRect.bottom - wrapperRect.top
+
+            // Check if this node overlaps with any cluster
+            const overlaps = clusters.some(c =>
+                nodeBottom > c.top && nodeTop < c.bottom
+            )
+
+            if (overlaps) {
+                domNode.classList.add('drawing-displaced')
+            } else {
+                domNode.classList.remove('drawing-displaced')
+            }
+        } catch {
+            // nodeDOM can fail for some node types — skip
+        }
+    })
 }

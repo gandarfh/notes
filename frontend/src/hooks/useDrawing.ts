@@ -56,6 +56,9 @@ export function useDrawing(
     const lastClickTimeRef = useRef(0)
     const lastClickPosRef = useRef({ x: 0, y: 0 })
     const highlightedElementsRef = useRef<Set<string>>(new Set())
+    // Tracks whether a pointer interaction is in progress (drag, draw, resize)
+    const isInteractingRef = useRef(false)
+    const liveSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     /**
      * Flag set by native mousedown listener BEFORE React handlers fire.
@@ -281,6 +284,20 @@ export function useDrawing(
                 }
             }
 
+            // ── 3. Lightweight store sync (no DB persist) for live spacer updates ──
+            // Only runs during active interactions (drag/draw/resize) to avoid
+            // overwriting store data on cold renders (initial load).
+            if (isInteractingRef.current) {
+                if (liveSyncTimerRef.current) clearTimeout(liveSyncTimerRef.current)
+                liveSyncTimerRef.current = setTimeout(() => {
+                    const data = JSON.stringify(elementsRef.current)
+                    if (data !== drawingDataLoadedRef.current) {
+                        drawingDataLoadedRef.current = data
+                        useAppStore.getState().setDrawingData(data)
+                    }
+                    liveSyncTimerRef.current = null
+                }, 100)
+            }
         })
     }, [svgRef, overlayRef])
 
@@ -579,6 +596,7 @@ export function useDrawing(
             }
 
             activeHandlerRef.current?.onMouseDown(ctx, world)
+            isInteractingRef.current = true
         }
 
         const onPointerMove = (e: PointerEvent) => {
@@ -596,6 +614,7 @@ export function useDrawing(
         }
 
         const onPointerUp = (e: PointerEvent) => {
+            isInteractingRef.current = false
             if (container.hasPointerCapture(e.pointerId)) {
                 container.releasePointerCapture(e.pointerId)
             }

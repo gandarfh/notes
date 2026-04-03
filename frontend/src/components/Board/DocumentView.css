@@ -583,6 +583,12 @@
   position: relative;
 }
 
+.drawing-displaced {
+  background: rgba(99, 102, 241, 0.06);
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
 /* ── Document Drawing Wrapper ─────────────────────────────── */
 
 .doc-drawing-wrapper {
