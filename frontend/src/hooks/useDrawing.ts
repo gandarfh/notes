@@ -555,15 +555,6 @@ export function useDrawing(
                 if (!isInMultiSelection) return
             }
 
-            // In draw-select mode, if clicking on editable text content and no drawing
-            // element is under the cursor, let the editor handle the event (text selection/cursor)
-            const currentTool = useAppStore.getState().drawingSubTool
-            if (currentTool === 'draw-select' && target.closest('[contenteditable]')) {
-                const world = getWorldCoords(e.clientX, e.clientY)
-                const hit = hitTest(elementsRef.current, world.x, world.y)
-                if (!hit) return  // no drawing element here — let editor handle it
-            }
-
             // Mark as consumed so Canvas doesn't also handle this left-click
             eventConsumedRef.current = true
 

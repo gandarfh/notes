@@ -7,6 +7,7 @@ import { setClearDrawingSelection } from '../../input/drawingBridge'
 import type { Editor } from '@tiptap/react'
 import type { DrawingElement } from '../../drawing/types'
 import { getElementBounds } from '../../drawing/types'
+import { hitTest } from '../../drawing/hitTest'
 
 interface Props {
     editor: Editor | null
@@ -107,19 +108,34 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         return () => setClearDrawingSelection(null)
     }, [clearDrawingSelection])
 
-    // Prevent text selection when drawing consumes the pointer event.
+    // Prevent text selection only when clicking on a drawing element.
     // Uses native mousedown (fires after useDrawing's pointerdown sets eventConsumedRef).
+    // When clicking on text without a drawing element, let the editor handle it
+    // for cursor placement and text selection.
     useEffect(() => {
         const el = wrapperRef.current
         if (!el) return
         const onMouseDown = (e: MouseEvent) => {
-            if (eventConsumedRef.current) {
+            if (!eventConsumedRef.current) return
+
+            // Check if there's a drawing element under the cursor
+            const rect = el.getBoundingClientRect()
+            const worldX = e.clientX - rect.left
+            const worldY = e.clientY - rect.top
+            const drawingData = useAppStore.getState().drawingData
+            let elements: DrawingElement[] = []
+            try { elements = drawingData ? JSON.parse(drawingData) : [] } catch { /* */ }
+
+            const hit = hitTest(elements, worldX, worldY)
+            if (hit || isDrawingToolActive) {
+                // Clicking on a drawing element or using a creation tool — block text selection
                 e.preventDefault()
             }
+            // Otherwise: let the editor handle it (cursor/text selection)
         }
         el.addEventListener('mousedown', onMouseDown)
         return () => el.removeEventListener('mousedown', onMouseDown)
-    }, [eventConsumedRef])
+    }, [eventConsumedRef, isDrawingToolActive])
 
     // Lock viewport to {0,0,1} and render
     useEffect(() => {
