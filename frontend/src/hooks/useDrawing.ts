@@ -287,6 +287,12 @@ export function useDrawing(
             if (liveSyncTimerRef.current) clearTimeout(liveSyncTimerRef.current)
             liveSyncTimerRef.current = setTimeout(() => {
                 const data = JSON.stringify(elementsRef.current)
+                // Never overwrite real store data with empty elements — this happens
+                // on initial render before the drawingData effect populates elementsRef
+                if (data === '[]' && drawingDataLoadedRef.current && drawingDataLoadedRef.current !== '[]') {
+                    liveSyncTimerRef.current = null
+                    return
+                }
                 if (data !== drawingDataLoadedRef.current) {
                     drawingDataLoadedRef.current = data
                     useAppStore.getState().setDrawingData(data)
@@ -501,10 +507,7 @@ export function useDrawing(
         selectedElementsRef.current.clear()
         // Invalidate proxy cache — force full sync for new page
         workerProxyRef.current?.invalidate()
-        // Yield past any in-flight RAF from the worker-init effect (which runs
-        // in the same synchronous effect flush on first mount). The RAF coalescing
-        // guard drops a second render() if both fire synchronously.
-        setTimeout(() => render(), 0)
+        render()
     }, [drawingData])
 
     // ── Resize observer — re-render canvas immediately when container size changes ──
