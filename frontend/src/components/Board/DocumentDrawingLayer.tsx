@@ -149,7 +149,7 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
 
             const clusters = computeClusters(elements)
             syncSpacers(editor, clusters)
-        }, 300)
+        }, 50)
 
         return () => {
             if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
@@ -201,6 +201,8 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
  * Inserts spacers at positions matching the cluster's vertical location in the document.
  */
 function syncSpacers(editor: Editor, clusters: DrawingCluster[]) {
+    if (!editor.schema.nodes.drawingSpacer) return
+
     const { state } = editor
     const { doc } = state
 
@@ -263,13 +265,16 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[]) {
  */
 function findInsertPosition(editor: Editor, doc: any, targetY: number): number {
     const view = editor.view
+    // coordsAtPos returns viewport-relative coords; convert to wrapper-relative
+    const editorTop = view.dom.getBoundingClientRect().top
 
     let insertPos = doc.content.size // default: end of document
 
     doc.forEach((node: any, offset: number) => {
         try {
             const coords = view.coordsAtPos(offset + 1)
-            if (coords.top > targetY && insertPos === doc.content.size) {
+            const nodeY = coords.top - editorTop
+            if (nodeY > targetY && insertPos === doc.content.size) {
                 insertPos = offset
             }
         } catch {
