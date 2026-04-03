@@ -151,6 +151,8 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         return () => obs.disconnect()
     }, [renderDrawing])
 
+    const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
     // Sync spacers and highlight when drawingData changes — no debounce
     useEffect(() => {
         if (!editor) return
@@ -165,7 +167,14 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         const wrapperEl = wrapperRef.current
         if (!wrapperEl) return
 
+        // Show highlight on affected nodes
         highlightDisplacedNodes(editor, clusters, wrapperEl)
+
+        // Auto-clear highlight after 300ms of no updates (i.e. drag ended)
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current)
+        highlightTimerRef.current = setTimeout(() => {
+            highlightDisplacedNodes(editor, [], wrapperEl)
+        }, 300)
 
         if (elements.length > 0) {
             syncSpacers(editor, clusters, wrapperEl)
