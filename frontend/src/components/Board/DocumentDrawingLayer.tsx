@@ -137,7 +137,30 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         return () => obs.disconnect()
     }, [renderDrawing])
 
-    // Sync spacers and highlight affected text when drawing data changes
+    // Parse clusters from drawingData (shared between highlight and spacer sync)
+    const clustersRef = useRef<DrawingCluster[]>([])
+
+    // Update highlight immediately when drawingData changes (no DOM mutation, safe during drag)
+    useEffect(() => {
+        if (!editor) return
+        if (!drawingData) return
+
+        let elements: DrawingElement[] = []
+        try {
+            elements = JSON.parse(drawingData)
+        } catch { return }
+
+        const clusters = computeClusters(elements)
+        clustersRef.current = clusters
+
+        const wrapperEl = wrapperRef.current
+        if (!wrapperEl) return
+
+        highlightDisplacedNodes(editor, clusters, wrapperEl)
+    }, [editor, drawingData])
+
+    // Sync spacers only on stable changes (not during drag — DOM mutation breaks pointer capture)
+    // Uses a longer debounce so it fires after drag interactions settle
     useEffect(() => {
         if (!editor) return
         if (!drawingData) return
@@ -149,15 +172,13 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
                 elements = JSON.parse(drawingData)
             } catch { return }
 
+            if (elements.length === 0) return
+
             const clusters = computeClusters(elements)
             const wrapperEl = wrapperRef.current
             if (!wrapperEl) return
-
-            if (elements.length > 0) {
-                syncSpacers(editor, clusters, wrapperEl)
-            }
-            highlightDisplacedNodes(editor, clusters, wrapperEl)
-        }, 50)
+            syncSpacers(editor, clusters, wrapperEl)
+        }, 500)
 
         return () => {
             if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
