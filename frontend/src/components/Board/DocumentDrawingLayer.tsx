@@ -148,7 +148,9 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
             if (elements.length === 0) return
 
             const clusters = computeClusters(elements)
-            syncSpacers(editor, clusters)
+            const wrapperEl = wrapperRef.current
+            if (!wrapperEl) return
+            syncSpacers(editor, clusters, wrapperEl)
         }, 50)
 
         return () => {
@@ -200,7 +202,7 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
  * Synchronize drawing spacer nodes in the TipTap editor with computed clusters.
  * Inserts spacers at positions matching the cluster's vertical location in the document.
  */
-function syncSpacers(editor: Editor, clusters: DrawingCluster[]) {
+function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTMLElement) {
     if (!editor.schema.nodes.drawingSpacer) return
 
     const { state } = editor
@@ -249,7 +251,7 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[]) {
         })
 
         // Find the document position of the first node overlapping the cluster
-        const insertPos = findInsertPosition(editor, tr.doc, cluster.top, cluster.bottom)
+        const insertPos = findInsertPosition(editor, tr.doc, cluster.top, cluster.bottom, wrapperEl)
         tr = tr.insert(insertPos, spacerNode)
     }
 
@@ -263,9 +265,9 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[]) {
  * Inserts BEFORE the first node that intersects the cluster's vertical range,
  * so the spacer pushes overlapping content down.
  */
-function findInsertPosition(editor: Editor, doc: any, clusterTop: number, clusterBottom: number): number {
+function findInsertPosition(editor: Editor, doc: any, clusterTop: number, clusterBottom: number, wrapperEl: HTMLElement): number {
     const view = editor.view
-    const editorRect = view.dom.getBoundingClientRect()
+    const editorRect = wrapperEl.getBoundingClientRect()
 
     let insertPos = doc.content.size // default: end of document
 
