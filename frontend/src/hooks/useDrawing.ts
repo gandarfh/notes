@@ -151,6 +151,9 @@ export function useDrawing(
                 if (overlayRef.current) (overlayRef.current as HTMLCanvasElement).style.transform = transform
             }
             workerProxyRef.current = proxy
+            // Trigger initial render now that the worker is ready — drawing data
+            // may have been loaded before the worker was initialized
+            render()
         } catch (e) {
             console.warn('OffscreenCanvas not supported, falling back to main thread rendering')
         }
