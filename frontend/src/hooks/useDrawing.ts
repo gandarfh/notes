@@ -151,9 +151,6 @@ export function useDrawing(
                 if (overlayRef.current) (overlayRef.current as HTMLCanvasElement).style.transform = transform
             }
             workerProxyRef.current = proxy
-            // Trigger initial render now that the worker is ready — drawing data
-            // may have been loaded before the worker was initialized
-            render()
         } catch (e) {
             console.warn('OffscreenCanvas not supported, falling back to main thread rendering')
         }
@@ -504,8 +501,10 @@ export function useDrawing(
         selectedElementsRef.current.clear()
         // Invalidate proxy cache — force full sync for new page
         workerProxyRef.current?.invalidate()
-        // Clear canvas render cache for the new page
-        render()
+        // Yield past any in-flight RAF from the worker-init effect (which runs
+        // in the same synchronous effect flush on first mount). The RAF coalescing
+        // guard drops a second render() if both fire synchronously.
+        setTimeout(() => render(), 0)
     }, [drawingData])
 
     // ── Resize observer — re-render canvas immediately when container size changes ──
