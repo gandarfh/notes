@@ -12,6 +12,7 @@ import { hitTest } from '../../drawing/hitTest'
 interface Props {
     editor: Editor | null
     children: React.ReactNode
+    isExternalUpdateRef: React.RefObject<boolean>
 }
 
 /** Cluster of drawing elements that occupy a vertical region */
@@ -66,7 +67,7 @@ function computeClusters(elements: DrawingElement[], gap = 20): DrawingCluster[]
     return clusters
 }
 
-export function DocumentDrawingLayer({ editor, children }: Props) {
+export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: Props) {
     const wrapperRef = useRef<HTMLDivElement>(null)
     const drawingCanvasRef = useRef<HTMLCanvasElement>(null)
     const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -198,9 +199,12 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         }, 300)
 
         if (elements.length > 0) {
+            // Mark as external update so TipTap's onUpdate doesn't save/reload
+            isExternalUpdateRef.current = true
             syncSpacers(editor, clusters, wrapperEl)
+            queueMicrotask(() => { isExternalUpdateRef.current = false })
         }
-    }, [editor, drawingData])
+    }, [editor, drawingData, isExternalUpdateRef])
 
     return (
         <div

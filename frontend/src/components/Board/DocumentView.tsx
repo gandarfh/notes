@@ -290,7 +290,7 @@ export function DocumentView({ pageId }: Props) {
           </div>
         </BubbleMenu>
       )}
-      <DocumentDrawingLayer editor={editor}>
+      <DocumentDrawingLayer editor={editor} isExternalUpdateRef={isExternalUpdate}>
         <EditorContent editor={editor} />
       </DocumentDrawingLayer>
     </div>
