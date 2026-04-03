@@ -626,4 +626,9 @@
 
 .doc-drawing-wrapper.drawing-active .document-editor {
   pointer-events: none;
+  user-select: none;
+}
+
+.doc-drawing-wrapper.drawing-interacting .document-editor {
+  user-select: none;
 }

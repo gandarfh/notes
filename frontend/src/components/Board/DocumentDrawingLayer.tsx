@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { useAppStore } from '../../store'
 import { useDrawing } from '../../hooks/useDrawing'
 import { InlineEditor } from '../Drawing/InlineEditor'
@@ -82,10 +82,13 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
     // coords and must not be used as arrow routing obstacles
     const emptyBlockRects = useCallback(() => [] as Array<{ id: string; x: number; y: number; width: number; height: number }>, [])
 
+    const [isInteracting, setIsInteracting] = useState(false)
+
     const {
         editorRequest,
         closeEditor,
         renderDrawing,
+        eventConsumedRef,
         clearDrawingSelection,
         styleSelection,
         updateSelectedStyle,
@@ -157,11 +160,32 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         }
     }, [editor, drawingData])
 
+    const handlePointerDown = useCallback(() => {
+        // Check after a microtask so useDrawing's native handler runs first
+        queueMicrotask(() => {
+            if (eventConsumedRef.current) {
+                setIsInteracting(true)
+            }
+        })
+    }, [eventConsumedRef])
+
+    const handlePointerUp = useCallback(() => {
+        setIsInteracting(false)
+    }, [])
+
+    const wrapperClasses = [
+        'doc-drawing-wrapper',
+        isDrawingToolActive ? 'drawing-active' : '',
+        isInteracting ? 'drawing-interacting' : '',
+    ].filter(Boolean).join(' ')
+
     return (
         <div
             ref={wrapperRef}
-            className={`doc-drawing-wrapper ${isDrawingToolActive ? 'drawing-active' : ''}`}
+            className={wrapperClasses}
             style={{ cursor: isDrawingToolActive ? 'crosshair' : undefined }}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
         >
             {children}
 
