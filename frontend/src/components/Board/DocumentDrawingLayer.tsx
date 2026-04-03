@@ -248,8 +248,8 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[]) {
             height: Math.round(cluster.height),
         })
 
-        // Find the document position closest to the cluster's top Y coordinate
-        const insertPos = findInsertPosition(editor, tr.doc, cluster.top)
+        // Find the document position of the first node overlapping the cluster
+        const insertPos = findInsertPosition(editor, tr.doc, cluster.top, cluster.bottom)
         tr = tr.insert(insertPos, spacerNode)
     }
 
@@ -259,11 +259,11 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[]) {
 }
 
 /**
- * Find the TipTap document position where a spacer should be inserted,
- * based on the cluster's top Y coordinate. Uses DOM elements directly
- * (more robust than coordsAtPos for complex nodes like blockEmbed).
+ * Find the TipTap document position where a spacer should be inserted.
+ * Inserts BEFORE the first node that intersects the cluster's vertical range,
+ * so the spacer pushes overlapping content down.
  */
-function findInsertPosition(editor: Editor, doc: any, targetY: number): number {
+function findInsertPosition(editor: Editor, doc: any, clusterTop: number, clusterBottom: number): number {
     const view = editor.view
     const editorRect = view.dom.getBoundingClientRect()
 
@@ -271,15 +271,19 @@ function findInsertPosition(editor: Editor, doc: any, targetY: number): number {
 
     doc.forEach((node: any, offset: number) => {
         if (insertPos !== doc.content.size) return // already found
+        // Skip existing spacer nodes
+        if (node.type.name === 'drawingSpacer') return
 
         try {
-            // Get the DOM node for this top-level ProseMirror node
             const domNode = view.nodeDOM(offset) as HTMLElement | null
             if (!domNode || !(domNode instanceof HTMLElement)) return
 
             const nodeRect = domNode.getBoundingClientRect()
-            const nodeY = nodeRect.top - editorRect.top
-            if (nodeY > targetY) {
+            const nodeTop = nodeRect.top - editorRect.top
+            const nodeBottom = nodeRect.bottom - editorRect.top
+
+            // Node intersects the cluster range — insert spacer before it
+            if (nodeBottom > clusterTop && nodeTop < clusterBottom) {
                 insertPos = offset
             }
         } catch {

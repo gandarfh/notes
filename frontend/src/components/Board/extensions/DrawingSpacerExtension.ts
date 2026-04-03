@@ -1,4 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core'
+import { ReactNodeViewRenderer } from '@tiptap/react'
+import { DrawingSpacerView } from './DrawingSpacerView'
 
 export const DrawingSpacerExtension = Node.create({
     name: 'drawingSpacer',
@@ -33,5 +35,9 @@ export const DrawingSpacerExtension = Node.create({
             class: 'drawing-spacer',
             style: `height: ${height}px`,
         })]
+    },
+
+    addNodeView() {
+        return ReactNodeViewRenderer(DrawingSpacerView)
     },
 })
