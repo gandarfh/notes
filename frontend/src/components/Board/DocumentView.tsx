@@ -21,6 +21,8 @@ import { BlockEmbedExtension } from "./extensions/BlockEmbedExtension";
 import { SlashMenuExtension } from "./extensions/SlashMenu";
 import { CalloutExtension } from "./extensions/CalloutExtension";
 import { ToggleExtension } from "./extensions/ToggleExtension";
+import { DrawingSpacerExtension } from "./extensions/DrawingSpacerExtension";
+import { DocumentDrawingLayer } from "./DocumentDrawingLayer";
 import "./DocumentView.css";
 
 const turnIntoOptions = [
@@ -138,6 +140,7 @@ export function DocumentView({ pageId }: Props) {
       ToggleExtension,
       BlockEmbedExtension,
       SlashMenuExtension,
+      DrawingSpacerExtension,
     ],
     content: initialContentRef.current || "",
     editorProps: {
@@ -287,7 +290,9 @@ export function DocumentView({ pageId }: Props) {
           </div>
         </BubbleMenu>
       )}
-      <EditorContent editor={editor} />
+      <DocumentDrawingLayer editor={editor}>
+        <EditorContent editor={editor} />
+      </DocumentDrawingLayer>
     </div>
   );
 }
