@@ -70,7 +70,6 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
     const drawingCanvasRef = useRef<HTMLCanvasElement>(null)
     const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
     const drawingLayerRef = useRef<HTMLDivElement>(null)
-    const spacerSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const drawingSubTool = useAppStore(s => s.drawingSubTool)
     const drawingData = useAppStore(s => s.drawingData)
@@ -137,10 +136,7 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         return () => obs.disconnect()
     }, [renderDrawing])
 
-    // Parse clusters from drawingData (shared between highlight and spacer sync)
-    const clustersRef = useRef<DrawingCluster[]>([])
-
-    // Update highlight immediately when drawingData changes (no DOM mutation, safe during drag)
+    // Sync spacers and highlight when drawingData changes — no debounce
     useEffect(() => {
         if (!editor) return
         if (!drawingData) return
@@ -151,37 +147,13 @@ export function DocumentDrawingLayer({ editor, children }: Props) {
         } catch { return }
 
         const clusters = computeClusters(elements)
-        clustersRef.current = clusters
-
         const wrapperEl = wrapperRef.current
         if (!wrapperEl) return
 
         highlightDisplacedNodes(editor, clusters, wrapperEl)
-    }, [editor, drawingData])
 
-    // Sync spacers only on stable changes (not during drag — DOM mutation breaks pointer capture)
-    // Uses a longer debounce so it fires after drag interactions settle
-    useEffect(() => {
-        if (!editor) return
-        if (!drawingData) return
-
-        if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
-        spacerSyncTimerRef.current = setTimeout(() => {
-            let elements: DrawingElement[] = []
-            try {
-                elements = JSON.parse(drawingData)
-            } catch { return }
-
-            if (elements.length === 0) return
-
-            const clusters = computeClusters(elements)
-            const wrapperEl = wrapperRef.current
-            if (!wrapperEl) return
+        if (elements.length > 0) {
             syncSpacers(editor, clusters, wrapperEl)
-        }, 500)
-
-        return () => {
-            if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
         }
     }, [editor, drawingData])
 
@@ -324,37 +296,31 @@ function findInsertPosition(editor: Editor, doc: any, clusterTop: number, cluste
 }
 
 /**
- * Add/remove a highlight class on TipTap nodes that overlap with drawing clusters.
- * This gives visual feedback about which text will be displaced by spacers.
+ * Add/remove a highlight class on TipTap content nodes that overlap with drawing clusters.
+ * Uses direct DOM children of the editor for reliability (view.nodeDOM can return
+ * unexpected wrappers for complex nodes like block embeds).
  */
 function highlightDisplacedNodes(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTMLElement) {
-    const view = editor.view
+    const editorDom = editor.view.dom
     const wrapperRect = wrapperEl.getBoundingClientRect()
-    const { doc } = editor.state
 
-    doc.forEach((node: any, offset: number) => {
-        if (node.type.name === 'drawingSpacer') return
+    const children = editorDom.children
+    for (let i = 0; i < children.length; i++) {
+        const child = children[i] as HTMLElement
+        if (!child || child.classList.contains('drawing-spacer')) continue
 
-        try {
-            const domNode = view.nodeDOM(offset) as HTMLElement | null
-            if (!domNode || !(domNode instanceof HTMLElement)) return
+        const nodeRect = child.getBoundingClientRect()
+        const nodeTop = nodeRect.top - wrapperRect.top
+        const nodeBottom = nodeRect.bottom - wrapperRect.top
 
-            const nodeRect = domNode.getBoundingClientRect()
-            const nodeTop = nodeRect.top - wrapperRect.top
-            const nodeBottom = nodeRect.bottom - wrapperRect.top
+        const overlaps = clusters.some(c =>
+            nodeBottom > c.top && nodeTop < c.bottom
+        )
 
-            // Check if this node overlaps with any cluster
-            const overlaps = clusters.some(c =>
-                nodeBottom > c.top && nodeTop < c.bottom
-            )
-
-            if (overlaps) {
-                domNode.classList.add('drawing-displaced')
-            } else {
-                domNode.classList.remove('drawing-displaced')
-            }
-        } catch {
-            // nodeDOM can fail for some node types — skip
+        if (overlaps) {
+            child.classList.add('drawing-displaced')
+        } else {
+            child.classList.remove('drawing-displaced')
         }
-    })
+    }
 }
