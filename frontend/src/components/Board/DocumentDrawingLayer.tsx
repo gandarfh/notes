@@ -260,25 +260,30 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[]) {
 
 /**
  * Find the TipTap document position where a spacer should be inserted,
- * based on the cluster's top Y coordinate. Walks top-level nodes and
- * compares their vertical position to the target Y.
+ * based on the cluster's top Y coordinate. Uses DOM elements directly
+ * (more robust than coordsAtPos for complex nodes like blockEmbed).
  */
 function findInsertPosition(editor: Editor, doc: any, targetY: number): number {
     const view = editor.view
-    // coordsAtPos returns viewport-relative coords; convert to wrapper-relative
-    const editorTop = view.dom.getBoundingClientRect().top
+    const editorRect = view.dom.getBoundingClientRect()
 
     let insertPos = doc.content.size // default: end of document
 
     doc.forEach((node: any, offset: number) => {
+        if (insertPos !== doc.content.size) return // already found
+
         try {
-            const coords = view.coordsAtPos(offset + 1)
-            const nodeY = coords.top - editorTop
-            if (nodeY > targetY && insertPos === doc.content.size) {
+            // Get the DOM node for this top-level ProseMirror node
+            const domNode = view.nodeDOM(offset) as HTMLElement | null
+            if (!domNode || !(domNode instanceof HTMLElement)) return
+
+            const nodeRect = domNode.getBoundingClientRect()
+            const nodeY = nodeRect.top - editorRect.top
+            if (nodeY > targetY) {
                 insertPos = offset
             }
         } catch {
-            // coordsAtPos can fail for unmounted nodes — skip
+            // nodeDOM can fail for some node types — skip
         }
     })
 
