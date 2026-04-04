@@ -1,6 +1,5 @@
-// frontend/src/components/Sidebar/NotebookItem.tsx
 import { useState, useRef, useCallback } from 'react'
-import { IconChevronRight } from '@tabler/icons-react'
+import { IconChevronRight, IconPlus } from '@tabler/icons-react'
 import { PageItem } from './PageItem'
 import type { Notebook, Page } from '../../bridge/wails'
 
@@ -13,12 +12,13 @@ interface Props {
     onSelectPage: (id: string) => void
     onRenamePage: (id: string, name: string) => void
     onRenameNotebook: (id: string, name: string) => void
+    onNewPage: (notebookId: string) => void
     onContextMenu: (e: React.MouseEvent, type: 'notebook' | 'page', id: string) => void
 }
 
 export function NotebookItem({
     notebook, pages, isExpanded, activePageId,
-    onToggle, onSelectPage, onRenamePage, onRenameNotebook, onContextMenu,
+    onToggle, onSelectPage, onRenamePage, onRenameNotebook, onNewPage, onContextMenu,
 }: Props) {
     const [editing, setEditing] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
@@ -59,6 +59,13 @@ export function NotebookItem({
                 ) : (
                     <>
                         <span className="sb-notebook-name">{notebook.name}</span>
+                        <button
+                            className="sb-notebook-add"
+                            onClick={e => { e.stopPropagation(); onNewPage(notebook.id) }}
+                            title="New page"
+                        >
+                            <IconPlus size={12} />
+                        </button>
                     </>
                 )}
             </div>

@@ -111,6 +111,14 @@ export function Sidebar() {
         await createBoardPage(activeNotebookId, 'New Board')
     }, [activeNotebookId, createBoardPage])
 
+    const handleNewPageInNotebook = useCallback(async (notebookId: string) => {
+        await createBoardPage(notebookId, 'New Page')
+        // Refresh cache for this notebook
+        const pages = await api.listPages(notebookId)
+        pagesCache.current.set(notebookId, pages || [])
+        setPagesCacheVersion(v => v + 1)
+    }, [createBoardPage])
+
     const handleDelete = useCallback(async () => {
         if (!contextMenu) return
         if (contextMenu.type === 'notebook') {
@@ -161,6 +169,7 @@ export function Sidebar() {
                             onSelectPage={handleSelectPage}
                             onRenamePage={renamePage}
                             onRenameNotebook={renameNotebook}
+                            onNewPage={handleNewPageInNotebook}
                             onContextMenu={handleContextMenu}
                         />
                     ))}

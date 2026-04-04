@@ -115,6 +115,31 @@
   opacity: 0.6;
 }
 
+.sb-notebook-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.08s;
+  flex-shrink: 0;
+}
+
+.sb-notebook-header:hover .sb-notebook-add {
+  opacity: 1;
+}
+
+.sb-notebook-add:hover {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+
 .sb-notebook-pages {
   padding-left: 0;
   margin-top: 2px;
