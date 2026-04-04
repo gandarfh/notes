@@ -23,51 +23,122 @@ interface DrawingCluster {
     height: number
 }
 
-/**
- * Groups drawing elements into vertical clusters.
- * Elements within `gap` pixels of each other vertically are merged.
- * Cluster IDs are derived from spatial position for stability.
- */
-function computeClusters(elements: DrawingElement[], gap = 20): DrawingCluster[] {
-    // Exclude arrows from clustering — their waypoints span between shapes
-    // and would merge separate groups into one giant cluster
-    const shapes = elements.filter(el => !isArrowType(el))
-    if (shapes.length === 0) return []
+// ── Union-Find for connection-based clustering ──
 
-    const boxes = shapes.map(el => {
-        const bounds = getElementBounds(el)
-        return { top: bounds.y, bottom: bounds.y + bounds.h }
-    })
+class UnionFind {
+    private parent = new Map<string, string>()
+    private rank = new Map<string, number>()
 
-    boxes.sort((a, b) => a.top - b.top)
-
-    const clusters: DrawingCluster[] = []
-    let current = { top: boxes[0].top, bottom: boxes[0].bottom }
-
-    for (let i = 1; i < boxes.length; i++) {
-        if (boxes[i].top <= current.bottom + gap) {
-            current.bottom = Math.max(current.bottom, boxes[i].bottom)
-        } else {
-            const top = current.top
-            clusters.push({
-                id: `cluster-y${Math.round(top)}`,
-                top,
-                bottom: current.bottom,
-                height: current.bottom - top,
-            })
-            current = { top: boxes[i].top, bottom: boxes[i].bottom }
+    make(x: string) {
+        if (!this.parent.has(x)) {
+            this.parent.set(x, x)
+            this.rank.set(x, 0)
         }
     }
 
-    const top = current.top
-    clusters.push({
-        id: `cluster-y${Math.round(top)}`,
-        top,
-        bottom: current.bottom,
-        height: current.bottom - top,
-    })
+    has(x: string) { return this.parent.has(x) }
 
-    return clusters
+    find(x: string): string {
+        let root = x
+        while (this.parent.get(root) !== root) root = this.parent.get(root)!
+        let curr = x
+        while (curr !== root) {
+            const next = this.parent.get(curr)!
+            this.parent.set(curr, root)
+            curr = next
+        }
+        return root
+    }
+
+    union(a: string, b: string) {
+        const ra = this.find(a), rb = this.find(b)
+        if (ra === rb) return
+        const rankA = this.rank.get(ra)!, rankB = this.rank.get(rb)!
+        if (rankA < rankB) this.parent.set(ra, rb)
+        else if (rankA > rankB) this.parent.set(rb, ra)
+        else { this.parent.set(rb, ra); this.rank.set(ra, rankA + 1) }
+    }
+}
+
+function clusterIdFromElements(ids: string[]): string {
+    const sorted = [...ids].sort()
+    let h = 0
+    const s = sorted.join(',')
+    for (let i = 0; i < s.length; i++) {
+        h = ((h << 5) - h + s.charCodeAt(i)) | 0
+    }
+    return `cluster-${(h >>> 0).toString(36)}`
+}
+
+/**
+ * Groups drawing elements into vertical clusters using connection-based grouping.
+ *
+ * 1. Union-Find: shapes connected by arrows → same component
+ * 2. Bounding box per component (shapes only, no arrow waypoints)
+ * 3. Merge components with overlapping/nearby vertical bounds (gap tolerance)
+ * 4. Stable IDs from element ID hash
+ */
+function computeClusters(elements: DrawingElement[], gap = 20): DrawingCluster[] {
+    const shapes = elements.filter(el => !isArrowType(el))
+    if (shapes.length === 0) return []
+
+    // Phase 1: Union-Find on arrow connections
+    const uf = new UnionFind()
+    for (const s of shapes) uf.make(s.id)
+
+    for (const el of elements) {
+        if (!isArrowType(el)) continue
+        const a = el.startConnection?.elementId
+        const b = el.endConnection?.elementId
+        if (a && b && uf.has(a) && uf.has(b)) {
+            uf.union(a, b)
+        }
+    }
+
+    // Phase 2: Group shapes by connected component, compute bounding boxes
+    const groups = new Map<string, { ids: string[]; top: number; bottom: number }>()
+    for (const s of shapes) {
+        const root = uf.find(s.id)
+        const bounds = getElementBounds(s)
+        const elTop = bounds.y
+        const elBottom = bounds.y + bounds.h
+
+        let g = groups.get(root)
+        if (!g) {
+            g = { ids: [], top: elTop, bottom: elBottom }
+            groups.set(root, g)
+        } else {
+            g.top = Math.min(g.top, elTop)
+            g.bottom = Math.max(g.bottom, elBottom)
+        }
+        g.ids.push(s.id)
+    }
+
+    // Phase 3: Merge components with overlapping/nearby vertical bounds
+    const components = [...groups.values()].sort((a, b) => a.top - b.top)
+    const merged: { ids: string[]; top: number; bottom: number }[] = []
+
+    for (const comp of components) {
+        if (merged.length > 0) {
+            const last = merged[merged.length - 1]
+            if (comp.top <= last.bottom + gap) {
+                last.bottom = Math.max(last.bottom, comp.bottom)
+                last.ids.push(...comp.ids)
+                continue
+            }
+        }
+        merged.push({ ids: [...comp.ids], top: comp.top, bottom: comp.bottom })
+    }
+
+    // Phase 4: Build clusters with stable IDs
+    return merged
+        .filter(c => Math.round(c.bottom - c.top) > 0)
+        .map(c => ({
+            id: clusterIdFromElements(c.ids),
+            top: c.top,
+            bottom: c.bottom,
+            height: c.bottom - c.top,
+        }))
 }
 
 export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: Props) {
