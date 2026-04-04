@@ -109,7 +109,6 @@ export function DocumentView({ pageId }: Props) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         api.updateBoardContent(pageId, markdown);
-        useAppStore.setState({ activeBoardContent: markdown });
       }, 500);
     },
     [pageId],

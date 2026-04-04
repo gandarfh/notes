@@ -202,7 +202,8 @@ export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: 
             // Mark as external update so TipTap's onUpdate doesn't save/reload
             isExternalUpdateRef.current = true
             syncSpacers(editor, clusters, wrapperEl)
-            queueMicrotask(() => { isExternalUpdateRef.current = false })
+            // Reset after TipTap's deferred onUpdate fires (macro-task)
+            setTimeout(() => { isExternalUpdateRef.current = false }, 0)
         }
     }, [editor, drawingData, isExternalUpdateRef])
 

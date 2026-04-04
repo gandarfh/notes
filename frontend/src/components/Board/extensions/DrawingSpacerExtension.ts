@@ -37,6 +37,17 @@ export const DrawingSpacerExtension = Node.create({
         })]
     },
 
+    addStorage() {
+        return {
+            markdown: {
+                serialize() {
+                    // Spacers are ephemeral — never persist in markdown
+                },
+                parse: {},
+            },
+        }
+    },
+
     addNodeView() {
         return ReactNodeViewRenderer(DrawingSpacerView)
     },
