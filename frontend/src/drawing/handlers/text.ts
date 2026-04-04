@@ -8,7 +8,7 @@ export class TextHandler implements InteractionHandler {
     onMouseDown(ctx: DrawingContext, world: Point) {
         if (ctx.isEditing) return
 
-        const tx = ctx.snap(world.x), ty = ctx.snap(world.y)
+        const tx = ctx.snapElement(world.x), ty = ctx.snapElement(world.y)
         const d = ctx.getDefaults('text')
         const resolvedFont = "'Architects Daughter'"
         const resolvedSize = ctx.isSketchy ? Math.round((d.fontSize || 14) * 1.3) : d.fontSize

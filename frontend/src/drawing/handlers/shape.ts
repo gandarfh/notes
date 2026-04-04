@@ -25,7 +25,7 @@ export class ShapeHandler implements InteractionHandler {
 
     onMouseDown(ctx: DrawingContext, world: Point) {
         this.s.isDrawing = true
-        this.s.dragStart = { x: ctx.snap(world.x), y: ctx.snap(world.y) }
+        this.s.dragStart = { x: ctx.snapElement(world.x), y: ctx.snapElement(world.y) }
 
         const d = ctx.getDefaults(this.shapeType === 'group' ? 'rectangle' : this.shapeType)
         ctx.currentElement = {
@@ -58,15 +58,15 @@ export class ShapeHandler implements InteractionHandler {
         const el = ctx.currentElement
         if (el.width > 5 || el.height > 5) {
             // Drag-to-create: snap and commit
-            el.x = ctx.snap(el.x); el.y = ctx.snap(el.y)
-            el.width = Math.max(ctx.grid(), ctx.snap(el.width))
-            el.height = Math.max(ctx.grid(), ctx.snap(el.height))
+            el.x = ctx.snapElement(el.x); el.y = ctx.snapElement(el.y)
+            el.width = Math.max(ctx.grid(), ctx.snapElement(el.width))
+            el.height = Math.max(ctx.grid(), ctx.snapElement(el.height))
         } else {
             // Click-to-place: create with default size, centered on click
             const defaultW = this.shapeType === 'rectangle' ? ctx.grid() * 5.33 : ctx.grid() * 4  // rect: ~160px, others: 120px
             const defaultH = this.shapeType === 'rectangle' ? ctx.grid() * 2 : ctx.grid() * 4  // rect: 60px, others: 120px
-            el.x = ctx.snap(this.s.dragStart.x - defaultW / 2)
-            el.y = ctx.snap(this.s.dragStart.y - defaultH / 2)
+            el.x = ctx.snapElement(this.s.dragStart.x - defaultW / 2)
+            el.y = ctx.snapElement(this.s.dragStart.y - defaultH / 2)
             el.width = defaultW
             el.height = defaultH
         }

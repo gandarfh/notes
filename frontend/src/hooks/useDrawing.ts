@@ -35,6 +35,8 @@ getDrawingEngine().catch(() => { /* WASM load failure is non-fatal */ })
 interface UseDrawingOptions {
     /** Override blockRects (e.g. return empty in document mode where blocks are TipTap embeds) */
     blockRectsOverride?: () => Array<{ id: string; x: number; y: number; width: number; height: number }>
+    /** When false, drawing elements don't snap to grid (blocks still snap). Default: true */
+    snapElements?: boolean
 }
 
 export function useDrawing(
@@ -342,6 +344,7 @@ export function useDrawing(
             return rects
         },
         snap,
+        snapElement: options?.snapElements === false ? (v: number) => v : snap,
         grid: () => GRID_SIZE,
         setSubTool: (tool: DrawingSubTool) => {
             const oldHandler = activeHandlerRef.current

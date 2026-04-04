@@ -28,6 +28,7 @@ export function makeMockContext(overrides?: Partial<DrawingContext>): DrawingCon
         selectedElements: new Set(),
         clipboard: [],
         snap: (v: number) => Math.round(v / 30) * 30,
+        snapElement: (v: number) => Math.round(v / 30) * 30,
         grid: () => 30,
         setSubTool: vi.fn(),
         render: vi.fn(),

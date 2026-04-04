@@ -62,6 +62,8 @@ export interface DrawingContext {
 
     // ── Tools ──
     snap(v: number): number
+    /** Snap for drawing elements — returns value as-is when element snapping is disabled */
+    snapElement(v: number): number
     grid(): number
 
     // ── Coordination ──

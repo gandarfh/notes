@@ -75,7 +75,7 @@ export class ArrowHandler implements InteractionHandler {
                 : undefined
             const startPt = nearAnchor
                 ? { x: nearAnchor.x, y: nearAnchor.y }
-                : { x: ctx.snap(world.x), y: ctx.snap(world.y) }
+                : { x: ctx.snapElement(world.x), y: ctx.snapElement(world.y) }
 
             this.s.pending = {
                 connection: connection || { elementId: '', side: 'top', t: 0.5 },
@@ -107,7 +107,7 @@ export class ArrowHandler implements InteractionHandler {
                 : undefined
             const endPt = nearAnchor
                 ? { x: nearAnchor.x, y: nearAnchor.y }
-                : { x: ctx.snap(world.x), y: ctx.snap(world.y) }
+                : { x: ctx.snapElement(world.x), y: ctx.snapElement(world.y) }
 
             ctx.currentElement.endConnection = endConn
 

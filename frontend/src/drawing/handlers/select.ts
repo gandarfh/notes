@@ -77,8 +77,8 @@ function snapArrowPreservingConnections(ctx: DrawingContext, el: DrawingElement)
     if (!el.points || el.points.length < 2) return
 
     for (let i = 1; i < el.points.length - 1; i++) {
-        el.points[i][0] = ctx.snap(el.points[i][0] + el.x) - el.x
-        el.points[i][1] = ctx.snap(el.points[i][1] + el.y) - el.y
+        el.points[i][0] = ctx.snapElement(el.points[i][0] + el.x) - el.x
+        el.points[i][1] = ctx.snapElement(el.points[i][1] + el.y) - el.y
     }
 
     if (el.startConnection) {
@@ -90,8 +90,8 @@ function snapArrowPreservingConnections(ctx: DrawingContext, el: DrawingElement)
             el.points[0] = [0, 0]
         }
     } else {
-        el.points[0][0] = ctx.snap(el.points[0][0] + el.x) - el.x
-        el.points[0][1] = ctx.snap(el.points[0][1] + el.y) - el.y
+        el.points[0][0] = ctx.snapElement(el.points[0][0] + el.x) - el.x
+        el.points[0][1] = ctx.snapElement(el.points[0][1] + el.y) - el.y
     }
 
     if (el.endConnection) {
@@ -103,8 +103,8 @@ function snapArrowPreservingConnections(ctx: DrawingContext, el: DrawingElement)
         }
     } else {
         const last = el.points[el.points.length - 1]
-        last[0] = ctx.snap(last[0] + el.x) - el.x
-        last[1] = ctx.snap(last[1] + el.y) - el.y
+        last[0] = ctx.snapElement(last[0] + el.x) - el.x
+        last[1] = ctx.snapElement(last[1] + el.y) - el.y
     }
 }
 
@@ -536,8 +536,8 @@ export class SelectHandler implements InteractionHandler {
             for (const id of ctx.selectedElements) {
                 const el = ctx.elements.find(e => e.id === id)
                 if (el && !isArrowType(el)) {
-                    el.x = ctx.snap(el.x)
-                    el.y = ctx.snap(el.y)
+                    el.x = ctx.snapElement(el.x)
+                    el.y = ctx.snapElement(el.y)
                     if (dgSnap) clampToBoard(el, dgSnap)
                 }
             }
@@ -575,8 +575,8 @@ export class SelectHandler implements InteractionHandler {
             for (const id of ctx.selectedElements) {
                 const el = ctx.elements.find(e => e.id === id)
                 if (el && isArrowType(el) && !updatedArrows.has(el.id)) {
-                    el.x = ctx.snap(el.x)
-                    el.y = ctx.snap(el.y)
+                    el.x = ctx.snapElement(el.x)
+                    el.y = ctx.snapElement(el.y)
                 }
             }
 
@@ -610,9 +610,9 @@ export class SelectHandler implements InteractionHandler {
         if (this.s.isResizing && ctx.selectedElement) {
             this.s.isResizing = false; this.s.resizeHandle = null
             const el = ctx.selectedElement
-            el.x = ctx.snap(el.x); el.y = ctx.snap(el.y)
-            el.width = Math.max(ctx.grid(), ctx.snap(el.width))
-            el.height = Math.max(ctx.grid(), ctx.snap(el.height))
+            el.x = ctx.snapElement(el.x); el.y = ctx.snapElement(el.y)
+            el.width = Math.max(ctx.grid(), ctx.snapElement(el.width))
+            el.height = Math.max(ctx.grid(), ctx.snapElement(el.height))
             updateConnectedArrows(ctx.elements, el.id, ctx.blockRects)
             ctx.render(); ctx.save()
             return
@@ -622,8 +622,8 @@ export class SelectHandler implements InteractionHandler {
         if (this.s.isDragging && ctx.selectedElement) {
             this.s.isDragging = false
             if (this.s.hasDragged) {
-                ctx.selectedElement.x = ctx.snap(ctx.selectedElement.x)
-                ctx.selectedElement.y = ctx.snap(ctx.selectedElement.y)
+                ctx.selectedElement.x = ctx.snapElement(ctx.selectedElement.x)
+                ctx.selectedElement.y = ctx.snapElement(ctx.selectedElement.y)
                 const dgDrop = ctx.getDashboardGrid?.()
                 if (dgDrop) clampToBoard(ctx.selectedElement, dgDrop)
                 updateConnectedArrows(ctx.elements, ctx.selectedElement.id, ctx.blockRects)
@@ -864,8 +864,8 @@ export class SelectHandler implements InteractionHandler {
             if (seg !== null && seg < hit.points.length - 1) {
                 const p1 = hit.points[seg], p2 = hit.points[seg + 1]
                 const isHorizontal = Math.abs(p1[1] - p2[1]) < 1
-                const cx = ctx.snap(world.x - hit.x)
-                const cy = ctx.snap(world.y - hit.y)
+                const cx = ctx.snapElement(world.x - hit.x)
+                const cy = ctx.snapElement(world.y - hit.y)
                 if (isHorizontal) {
                     hit.points.splice(seg + 1, 0, [cx, p1[1]], [cx, p2[1]])
                 } else {
@@ -939,8 +939,8 @@ export class SelectHandler implements InteractionHandler {
         const clipCenterY = (minY + maxY) / 2
 
         // Paste at mouse cursor position
-        const targetX = ctx.snap(this.s.lastMouseWorld.x)
-        const targetY = ctx.snap(this.s.lastMouseWorld.y)
+        const targetX = ctx.snapElement(this.s.lastMouseWorld.x)
+        const targetY = ctx.snapElement(this.s.lastMouseWorld.y)
 
         // Offset: move clipboard center to mouse cursor
         const dx = targetX - clipCenterX
@@ -961,7 +961,7 @@ export class SelectHandler implements InteractionHandler {
     }
 
     private createInlineText(ctx: DrawingContext, world: Point) {
-        const tx = ctx.snap(world.x), ty = ctx.snap(world.y)
+        const tx = ctx.snapElement(world.x), ty = ctx.snapElement(world.y)
         const d = ctx.getDefaults('text')
         const resolvedFont = "'Architects Daughter'"
         const resolvedSize = ctx.isSketchy ? Math.round((d.fontSize || 14) * 1.3) : d.fontSize

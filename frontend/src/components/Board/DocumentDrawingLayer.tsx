@@ -176,7 +176,7 @@ export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: 
         overlayCanvasRef,
         wrapperRef,
         onBlockCreate,
-        { blockRectsOverride: emptyBlockRects },
+        { blockRectsOverride: emptyBlockRects, snapElements: false },
     )
 
     // Register clearDrawingSelection globally
