@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
-import { Breadcrumb } from './components/Breadcrumb/Breadcrumb'
+import { Sidebar } from './components/Sidebar/Sidebar'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { Toolbar } from './components/Toolbar/Toolbar'
 import { Canvas } from './components/Canvas/Canvas'
@@ -94,11 +94,10 @@ export function App() {
     }, [])
 
     return (
-        <div className="w-full h-full relative">
+        <div className="w-full h-full relative sb-layout">
+            <Sidebar />
             <header className="app-header">
-                <div className="header-left">
-                    <Breadcrumb />
-                </div>
+                <div className="header-left" />
                 <Toolbar
                     showUndoPanel={showUndoPanel}
                     onToggleUndoPanel={() => setShowUndoPanel(p => !p)}
