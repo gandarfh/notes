@@ -96,15 +96,14 @@ function computeClusters(elements: DrawingElement[], gap = 20): DrawingCluster[]
     }
 
     // Phase 2: Group shapes by connected component, compute bounding boxes
-    // Add margin around each element to account for stroke width, selection handles,
-    // and visual breathing room so text doesn't touch the element edges
-    const elementMargin = 16
     const groups = new Map<string, { ids: string[]; top: number; bottom: number }>()
     for (const s of shapes) {
         const root = uf.find(s.id)
         const bounds = getElementBounds(s)
-        const elTop = bounds.y - elementMargin
-        const elBottom = bounds.y + bounds.h + elementMargin
+        const strokeMargin = Math.ceil((s.strokeWidth || 2) / 2)
+        const margin = strokeMargin + 24
+        const elTop = bounds.y - margin
+        const elBottom = bounds.y + bounds.h + margin
 
         let g = groups.get(root)
         if (!g) {
@@ -251,8 +250,9 @@ export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: 
     }, [renderDrawing])
 
     const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const spacerSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    // Sync spacers and highlight when drawingData changes — no debounce
+    // Highlight: immediate on every drawingData change (lightweight CSS-only)
     useEffect(() => {
         if (!editor) return
         if (!drawingData) return
@@ -266,21 +266,40 @@ export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: 
         const wrapperEl = wrapperRef.current
         if (!wrapperEl) return
 
-        // Show highlight on affected nodes
         highlightDisplacedNodes(editor, clusters, wrapperEl)
 
-        // Auto-clear highlight after 300ms of no updates (i.e. drag ended)
+        // Auto-clear highlight after 300ms of no updates
         if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current)
         highlightTimerRef.current = setTimeout(() => {
             highlightDisplacedNodes(editor, [], wrapperEl)
         }, 300)
+    }, [editor, drawingData])
 
-        if (elements.length > 0) {
-            // Mark as external update so TipTap's onUpdate doesn't save/reload
+    // Spacer sync: debounced (DOM-heavy — hide/measure/reflow/transaction)
+    useEffect(() => {
+        if (!editor) return
+        if (!drawingData) return
+
+        if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
+        spacerSyncTimerRef.current = setTimeout(() => {
+            let elements: DrawingElement[] = []
+            try {
+                elements = JSON.parse(drawingData)
+            } catch { return }
+
+            if (elements.length === 0) return
+
+            const clusters = computeClusters(elements)
+            const wrapperEl = wrapperRef.current
+            if (!wrapperEl) return
+
             isExternalUpdateRef.current = true
             syncSpacers(editor, clusters, wrapperEl)
-            // Reset after TipTap's deferred onUpdate fires (macro-task)
             setTimeout(() => { isExternalUpdateRef.current = false }, 0)
+        }, 200)
+
+        return () => {
+            if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
         }
     }, [editor, drawingData, isExternalUpdateRef])
 
@@ -402,7 +421,11 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTML
 
         let targetOffset = doc.content.size
         for (const np of nodePositions) {
-            if (np.bottom > cleanTop) {
+            // Match first node that starts near the cluster top.
+            // Allow 20% of the node's height as tolerance before moving the spacer,
+            // so small movements don't cause the spacer to jump between nodes.
+            const nodeHeight = np.bottom - np.top
+            if (np.top >= cleanTop - nodeHeight * 0.2) {
                 targetOffset = np.offset
                 break
             }
