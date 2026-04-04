@@ -61,11 +61,9 @@
 }
 
 .sb-notebook-arrow {
-  font-size: 10px;
   transition: transform 0.15s ease;
   flex-shrink: 0;
-  width: 14px;
-  text-align: center;
+  color: var(--color-text-muted);
 }
 
 .sb-notebook-arrow.sb-expanded {
@@ -117,9 +115,9 @@
 }
 
 .sb-page-icon {
-  font-size: 12px;
   flex-shrink: 0;
-  opacity: 0.6;
+  opacity: 0.5;
+  color: var(--color-text-muted);
 }
 
 .sb-page-name {
@@ -167,7 +165,9 @@
 }
 
 .sb-context-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   padding: 6px 10px;
   border: none;
@@ -203,15 +203,15 @@
 .sb-new-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid var(--color-border-default);
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--color-text-secondary);
-  font-size: 13px;
+  color: var(--color-text-muted);
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.1s, color 0.1s;
 }
 
 .sb-new-btn:hover {

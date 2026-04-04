@@ -1,5 +1,6 @@
 // frontend/src/components/Sidebar/NotebookItem.tsx
 import { useState, useRef, useCallback } from 'react'
+import { IconChevronRight, IconNotebook } from '@tabler/icons-react'
 import { PageItem } from './PageItem'
 import type { Notebook, Page } from '../../bridge/wails'
 
@@ -41,9 +42,7 @@ export function NotebookItem({
                 onDoubleClick={startRename}
                 onContextMenu={e => onContextMenu(e, 'notebook', notebook.id)}
             >
-                <span className={`sb-notebook-arrow ${isExpanded ? 'sb-expanded' : ''}`}>
-                    ▶
-                </span>
+                <IconChevronRight size={12} className={`sb-notebook-arrow ${isExpanded ? 'sb-expanded' : ''}`} />
                 {editing ? (
                     <input
                         ref={inputRef}
@@ -59,6 +58,7 @@ export function NotebookItem({
                     />
                 ) : (
                     <>
+                        <IconNotebook size={14} style={{ opacity: 0.5, flexShrink: 0 }} />
                         <span className="sb-notebook-name">{notebook.name}</span>
                         <span className="sb-notebook-count">{pages.length || ''}</span>
                     </>

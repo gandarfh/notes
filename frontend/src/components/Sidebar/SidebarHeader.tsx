@@ -1,5 +1,5 @@
-// frontend/src/components/Sidebar/SidebarHeader.tsx
 import { useState, useRef, useEffect } from 'react'
+import { IconPlus, IconNotebook, IconFile, IconLayout } from '@tabler/icons-react'
 
 interface Props {
     onNewNotebook: () => void
@@ -24,7 +24,7 @@ export function SidebarHeader({ onNewNotebook, onNewPage, onNewBoard, hasActiveN
     return (
         <div className="sb-header" ref={ref}>
             <button className="sb-new-btn" onClick={() => setOpen(!open)}>
-                + New
+                <IconPlus size={14} />
             </button>
             {open && (
                 <div className="sb-new-dropdown">
@@ -32,7 +32,7 @@ export function SidebarHeader({ onNewNotebook, onNewPage, onNewBoard, hasActiveN
                         className="sb-context-item"
                         onClick={() => { onNewNotebook(); setOpen(false) }}
                     >
-                        New Notebook
+                        <IconNotebook size={14} /> Notebook
                     </button>
                     {hasActiveNotebook && (
                         <>
@@ -40,13 +40,13 @@ export function SidebarHeader({ onNewNotebook, onNewPage, onNewBoard, hasActiveN
                                 className="sb-context-item"
                                 onClick={() => { onNewPage(); setOpen(false) }}
                             >
-                                New Page
+                                <IconFile size={14} /> Canvas Page
                             </button>
                             <button
                                 className="sb-context-item"
                                 onClick={() => { onNewBoard(); setOpen(false) }}
                             >
-                                New Board
+                                <IconLayout size={14} /> Document Page
                             </button>
                         </>
                     )}

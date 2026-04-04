@@ -3,6 +3,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '../../store'
 import { api } from '../../bridge/wails'
 import type { Page } from '../../bridge/wails'
+import { IconLayoutSidebar } from '@tabler/icons-react'
 import { SidebarHeader } from './SidebarHeader'
 import { NotebookItem } from './NotebookItem'
 import { ContextMenu } from './ContextMenu'
@@ -171,7 +172,7 @@ export function Sidebar() {
                 onClick={toggleCollapse}
                 title="Toggle sidebar (⌘\\)"
             >
-                ≡
+                <IconLayoutSidebar size={16} />
             </button>
 
             {contextMenu && (

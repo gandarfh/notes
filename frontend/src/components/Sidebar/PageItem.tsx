@@ -1,5 +1,6 @@
 // frontend/src/components/Sidebar/PageItem.tsx
 import { useState, useRef, useCallback } from 'react'
+import { IconFile, IconLayout } from '@tabler/icons-react'
 import type { Page } from '../../bridge/wails'
 
 interface Props {
@@ -36,12 +37,12 @@ export function PageItem({ page, isActive, onSelect, onRename, onContextMenu }: 
         setEditing(false)
     }, [page.id, page.name, onRename])
 
-    const icon = page.pageType === 'board' ? '📋' : '📄'
+    const Icon = page.pageType === 'board' ? IconLayout : IconFile
 
     if (editing) {
         return (
             <div className="sb-page">
-                <span className="sb-page-icon">{icon}</span>
+                <Icon size={14} className="sb-page-icon" />
                 <input
                     ref={inputRef}
                     className="sb-inline-input"
@@ -64,7 +65,7 @@ export function PageItem({ page, isActive, onSelect, onRename, onContextMenu }: 
             onDoubleClick={startRename}
             onContextMenu={e => onContextMenu(e, page.id)}
         >
-            <span className="sb-page-icon">{icon}</span>
+            <Icon size={14} className="sb-page-icon" />
             <span className="sb-page-name">{page.name}</span>
             <span className="sb-page-date">{formatDate(page.updatedAt)}</span>
         </div>
