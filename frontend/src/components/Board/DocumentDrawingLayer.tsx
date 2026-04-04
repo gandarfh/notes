@@ -276,15 +276,24 @@ export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: 
     }, [editor, drawingData])
 
     // Spacer sync: debounced (DOM-heavy — hide/measure/reflow/transaction)
+    const editorRef = useRef(editor)
+    editorRef.current = editor
+    const drawingDataRef = useRef(drawingData)
+    drawingDataRef.current = drawingData
+
     useEffect(() => {
         if (!editor) return
         if (!drawingData) return
 
         if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
         spacerSyncTimerRef.current = setTimeout(() => {
+            const currentEditor = editorRef.current
+            const currentData = drawingDataRef.current
+            if (!currentEditor || !currentData) return
+
             let elements: DrawingElement[] = []
             try {
-                elements = JSON.parse(drawingData)
+                elements = JSON.parse(currentData)
             } catch { return }
 
             if (elements.length === 0) return
@@ -294,7 +303,7 @@ export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: 
             if (!wrapperEl) return
 
             isExternalUpdateRef.current = true
-            syncSpacers(editor, clusters, wrapperEl)
+            syncSpacers(currentEditor, clusters, wrapperEl)
             setTimeout(() => { isExternalUpdateRef.current = false }, 0)
         }, 200)
 
