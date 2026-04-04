@@ -275,10 +275,10 @@ export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: 
             highlightDisplacedNodes(editor, [], wrapperEl)
         }, 300)
 
-        // Spacer sync: only if cluster configuration changed
-        // Build a key from cluster IDs + rounded heights to detect real changes
-        const spacerKey = clusters.map(c => `${c.id}:${Math.round(c.height)}`).join('|')
-        if (spacerKey === lastSpacerKeyRef.current) return // nothing changed, skip transaction
+        // Spacer sync: only if cluster configuration changed (ID, height, or position)
+        // Round top to nearest 10px to avoid syncing on every pixel of movement
+        const spacerKey = clusters.map(c => `${c.id}:${Math.round(c.height)}:${Math.round(c.top / 10)}`).join('|')
+        if (spacerKey === lastSpacerKeyRef.current) return
         lastSpacerKeyRef.current = spacerKey
 
         if (elements.length > 0) {
