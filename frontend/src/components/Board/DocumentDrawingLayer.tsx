@@ -251,11 +251,9 @@ export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: 
 }
 
 /**
- * Synchronize spacers with drawing clusters using a clean-slate approach:
- * 1. Remove ALL existing spacers in one transaction
- * 2. Flush DOM so measurements are spacer-free
- * 3. Measure content node positions without spacer interference
- * 4. Insert all spacers at correct positions in one transaction
+ * Synchronize spacers with drawing clusters.
+ * Uses cumulative height tracking instead of DOM measurements to avoid
+ * issues with React async unmounting of spacer NodeViews.
  */
 function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTMLElement) {
     if (!editor.schema.nodes.drawingSpacer) return
@@ -264,81 +262,87 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTML
     const { doc } = state
 
     // ── Step 1: Remove all existing spacers ──
-    const spacerPositions: { pos: number; size: number }[] = []
+    const spacerPositions: { pos: number; size: number; height: number }[] = []
     doc.descendants((node, pos) => {
         if (node.type.name === 'drawingSpacer') {
-            spacerPositions.push({ pos, size: node.nodeSize })
+            spacerPositions.push({ pos, size: node.nodeSize, height: node.attrs.height || 0 })
         }
     })
 
-    if (spacerPositions.length > 0) {
-        let removeTr = state.tr
-        // Remove in reverse order to preserve positions
-        for (let i = spacerPositions.length - 1; i >= 0; i--) {
-            const { pos, size } = spacerPositions[i]
-            removeTr = removeTr.delete(pos, pos + size)
+    // Calculate total spacer height above each content node position
+    // so we can convert current DOM positions to "spacer-free" positions
+    const spacerHeightBefore = (pos: number): number => {
+        let h = 0
+        for (const sp of spacerPositions) {
+            if (sp.pos < pos) h += sp.height + 32 // 32 = padding (16px top + 16px bottom)
+            else break
         }
-        editor.view.dispatch(removeTr)
+        return h
     }
 
-    // ── Step 2: Measure content nodes without spacers ──
-    // Force DOM update so getBoundingClientRect reflects spacer-free layout
-    editor.view.updateState(editor.view.state)
-
+    // ── Step 2: Measure content nodes and subtract spacer height to get "clean" positions ──
     const wrapperRect = wrapperEl.getBoundingClientRect()
-    const cleanDoc = editor.state.doc
     const view = editor.view
 
-    // Build a map of content node positions: [ { offset, top, bottom } ]
-    const nodePositions: { offset: number; top: number; bottom: number }[] = []
-    cleanDoc.forEach((node: any, offset: number) => {
+    const nodePositions: { offset: number; cleanTop: number; cleanBottom: number }[] = []
+    doc.forEach((node: any, offset: number) => {
+        if (node.type.name === 'drawingSpacer') return
         try {
             const domNode = view.nodeDOM(offset) as HTMLElement | null
             if (!domNode || !(domNode instanceof HTMLElement)) return
             const rect = domNode.getBoundingClientRect()
+            const currentTop = rect.top - wrapperRect.top
+            const currentBottom = rect.bottom - wrapperRect.top
+            // Subtract spacer height to get where this node would be without spacers
+            const spacerH = spacerHeightBefore(offset)
             nodePositions.push({
                 offset,
-                top: rect.top - wrapperRect.top,
-                bottom: rect.bottom - wrapperRect.top,
+                cleanTop: currentTop - spacerH,
+                cleanBottom: currentBottom - spacerH,
             })
-        } catch { /* skip unmeasurable nodes */ }
+        } catch { /* skip */ }
     })
 
-    // ── Step 3: Insert spacers at correct positions ──
-    if (clusters.length === 0) return
+    // ── Step 3: Build desired spacer set ──
+    if (clusters.length === 0 && spacerPositions.length === 0) return
 
-    // Sort clusters by top position (ascending) so we insert top-to-bottom
     const sortedClusters = [...clusters].sort((a, b) => a.top - b.top)
 
-    let insertTr = editor.state.tr
-    let insertedCount = 0
-
+    // For each cluster, find which content node it would overlap with (in clean space)
+    const desiredSpacers: { beforeOffset: number; cluster: DrawingCluster }[] = []
     for (const cluster of sortedClusters) {
-        const height = Math.round(cluster.height)
-        if (height <= 0) continue
-
-        // Find first content node that overlaps with this cluster
-        let targetOffset = cleanDoc.content.size // default: end
+        if (Math.round(cluster.height) <= 0) continue
+        let targetOffset = doc.content.size
         for (const np of nodePositions) {
-            if (np.bottom > cluster.top && np.top < cluster.bottom) {
+            if (np.cleanBottom > cluster.top && np.cleanTop < cluster.bottom) {
                 targetOffset = np.offset
                 break
             }
         }
-
-        const spacerNode = editor.schema.nodes.drawingSpacer.create({
-            spacerId: cluster.id,
-            height,
-        })
-
-        // Adjust position for previously inserted spacers in this transaction
-        const mappedPos = insertTr.mapping.map(targetOffset)
-        insertTr = insertTr.insert(mappedPos, spacerNode)
-        insertedCount++
+        desiredSpacers.push({ beforeOffset: targetOffset, cluster })
     }
 
-    if (insertedCount > 0) {
-        editor.view.dispatch(insertTr)
+    // ── Step 4: Single transaction — remove old, insert new ──
+    let tr = state.tr
+
+    // Remove all existing spacers (reverse order)
+    for (let i = spacerPositions.length - 1; i >= 0; i--) {
+        const { pos, size } = spacerPositions[i]
+        tr = tr.delete(pos, pos + size)
+    }
+
+    // Insert new spacers (use mapping to adjust for deletions + prior insertions)
+    for (const { beforeOffset, cluster } of desiredSpacers) {
+        const spacerNode = editor.schema.nodes.drawingSpacer.create({
+            spacerId: cluster.id,
+            height: Math.round(cluster.height),
+        })
+        const mappedPos = tr.mapping.map(beforeOffset)
+        tr = tr.insert(mappedPos, spacerNode)
+    }
+
+    if (tr.docChanged) {
+        editor.view.dispatch(tr)
     }
 }
 
