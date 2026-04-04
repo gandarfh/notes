@@ -333,11 +333,9 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTML
     const { doc } = state
     const view = editor.view
 
-    // ── Step 1: Measure spacer DOM heights BEFORE hiding ──
+    // ── Step 1: Collect existing spacers and hide their DOM elements ──
     const spacerPositions: { pos: number; size: number }[] = []
-    const spacerDomInfo: { domTop: number; domHeight: number }[] = []
     const hiddenEls: HTMLElement[] = []
-    const wrapperRectBefore = wrapperEl.getBoundingClientRect()
 
     doc.descendants((node, pos) => {
         if (node.type.name === 'drawingSpacer') {
@@ -345,11 +343,6 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTML
             try {
                 const domNode = view.nodeDOM(pos) as HTMLElement | null
                 if (domNode && domNode instanceof HTMLElement) {
-                    const rect = domNode.getBoundingClientRect()
-                    spacerDomInfo.push({
-                        domTop: rect.top - wrapperRectBefore.top,
-                        domHeight: rect.height,
-                    })
                     domNode.style.display = 'none'
                     hiddenEls.push(domNode)
                 }
@@ -384,41 +377,42 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTML
     }
 
     // ── Step 4: Transform cluster coordinates to spacer-free space ──
-    // Drawing coordinates are in "with spacers" space. We subtract the total
-    // spacer height above each cluster's position to get the equivalent
-    // position in the spacer-free layout we just measured.
+    // Drawing coords are in "with spacers" space. To convert to spacer-free,
+    // subtract the cumulative height of PREVIOUS clusters' spacers (not existing
+    // DOM spacers, which would include our own spacer and double-count).
     if (clusters.length === 0 && spacerPositions.length === 0) return
 
     const sortedClusters = [...clusters].sort((a, b) => a.top - b.top)
 
-    // Sort spacers by their DOM position for cumulative height calculation
-    spacerDomInfo.sort((a, b) => a.domTop - b.domTop)
-
-    function totalSpacerHeightAbove(y: number): number {
-        let total = 0
-        for (const sp of spacerDomInfo) {
-            if (sp.domTop < y) total += sp.domHeight
-            else break
-        }
-        return total
-    }
+    // Compute cumulative spacer offset from previous clusters (+ padding)
+    // Each spacer adds its cluster height + CSS padding to the document flow
+    const spacerPadding = 32 // 16px top + 16px bottom from .drawing-spacer CSS
 
     const desiredSpacers: { beforeOffset: number; cluster: DrawingCluster }[] = []
+    let cumulativeSpacerHeight = 0
+
     for (const cluster of sortedClusters) {
         if (Math.round(cluster.height) <= 0) continue
 
-        // Transform cluster top to spacer-free coordinate space
-        const cleanTop = cluster.top - totalSpacerHeightAbove(cluster.top)
+        // cleanTop = cluster position minus all spacers from clusters ABOVE this one
+        const cleanTop = cluster.top - cumulativeSpacerHeight
 
         let targetOffset = doc.content.size
+        let matchedNode: { offset: number; top: number; bottom: number } | null = null
         for (const np of nodePositions) {
             if (np.bottom > cleanTop) {
                 targetOffset = np.offset
+                matchedNode = np
                 break
             }
         }
+        console.log(`[syncSpacers] cluster ${cluster.id}: top=${Math.round(cluster.top)} cumSpacerH=${Math.round(cumulativeSpacerHeight)} cleanTop=${Math.round(cleanTop)} → matched offset=${targetOffset} (top=${matchedNode ? Math.round(matchedNode.top) : 'END'} bottom=${matchedNode ? Math.round(matchedNode.bottom) : 'END'})`)
         desiredSpacers.push({ beforeOffset: targetOffset, cluster })
+
+        // Add this cluster's spacer height to cumulative for next clusters
+        cumulativeSpacerHeight += Math.round(cluster.height) + spacerPadding
     }
+    console.log('[syncSpacers] ── END ──')
 
     // ── Step 5: Single transaction — remove old, insert new ──
     let tr = state.tr
