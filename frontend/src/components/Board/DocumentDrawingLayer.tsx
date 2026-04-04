@@ -6,7 +6,7 @@ import { StylePanel } from '../StylePanel/StylePanel'
 import { setClearDrawingSelection } from '../../input/drawingBridge'
 import type { Editor } from '@tiptap/react'
 import type { DrawingElement } from '../../drawing/types'
-import { getElementBounds } from '../../drawing/types'
+import { getElementBounds, isArrowType } from '../../drawing/types'
 import { hitTest } from '../../drawing/hitTest'
 
 interface Props {
@@ -29,9 +29,12 @@ interface DrawingCluster {
  * Cluster IDs are derived from spatial position for stability.
  */
 function computeClusters(elements: DrawingElement[], gap = 20): DrawingCluster[] {
-    if (elements.length === 0) return []
+    // Exclude arrows from clustering — their waypoints span between shapes
+    // and would merge separate groups into one giant cluster
+    const shapes = elements.filter(el => !isArrowType(el))
+    if (shapes.length === 0) return []
 
-    const boxes = elements.map(el => {
+    const boxes = shapes.map(el => {
         const bounds = getElementBounds(el)
         return { top: bounds.y, bottom: bounds.y + bounds.h }
     })
