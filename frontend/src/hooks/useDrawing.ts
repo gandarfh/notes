@@ -488,6 +488,12 @@ export function useDrawing(
         // Only reload if drawingData actually changed from an external source (page switch)
         // Skip if it matches what we last saved (to avoid overwriting in-memory changes)
         if (drawingData === drawingDataLoadedRef.current) return
+        // Never overwrite in-memory elements during active interaction (drag/draw/resize).
+        // The store may receive stale data from spacer sync or other side effects.
+        if (isInteractingRef.current) {
+            drawingDataLoadedRef.current = drawingData
+            return
+        }
         // Cancel any pending debounced save from the previous page
         if (saveTimeoutRef.current) { clearTimeout(saveTimeoutRef.current); saveTimeoutRef.current = null }
         drawingDataLoadedRef.current = drawingData
