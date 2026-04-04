@@ -96,12 +96,15 @@ function computeClusters(elements: DrawingElement[], gap = 20): DrawingCluster[]
     }
 
     // Phase 2: Group shapes by connected component, compute bounding boxes
+    // Add margin around each element to account for stroke width, selection handles,
+    // and visual breathing room so text doesn't touch the element edges
+    const elementMargin = 16
     const groups = new Map<string, { ids: string[]; top: number; bottom: number }>()
     for (const s of shapes) {
         const root = uf.find(s.id)
         const bounds = getElementBounds(s)
-        const elTop = bounds.y
-        const elBottom = bounds.y + bounds.h
+        const elTop = bounds.y - elementMargin
+        const elBottom = bounds.y + bounds.h + elementMargin
 
         let g = groups.get(root)
         if (!g) {
@@ -398,21 +401,17 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTML
         const cleanTop = cluster.top - cumulativeSpacerHeight
 
         let targetOffset = doc.content.size
-        let matchedNode: { offset: number; top: number; bottom: number } | null = null
         for (const np of nodePositions) {
             if (np.bottom > cleanTop) {
                 targetOffset = np.offset
-                matchedNode = np
                 break
             }
         }
-        console.log(`[syncSpacers] cluster ${cluster.id}: top=${Math.round(cluster.top)} cumSpacerH=${Math.round(cumulativeSpacerHeight)} cleanTop=${Math.round(cleanTop)} → matched offset=${targetOffset} (top=${matchedNode ? Math.round(matchedNode.top) : 'END'} bottom=${matchedNode ? Math.round(matchedNode.bottom) : 'END'})`)
         desiredSpacers.push({ beforeOffset: targetOffset, cluster })
 
         // Add this cluster's spacer height to cumulative for next clusters
         cumulativeSpacerHeight += Math.round(cluster.height) + spacerPadding
     }
-    console.log('[syncSpacers] ── END ──')
 
     // ── Step 5: Single transaction — remove old, insert new ──
     let tr = state.tr
