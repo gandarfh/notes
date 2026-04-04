@@ -333,9 +333,11 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTML
     const { doc } = state
     const view = editor.view
 
-    // ── Step 1: Collect existing spacers and hide their DOM elements ──
+    // ── Step 1: Measure spacer DOM heights BEFORE hiding ──
     const spacerPositions: { pos: number; size: number }[] = []
+    const spacerDomInfo: { domTop: number; domHeight: number }[] = []
     const hiddenEls: HTMLElement[] = []
+    const wrapperRectBefore = wrapperEl.getBoundingClientRect()
 
     doc.descendants((node, pos) => {
         if (node.type.name === 'drawingSpacer') {
@@ -343,6 +345,11 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTML
             try {
                 const domNode = view.nodeDOM(pos) as HTMLElement | null
                 if (domNode && domNode instanceof HTMLElement) {
+                    const rect = domNode.getBoundingClientRect()
+                    spacerDomInfo.push({
+                        domTop: rect.top - wrapperRectBefore.top,
+                        domHeight: rect.height,
+                    })
                     domNode.style.display = 'none'
                     hiddenEls.push(domNode)
                 }
@@ -376,19 +383,36 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTML
         el.style.display = ''
     }
 
-    // ── Step 4: Build desired spacer set ──
+    // ── Step 4: Transform cluster coordinates to spacer-free space ──
+    // Drawing coordinates are in "with spacers" space. We subtract the total
+    // spacer height above each cluster's position to get the equivalent
+    // position in the spacer-free layout we just measured.
     if (clusters.length === 0 && spacerPositions.length === 0) return
 
     const sortedClusters = [...clusters].sort((a, b) => a.top - b.top)
 
+    // Sort spacers by their DOM position for cumulative height calculation
+    spacerDomInfo.sort((a, b) => a.domTop - b.domTop)
+
+    function totalSpacerHeightAbove(y: number): number {
+        let total = 0
+        for (const sp of spacerDomInfo) {
+            if (sp.domTop < y) total += sp.domHeight
+            else break
+        }
+        return total
+    }
+
     const desiredSpacers: { beforeOffset: number; cluster: DrawingCluster }[] = []
     for (const cluster of sortedClusters) {
         if (Math.round(cluster.height) <= 0) continue
+
+        // Transform cluster top to spacer-free coordinate space
+        const cleanTop = cluster.top - totalSpacerHeightAbove(cluster.top)
+
         let targetOffset = doc.content.size
         for (const np of nodePositions) {
-            // Find the first node that extends past the cluster's top edge.
-            // This handles both overlap and gap cases (element drawn between paragraphs).
-            if (np.bottom > cluster.top) {
+            if (np.bottom > cleanTop) {
                 targetOffset = np.offset
                 break
             }
