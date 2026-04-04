@@ -250,9 +250,10 @@ export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: 
     }, [renderDrawing])
 
     const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const spacerSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    // Cache: skip spacer transaction if nothing changed
+    const lastSpacerKeyRef = useRef('')
 
-    // Highlight: immediate on every drawingData change (lightweight CSS-only)
+    // Sync spacers + highlight on every drawingData change — no debounce
     useEffect(() => {
         if (!editor) return
         if (!drawingData) return
@@ -266,49 +267,24 @@ export function DocumentDrawingLayer({ editor, children, isExternalUpdateRef }: 
         const wrapperEl = wrapperRef.current
         if (!wrapperEl) return
 
+        // Highlight: always runs (lightweight CSS-only)
         highlightDisplacedNodes(editor, clusters, wrapperEl)
 
-        // Auto-clear highlight after 300ms of no updates
         if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current)
         highlightTimerRef.current = setTimeout(() => {
             highlightDisplacedNodes(editor, [], wrapperEl)
         }, 300)
-    }, [editor, drawingData])
 
-    // Spacer sync: debounced (DOM-heavy — hide/measure/reflow/transaction)
-    const editorRef = useRef(editor)
-    editorRef.current = editor
-    const drawingDataRef = useRef(drawingData)
-    drawingDataRef.current = drawingData
+        // Spacer sync: only if cluster configuration changed
+        // Build a key from cluster IDs + rounded heights to detect real changes
+        const spacerKey = clusters.map(c => `${c.id}:${Math.round(c.height)}`).join('|')
+        if (spacerKey === lastSpacerKeyRef.current) return // nothing changed, skip transaction
+        lastSpacerKeyRef.current = spacerKey
 
-    useEffect(() => {
-        if (!editor) return
-        if (!drawingData) return
-
-        if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
-        spacerSyncTimerRef.current = setTimeout(() => {
-            const currentEditor = editorRef.current
-            const currentData = drawingDataRef.current
-            if (!currentEditor || !currentData) return
-
-            let elements: DrawingElement[] = []
-            try {
-                elements = JSON.parse(currentData)
-            } catch { return }
-
-            if (elements.length === 0) return
-
-            const clusters = computeClusters(elements)
-            const wrapperEl = wrapperRef.current
-            if (!wrapperEl) return
-
+        if (elements.length > 0) {
             isExternalUpdateRef.current = true
-            syncSpacers(currentEditor, clusters, wrapperEl)
+            syncSpacers(editor, clusters, wrapperEl)
             setTimeout(() => { isExternalUpdateRef.current = false }, 0)
-        }, 200)
-
-        return () => {
-            if (spacerSyncTimerRef.current) clearTimeout(spacerSyncTimerRef.current)
         }
     }, [editor, drawingData, isExternalUpdateRef])
 
