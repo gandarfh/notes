@@ -386,7 +386,9 @@ function syncSpacers(editor: Editor, clusters: DrawingCluster[], wrapperEl: HTML
         if (Math.round(cluster.height) <= 0) continue
         let targetOffset = doc.content.size
         for (const np of nodePositions) {
-            if (np.bottom > cluster.top && np.top < cluster.bottom) {
+            // Find the first node that extends past the cluster's top edge.
+            // This handles both overlap and gap cases (element drawn between paragraphs).
+            if (np.bottom > cluster.top) {
                 targetOffset = np.offset
                 break
             }
