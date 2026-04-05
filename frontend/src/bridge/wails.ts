@@ -42,6 +42,7 @@ declare global {
           LoadUndoTree(pageID: string): Promise<UndoTree | null>
           PushUndoNode(pageID: string, nodeID: string, parentID: string, label: string, snapshotJSON: string): Promise<UndoNode>
           GoToUndoNode(pageID: string, nodeID: string): Promise<void>
+          GetUndoSnapshot(nodeID: string): Promise<string>
           RestorePageBlocks(pageID: string, blocks: Block[]): Promise<void>
           // Database plugin
           ListDatabaseConnections(): Promise<DBConnView[]>

@@ -39,6 +39,8 @@ export const blockAPI = {
         go().PushUndoNode(pageID, nodeID, parentID, label, snapshotJSON),
     goToUndoNode: (pageID: string, nodeID: string): Promise<void> =>
         go().GoToUndoNode(pageID, nodeID),
+    getUndoSnapshot: (nodeID: string): Promise<string> =>
+        go().GetUndoSnapshot(nodeID),
     restorePageBlocks: (pageID: string, blocks: Block[]): Promise<void> =>
         go().RestorePageBlocks(pageID, blocks),
 }

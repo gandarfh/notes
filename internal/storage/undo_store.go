@@ -32,10 +32,10 @@ func NewUndoStore(db *DB) *UndoStore {
 	return &UndoStore{db: db}
 }
 
-// LoadTree returns the full undo tree for a page.
+// LoadTree returns the undo tree metadata for a page (no snapshots — they are lazy-loaded).
 func (s *UndoStore) LoadTree(pageID string) (*UndoTree, error) {
 	rows, err := s.db.Conn().Query(
-		`SELECT id, page_id, parent_id, label, snapshot_json, created_at
+		`SELECT id, page_id, parent_id, label, created_at
 		 FROM undo_nodes WHERE page_id = ? ORDER BY created_at ASC`, pageID,
 	)
 	if err != nil {
@@ -47,7 +47,7 @@ func (s *UndoStore) LoadTree(pageID string) (*UndoTree, error) {
 	var rootID string
 	for rows.Next() {
 		var n UndoNode
-		if err := rows.Scan(&n.ID, &n.PageID, &n.ParentID, &n.Label, &n.SnapshotJSON, &n.CreatedAt); err != nil {
+		if err := rows.Scan(&n.ID, &n.PageID, &n.ParentID, &n.Label, &n.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan undo node: %w", err)
 		}
 		if n.ParentID == nil {
@@ -58,6 +58,7 @@ func (s *UndoStore) LoadTree(pageID string) (*UndoTree, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 
 	if len(nodes) == 0 {
 		return nil, nil // No tree yet
@@ -77,6 +78,18 @@ func (s *UndoStore) LoadTree(pageID string) (*UndoTree, error) {
 		CurrentID: currentID,
 		RootID:    rootID,
 	}, nil
+}
+
+// GetNodeSnapshot returns the snapshot JSON for a single undo node.
+func (s *UndoStore) GetNodeSnapshot(nodeID string) (string, error) {
+	var snapshotJSON string
+	err := s.db.Conn().QueryRow(
+		`SELECT snapshot_json FROM undo_nodes WHERE id = ?`, nodeID,
+	).Scan(&snapshotJSON)
+	if err != nil {
+		return "", fmt.Errorf("get undo snapshot: %w", err)
+	}
+	return snapshotJSON, nil
 }
 
 // PushNode creates a new undo node with the given ID under the specified parent.

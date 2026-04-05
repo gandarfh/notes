@@ -16,7 +16,7 @@ export interface UndoNode {
     children: string[]
     label: string
     timestamp: number
-    snapshot: PageSnapshot
+    snapshot: PageSnapshot | null  // null = not yet loaded (lazy)
 }
 
 interface UndoTreeState {
@@ -24,16 +24,16 @@ interface UndoTreeState {
     currentId: string | null
     rootId: string | null
 
-    /** Load tree from backend for a page */
+    /** Load tree metadata from backend for a page (no snapshots) */
     loadTree: (pageId: string) => Promise<void>
     /** Push a new undo state (persisted to backend) */
     pushState: (pageId: string, label: string, snapshot: PageSnapshot) => Promise<void>
-    /** Navigate to a specific node */
-    goTo: (pageId: string, nodeId: string) => PageSnapshot | null
-    /** Undo — move to parent node */
-    undo: (pageId: string) => PageSnapshot | null
-    /** Redo — move to last child */
-    redo: (pageId: string) => PageSnapshot | null
+    /** Navigate to a specific node (fetches snapshot on demand) */
+    goTo: (pageId: string, nodeId: string) => Promise<PageSnapshot | null>
+    /** Undo — move to parent node (fetches snapshot on demand) */
+    undo: (pageId: string) => Promise<PageSnapshot | null>
+    /** Redo — move to last child (fetches snapshot on demand) */
+    redo: (pageId: string) => Promise<PageSnapshot | null>
     /** Clear local state */
     clear: () => void
 }
@@ -51,7 +51,7 @@ function parseSnapshot(json: string): PageSnapshot {
 function buildChildrenMap(apiNodes: ApiUndoNode[]): Map<string, UndoNode> {
     const nodes = new Map<string, UndoNode>()
 
-    // First pass: create all nodes without children
+    // First pass: create all nodes without children (no snapshot — lazy loaded)
     for (const n of apiNodes) {
         nodes.set(n.id, {
             id: n.id,
@@ -59,7 +59,7 @@ function buildChildrenMap(apiNodes: ApiUndoNode[]): Map<string, UndoNode> {
             children: [],
             label: n.label,
             timestamp: new Date(n.createdAt).getTime(),
-            snapshot: parseSnapshot(n.snapshotJson),
+            snapshot: null,
         })
     }
 
@@ -80,6 +80,24 @@ function stripImageContent(snapshot: PageSnapshot): PageSnapshot {
         blocks: snapshot.blocks.map(b =>
             b.type === 'image' ? { ...b, content: '' } : b
         ),
+    }
+}
+
+/** Fetch and cache the snapshot for a node. Returns the snapshot or null. */
+async function fetchSnapshot(nodes: Map<string, UndoNode>, nodeId: string): Promise<PageSnapshot | null> {
+    const node = nodes.get(nodeId)
+    if (!node) return null
+    if (node.snapshot) return node.snapshot
+
+    try {
+        const json = await api.getUndoSnapshot(nodeId)
+        const snapshot = parseSnapshot(json)
+        // Cache it in the node
+        node.snapshot = snapshot
+        return snapshot
+    } catch (e) {
+        console.error('Failed to fetch undo snapshot:', e)
+        return null
     }
 }
 
@@ -117,7 +135,7 @@ export const useUndoTree = create<UndoTreeState>((set, get) => ({
             children: [],
             label,
             timestamp: Date.now(),
-            snapshot,
+            snapshot,  // freshly pushed — already in memory
         }
         nodes.set(tempId, newNode)
 
@@ -141,17 +159,18 @@ export const useUndoTree = create<UndoTreeState>((set, get) => ({
         }
     },
 
-    goTo: (pageId, nodeId) => {
+    goTo: async (pageId, nodeId) => {
         const state = get()
         const node = state.nodes.get(nodeId)
         if (!node) return null
         set({ currentId: nodeId })
         // Fire-and-forget: persist position to backend
         api.goToUndoNode(pageId, nodeId).catch(() => { })
-        return node.snapshot
+        // Lazy fetch snapshot
+        return fetchSnapshot(state.nodes, nodeId)
     },
 
-    undo: (pageId) => {
+    undo: async (pageId) => {
         const state = get()
         if (!state.currentId) return null
         const current = state.nodes.get(state.currentId)
@@ -160,10 +179,10 @@ export const useUndoTree = create<UndoTreeState>((set, get) => ({
         if (!parent) return null
         set({ currentId: parent.id })
         api.goToUndoNode(pageId, parent.id).catch(() => { })
-        return parent.snapshot
+        return fetchSnapshot(state.nodes, parent.id)
     },
 
-    redo: (pageId) => {
+    redo: async (pageId) => {
         const state = get()
         if (!state.currentId) return null
         const current = state.nodes.get(state.currentId)
@@ -173,7 +192,7 @@ export const useUndoTree = create<UndoTreeState>((set, get) => ({
         if (!child) return null
         set({ currentId: lastChildId })
         api.goToUndoNode(pageId, lastChildId).catch(() => { })
-        return child.snapshot
+        return fetchSnapshot(state.nodes, lastChildId)
     },
 
     clear: () => {

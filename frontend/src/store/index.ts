@@ -60,25 +60,17 @@ export const useAppStore = create<AppState>((...a) => ({
 
     loadPageState: async (pageId) => {
         const [set, get] = [a[0], a[1]]
-        set({
-            blocks: new Map(),
-            connections: [],
-            entities: new Map(),
-            canvasConnections: [],
-            selectedIds: new Set(),
-            drawingData: '',
-            selectedBlockId: null,
-            editingBlockId: null,
-        })
 
         try {
             const ps = await api.getPageState(pageId)
+
             const blocks = new Map<string, Block>()
                 ; (ps.blocks || []).forEach(b => blocks.set(b.id, b))
 
             const entities = new Map<string, CanvasEntity>()
                 ; (ps.entities || []).forEach(e => entities.set(e.id, e))
 
+            // Single atomic set — avoids blank-screen flash from clearing first
             set({
                 viewport: { x: ps.page.viewportX, y: ps.page.viewportY, zoom: ps.page.viewportZoom || 1 },
                 blocks,
@@ -90,12 +82,17 @@ export const useAppStore = create<AppState>((...a) => ({
                 activeBoardMode: ps.page.boardMode || 'document',
                 activeBoardContent: ps.page.boardContent || '',
                 activeBoardLayout: ps.page.boardLayout || '[]',
+                selectedIds: new Set(),
+                selectedBlockId: null,
+                editingBlockId: null,
             })
 
-            await useUndoTree.getState().loadTree(pageId)
-            if (useUndoTree.getState().nodes.size === 0) {
-                await useUndoTree.getState().pushState(pageId, 'Page loaded', captureSnapshot(get))
-            }
+            // Load undo tree in background — don't block page rendering
+            useUndoTree.getState().loadTree(pageId).then(() => {
+                if (useUndoTree.getState().nodes.size === 0) {
+                    useUndoTree.getState().pushState(pageId, 'Page loaded', captureSnapshot(get))
+                }
+            })
         } catch (e) {
             console.error('Failed to load page:', e)
         }

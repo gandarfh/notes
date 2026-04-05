@@ -61,16 +61,16 @@ export function App() {
 
         initLayer0({
             togglePalette: () => setShowPalette(p => !p),
-            undo: () => {
+            undo: async () => {
                 const { activePageId } = useAppStore.getState()
                 if (!activePageId) return
-                const snapshot = useUndoTree.getState().undo(activePageId)
+                const snapshot = await useUndoTree.getState().undo(activePageId)
                 if (snapshot) applySnapshot(snapshot)
             },
-            redo: () => {
+            redo: async () => {
                 const { activePageId } = useAppStore.getState()
                 if (!activePageId) return
-                const snapshot = useUndoTree.getState().redo(activePageId)
+                const snapshot = await useUndoTree.getState().redo(activePageId)
                 if (snapshot) applySnapshot(snapshot)
             },
         })

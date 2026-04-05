@@ -100,6 +100,8 @@ export function GetPageState(arg1:string):Promise<domain.PageState>;
 
 export function GetRecordingStatus():Promise<domain.RecordingStatus>;
 
+export function GetUndoSnapshot(arg1:string):Promise<string>;
+
 export function GoToUndoNode(arg1:string,arg2:string):Promise<void>;
 
 export function IntrospectDatabase(arg1:string):Promise<dbclient.SchemaInfo>;

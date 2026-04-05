@@ -1,5 +1,5 @@
 import { GRID_SIZE, DASHBOARD_COLS, DASHBOARD_ROW_HEIGHT, DASHBOARD_GAP } from '../../constants'
-import { useRef, useEffect, useCallback, useMemo } from 'react'
+import { useRef, useEffect, useCallback, useMemo, useState } from 'react'
 import { useAppStore } from '../../store'
 import type { ElementTypeCategory, ElementStyleDefaults } from '../../store/types'
 import { api } from '../../bridge/wails'
@@ -544,14 +544,69 @@ export function Canvas({ onEditBlock }: CanvasProps) {
             ? `translate3d(${initV.x / initV.zoom}px, ${initV.y / initV.zoom}px, 0)`
             : `translate3d(${initV.x}px, ${initV.y}px, 0) scale(${initV.zoom})`
     const initBlockZoom = isDashboard ? 1 : initV.zoom > 1 ? initV.zoom : 1
+    // ── Viewport culling: only render blocks near the viewport ──
+    const CULL_MARGIN = 1500 // px margin around viewport in world coords
+    const cullVersionRef = useRef(0)
+    const [cullVersion, setCullVersion] = useState(0)
+    const cullRegionRef = useRef(() => {
+        const v = viewportRef.current
+        const w = window.innerWidth
+        const h = window.innerHeight
+        const z = v.zoom || 1
+        return { left: -v.x / z - CULL_MARGIN, top: -v.y / z - CULL_MARGIN, right: -v.x / z + w / z + CULL_MARGIN, bottom: -v.y / z + h / z + CULL_MARGIN }
+    })
+
+    // Recompute cull region from current viewport (no state object — just bump version)
+    const refreshCullRegion = useCallback(() => {
+        const v = viewportRef.current
+        const w = window.innerWidth
+        const h = window.innerHeight
+        const z = v.zoom || 1
+        const compute = () => ({ left: -v.x / z - CULL_MARGIN, top: -v.y / z - CULL_MARGIN, right: -v.x / z + w / z + CULL_MARGIN, bottom: -v.y / z + h / z + CULL_MARGIN })
+        cullRegionRef.current = compute
+        cullVersionRef.current += 1
+        setCullVersion(cullVersionRef.current)
+    }, [CULL_MARGIN])
+
+    // Poll viewport changes — only trigger React re-render when blocks might enter/leave
+    useEffect(() => {
+        if (isDashboard) return
+        let lastLeft = 0, lastTop = 0
+        const id = setInterval(() => {
+            const v = viewportRef.current
+            const z = v.zoom || 1
+            const newLeft = -v.x / z
+            const newTop = -v.y / z
+            const threshold = Math.min(window.innerWidth, window.innerHeight) / (z * 2)
+            if (Math.abs(newLeft - lastLeft) > threshold || Math.abs(newTop - lastTop) > threshold) {
+                lastLeft = newLeft
+                lastTop = newTop
+                refreshCullRegion()
+            }
+        }, 300)
+        return () => clearInterval(id)
+    }, [isDashboard, refreshCullRegion])
+
+    // Refresh on page switch (blocks change)
+    useEffect(() => { refreshCullRegion() }, [blocks, refreshCullRegion])
+
     const blockIds = useMemo(() => {
         if (isDashboard) {
             return Array.from(blocks.values())
                 .filter(b => b.viewMode === 'dashboard')
                 .map(b => b.id)
         }
-        return Array.from(blocks.keys())
-    }, [blocks, isDashboard])
+        // Canvas mode: viewport culling
+        void cullVersion // dependency trigger
+        const region = cullRegionRef.current()
+        const all = Array.from(blocks.values())
+        return all.filter(b =>
+            b.x + b.width > region.left &&
+            b.x < region.right &&
+            b.y + b.height > region.top &&
+            b.y < region.bottom
+        ).map(b => b.id)
+    }, [blocks, isDashboard, cullVersion])
 
     // ── RGL layout for board mode ──
     // Grid units are cached in a module-level Map (survives component unmount).

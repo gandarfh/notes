@@ -108,10 +108,10 @@ export function UndoPanel() {
     const { nodes, currentId, rootId } = useUndoTree()
     const rootNode = rootId ? nodes.get(rootId) : null
 
-    const onSelect = useCallback((nodeId: string) => {
+    const onSelect = useCallback(async (nodeId: string) => {
         const { activePageId } = useAppStore.getState()
         if (!activePageId) return
-        const snapshot = useUndoTree.getState().goTo(activePageId, nodeId)
+        const snapshot = await useUndoTree.getState().goTo(activePageId, nodeId)
         if (snapshot) {
             const blocks = new Map<string, Block>()
             snapshot.blocks.forEach(b => blocks.set(b.id, b))

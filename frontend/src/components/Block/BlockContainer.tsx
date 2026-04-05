@@ -1,5 +1,5 @@
 import { GRID_SIZE, snapToGrid } from '../../constants'
-import { useRef, useCallback, useMemo, memo } from 'react'
+import { useRef, useCallback, useMemo, memo, useState, useEffect } from 'react'
 import { useAppStore } from '../../store'
 import { BlockRegistry } from '../../plugins'
 import { clearDrawingSelectionGlobal, closeEditorGlobal, notifyBlockMoved } from '../../input/drawingBridge'
@@ -259,6 +259,13 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
         onEditBlock(blockId, line || 1)
     }, [plugin, isEditing, blockId, onEditBlock])
 
+    // Deferred rendering: show block shell instantly, load plugin content next frame
+    const [contentReady, setContentReady] = useState(false)
+    useEffect(() => {
+        const id = requestAnimationFrame(() => setContentReady(true))
+        return () => cancelAnimationFrame(id)
+    }, [])
+
     if (!block || !plugin) return null
 
     const Renderer = plugin.Renderer
@@ -351,16 +358,18 @@ export const BlockContainer = memo(function BlockContainer({ blockId, onEditBloc
                     className={`block-content w-full flex-1 min-h-0 overflow-auto ${caps.zeroPadding ? 'p-0' : 'p-3'}`}
                     onMouseDown={isNoBg ? onHeaderMouseDown : onContentMouseDown}
                 >
-                    <Renderer
-                        block={block}
-                        isEditing={isEditing}
-                        isSelected={isSelected}
-                        ctx={ctx}
-                        onContentChange={(content) => {
-                            updateBlock(blockId, { content })
-                            useAppStore.getState().saveBlockContent(blockId, content)
-                        }}
-                    />
+                    {contentReady ? (
+                        <Renderer
+                            block={block}
+                            isEditing={isEditing}
+                            isSelected={isSelected}
+                            ctx={ctx}
+                            onContentChange={(content) => {
+                                updateBlock(blockId, { content })
+                                useAppStore.getState().saveBlockContent(blockId, content)
+                            }}
+                        />
+                    ) : null}
                 </div>
             )}
 

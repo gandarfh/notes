@@ -186,6 +186,10 @@ export function GetRecordingStatus() {
   return window['go']['app']['App']['GetRecordingStatus']();
 }
 
+export function GetUndoSnapshot(arg1) {
+  return window['go']['app']['App']['GetUndoSnapshot'](arg1);
+}
+
 export function GoToUndoNode(arg1, arg2) {
   return window['go']['app']['App']['GoToUndoNode'](arg1, arg2);
 }
