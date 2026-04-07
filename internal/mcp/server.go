@@ -86,6 +86,7 @@ func New(ctx context.Context, deps Deps) *Server {
 
 	// Phase 2: Content tools
 	s.registerMarkdownTools()
+	s.registerDocumentTools()
 	s.registerCodeTools()
 	s.registerChartTools()
 	s.registerLocalDBTools()
