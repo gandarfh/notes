@@ -142,7 +142,7 @@ function readStrokePaths(): StrokePath[] {
     if (!engine) return []
     const f64Out = engine.f64Out
     const nStrokes = f64Out[0]
-    if (!isFinite(nStrokes) || nStrokes < 0 || nStrokes > 100) return []
+    if (!isFinite(nStrokes) || nStrokes < 0 || nStrokes > 5000) return []
     const paths: StrokePath[] = []
     let o = 1
     for (let s = 0; s < nStrokes; s++) {

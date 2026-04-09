@@ -143,19 +143,39 @@ func (s *Server) handleSystemDiagramPrompt(ctx context.Context, req mcp.GetPromp
 				Role: mcp.RoleUser,
 				Content: mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf(`Create a system architecture diagram for "%s" using the drawing tools. 
+					Text: fmt.Sprintf(`Create a system architecture diagram for "%s" using the drawing tools.
 
-IMPORTANT VISIBILITY RULES:
-- Use SAFE COLORS for theme compatibility: Indigo (#6366f1), Emerald (#10b981), Rose (#ef4444), Blue (#3b82f6), Amber (#f59e0b), Violet (#8b5cf6), Gray (#6b7280).
-- ALWAYS use #e8e8f0 for strokeColor to ensure visibility in both Dark and Light themes.
+SEMANTIC COLOR PALETTE (use backgroundColor, NOT fillColor):
+  Our components:  backgroundColor #1971c2, strokeColor #e8e8f0
+  External systems: backgroundColor #e8e8f0, strokeColor #828298
+  Databases/Storage: backgroundColor #b2f2bb, strokeColor #2f9e44
+  Sidecars/Intermediaries: backgroundColor #ffec99, strokeColor #f08c00
+  Errors/Failures: backgroundColor #ffc9c9, strokeColor #e03131
+  Events/Async:    backgroundColor #eebefa, strokeColor #9c36b5
+  HTTP Endpoints:  backgroundColor #a5d8ff, strokeColor #1971c2
 
-Follow these steps:
-1. Identify the main components of the system.
-2. Use add_drawing_element to create shapes (use fillColor from safe colors, strokeColor: #e8e8f0).
-3. Use add_drawing_arrow to connect components and update_arrow_label for descriptions.
-4. Add a write_markdown block explaining the architecture.
+LAYOUT RULES:
+  1. Main flow goes LEFT-TO-RIGHT with shapes of 220×60 max.
+  2. Details, databases, or annotations go BELOW the main flow, connected by vertical arrows.
+  3. Each logical section of the system is a separate add_drawing_group.
+  4. Keep 1000px+ vertical distance between groups/sections.
+  5. Keep 160px horizontal gap between shapes in the same row.
+  6. Keep 140px vertical gap between a shape and its detail below.
+  7. Start at x=100, y=100 for the first section.
+  8. NEVER use width >= 600 on a single shape (rendering bug). Split into smaller shapes instead.
+  9. Keep text SHORT (1-2 lines max). If something is complex, create a group with internal diagram instead of a big text block.
 
-Suggested Colors: #6366f1 (Services), #10b981 (Databases), #f59e0b (External APIs).`, systemName),
+DIAGRAM STRUCTURE:
+  For each section, create one group with:
+  - Top row: main flow (L→R arrows between small shapes)
+  - Bottom row: supporting details (databases, configs, events) connected by vertical arrows
+
+STEPS:
+  1. Break "%s" into logical sections (e.g., "Registration", "Processing", "Delivery").
+  2. For each section, use add_drawing_group first.
+  3. Use batch_add_drawing_elements for all shapes in that section.
+  4. Use add_drawing_arrow sequentially to connect shapes (horizontal for flow, vertical for details).
+  5. Move to the next section 1000px below.`, systemName, systemName),
 				},
 			},
 		},

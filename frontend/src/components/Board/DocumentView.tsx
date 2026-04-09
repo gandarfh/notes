@@ -13,6 +13,7 @@ import {
   TableCell,
 } from "@tiptap/extension-table";
 import Image from "@tiptap/extension-image";
+import Link from "@tiptap/extension-link";
 import GlobalDragHandle from "tiptap-extension-global-drag-handle";
 import { Markdown } from "tiptap-markdown";
 import { useAppStore } from "../../store";
@@ -134,6 +135,7 @@ export function DocumentView({ pageId }: Props) {
       TableHeader,
       TableCell,
       Image.configure({ inline: false, allowBase64: true }),
+      Link.configure({ openOnClick: false }),
       GlobalDragHandle,
       CalloutExtension,
       ToggleExtension,
@@ -201,6 +203,27 @@ export function DocumentView({ pageId }: Props) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
   }, []);
+
+  // Open links in system browser
+  useEffect(() => {
+    if (!editor) return;
+    const el = editor.view.dom;
+    const handleClick = (event: MouseEvent) => {
+      const anchor = (event.target as HTMLElement).closest("a");
+      if (anchor?.href) {
+        event.preventDefault();
+        event.stopPropagation();
+        const w = window as any;
+        if (w.runtime?.BrowserOpenURL) {
+          w.runtime.BrowserOpenURL(anchor.href);
+        } else {
+          window.open(anchor.href, "_blank", "noopener,noreferrer");
+        }
+      }
+    };
+    el.addEventListener("click", handleClick);
+    return () => el.removeEventListener("click", handleClick);
+  }, [editor]);
 
   // Handle image drop and paste
   useEffect(() => {

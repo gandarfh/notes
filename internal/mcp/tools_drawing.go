@@ -15,7 +15,19 @@ import (
 
 func (s *Server) registerDrawingTools() {
 	s.mcp.AddTool(mcp.NewTool("add_drawing_element",
-		mcp.WithDescription("Add a shape or text element to the drawing layer. SAFE COLORS (theme-aware): Vivid: Red (#e03131), Orange (#f08c00), Green (#2f9e44), Blue (#1971c2), Purple (#9c36b5). Pastel: LightRed (#ffc9c9), LightYellow (#ffec99), LightGreen (#b2f2bb), LightBlue (#a5d8ff), LightPurple (#eebefa). Gray: Dark (#1e1e2e), MidDark (#545475), Mid (#828298), Light (#bfbfcf), Near-white (#e8e8f0). Special: transparent, DarkBg (#343446). Use #e8e8f0 for strokeColor to ensure visibility. Colors outside this palette will be ignored. SPACING: keep at least 80px gap between elements so arrows remain readable."),
+		mcp.WithDescription(`Add a shape or text element to the drawing layer.
+
+SEMANTIC COLORS (use backgroundColor, NOT fillColor — others silently ignored):
+  Our components:    backgroundColor #1971c2, strokeColor #e8e8f0
+  External systems:  backgroundColor #e8e8f0, strokeColor #828298
+  Databases/Storage: backgroundColor #b2f2bb, strokeColor #2f9e44
+  Sidecars/Middle:   backgroundColor #ffec99, strokeColor #f08c00
+  Errors/Failures:   backgroundColor #ffc9c9, strokeColor #e03131
+  Events/Async:      backgroundColor #eebefa, strokeColor #9c36b5
+  HTTP Endpoints:    backgroundColor #a5d8ff, strokeColor #1971c2
+
+LAYOUT: shapes should be 220×60. Keep 160px horizontal gap, 140px vertical gap. NEVER use width >= 600 (rendering bug).
+Keep text SHORT (1-2 lines). For complex flows, use a group with multiple small shapes inside.`),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("type", mcp.Description("Element type: rectangle, ellipse, diamond, text. For group containers (bounded contexts), use add_drawing_group instead."), mcp.Required()),
 		mcp.WithNumber("x", mcp.Description("X position"), mcp.Required()),
@@ -25,10 +37,20 @@ func (s *Server) registerDrawingTools() {
 		mcp.WithString("text", mcp.Description("Text content (optional)")),
 		mcp.WithString("fillColor", mcp.Description("Fill/background color hex from the palette (optional, e.g. #e03131, #a5d8ff). Invalid colors will be ignored.")),
 		mcp.WithString("strokeColor", mcp.Description("Stroke color hex (optional, use #e8e8f0 for best visibility)")),
+		mcp.WithNumber("fontSize", mcp.Description("Font size for text: 10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48. Default 16.")),
+		mcp.WithNumber("fontWeight", mcp.Description("Font weight: 400 (normal), 500 (medium), 700 (bold). Default 400.")),
+		mcp.WithString("fontFamily", mcp.Description("Font: 'Inter' (default), 'JetBrains Mono, monospace', 'Georgia, serif', 'Caveat, cursive'.")),
+		mcp.WithString("textColor", mcp.Description("Text color hex from the palette (optional).")),
+		mcp.WithString("textAlign", mcp.Description("Horizontal text alignment: 'left', 'center' (default), 'right'.")),
+		mcp.WithString("verticalAlign", mcp.Description("Vertical text alignment: 'top', 'center' (default), 'bottom'.")),
+		mcp.WithNumber("borderRadius", mcp.Description("Corner radius: 0 (sharp, default) or 8 (rounded). Rectangles only.")),
+		mcp.WithNumber("strokeWidth", mcp.Description("Stroke width: 1, 2 (default), or 4.")),
+		mcp.WithString("strokeDasharray", mcp.Description("Stroke style: '' (solid, default), '8 4' (dashed), '2 4' (dotted).")),
+		mcp.WithNumber("opacity", mcp.Description("Opacity from 0.0 to 1.0. Default 1.0.")),
 	), s.handleAddDrawingElement)
 
 	s.mcp.AddTool(mcp.NewTool("add_drawing_arrow",
-		mcp.WithDescription("Add an arrow connecting two elements. For best readability, keep at least 80px gap between connected elements."),
+		mcp.WithDescription("Add an arrow connecting two elements. Auto-routes orthogonally around obstacles. Keep at least 80px gap between connected elements for readability. Arrow labels should be short (1-3 words). Use update_arrow_label to add/change labels after creation."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("fromId", mcp.Description("Source element ID"), mcp.Required()),
 		mcp.WithString("toId", mcp.Description("Target element ID"), mcp.Required()),
@@ -36,7 +58,8 @@ func (s *Server) registerDrawingTools() {
 	), s.handleAddDrawingArrow)
 
 	s.mcp.AddTool(mcp.NewTool("update_drawing_element",
-		mcp.WithDescription("Update properties of a drawing element. DO NOT pass 'id' in the patchJSON."),
+		mcp.WithDescription(`Update properties of a drawing element. DO NOT pass 'id' in patchJSON.
+Patchable fields: x, y, width, height, text, fillColor, strokeColor, strokeWidth (1|2|4), strokeDasharray (''|'8 4'|'2 4'), fontSize (10-48), fontWeight (400|500|700), fontFamily, textColor, textAlign, verticalAlign, borderRadius (0|8), opacity (0.0-1.0), backgroundColor.`),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("elementId", mcp.Description("Element ID to update"), mcp.Required()),
 		mcp.WithString("patchJSON", mcp.Description("JSON object with properties to update. DO NOT pass 'id'."), mcp.Required()),
@@ -81,7 +104,7 @@ func (s *Server) registerDrawingTools() {
 	), s.handleUpdateArrowLabel)
 
 	s.mcp.AddTool(mcp.NewTool("list_drawing_elements",
-		mcp.WithDescription("List all drawing elements on a page with their IDs, types, and positions"),
+		mcp.WithDescription("List all drawing elements on a page. Returns IDs, types, positions, dimensions, and a _connections object showing arrow count per side. Also returns a boundingBox summary of the entire canvas — use this to plan placement of new elements."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 	), s.handleListDrawingElements)
 
@@ -92,7 +115,9 @@ func (s *Server) registerDrawingTools() {
 	), s.handleClearDrawing)
 
 	s.mcp.AddTool(mcp.NewTool("add_drawing_group",
-		mcp.WithDescription("Add a visual group/container with dashed border and label. Use #e8e8f0 for strokeColor for theme visibility. Groups are non-obstructing: arrows pass through them freely and cannot connect to them. Use groups for bounded contexts, architectural layers, or logical sections. The label renders at the top-left corner with an inverted theme-aware background pill."),
+		mcp.WithDescription(`Add a visual group/container with dashed border and label. Groups are non-obstructing: arrows pass through them freely and cannot connect to them. Use for bounded contexts, architectural layers, or logical sections. The label renders at top-left with a theme-aware background pill.
+SIZING: add 40px padding on all sides around the contained elements. Example: if elements span x=100..380 y=100..260, group should be x=60 y=60 width=360 height=240.
+Use #e8e8f0 for strokeColor for theme visibility.`),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("label", mcp.Description("Group label text"), mcp.Required()),
 		mcp.WithNumber("x", mcp.Description("X position"), mcp.Required()),
@@ -104,7 +129,25 @@ func (s *Server) registerDrawingTools() {
 
 	// ── Batch operations ──────────────────────────────────
 	s.mcp.AddTool(mcp.NewTool("batch_add_drawing_elements",
-		mcp.WithDescription("Add multiple elements. DO NOT pass 'id' properties. The system auto-generates them and returns an array of the created IDs in the exact order of your input array. SAFE COLORS \u2014 Vivid: Red (#e03131), Orange (#f08c00), Green (#2f9e44), Blue (#1971c2), Purple (#9c36b5). Pastel: LightRed (#ffc9c9), LightYellow (#ffec99), LightGreen (#b2f2bb), LightBlue (#a5d8ff), LightPurple (#eebefa). Gray: Dark (#1e1e2e), MidDark (#545475), Mid (#828298), Light (#bfbfcf), Near-white (#e8e8f0). Special: transparent, DarkBg (#343446). Use #e8e8f0 for strokeColor. Colors outside this palette will be ignored. SPACING: keep at least 80px gap between elements so arrows remain readable."),
+		mcp.WithDescription(`Add multiple elements at once. Returns created IDs in input order. DO NOT pass 'id'.
+
+SEMANTIC COLORS (use backgroundColor, NOT fillColor — others silently ignored):
+  Our components:    backgroundColor #1971c2, strokeColor #e8e8f0
+  External systems:  backgroundColor #e8e8f0, strokeColor #828298
+  Databases/Storage: backgroundColor #b2f2bb, strokeColor #2f9e44
+  Sidecars/Middle:   backgroundColor #ffec99, strokeColor #f08c00
+  Errors/Failures:   backgroundColor #ffc9c9, strokeColor #e03131
+  Events/Async:      backgroundColor #eebefa, strokeColor #9c36b5
+  HTTP Endpoints:    backgroundColor #a5d8ff, strokeColor #1971c2
+
+LAYOUT: shapes 220×60. 160px horizontal gap, 140px vertical gap. NEVER use width >= 600 (rendering bug).
+Keep text SHORT (1-2 lines). For complex flows, use a group with multiple small shapes inside.
+
+DIAGRAM PATTERN: main flow goes L→R in one row. Databases/details go BELOW, connected by vertical arrows. Each section is a separate group with 1000px+ vertical distance between sections.
+
+STYLE FIELDS per element (all optional): backgroundColor, strokeColor, strokeWidth (1|2|4), strokeDasharray (''|'8 4'|'2 4'), fontSize (10-48), fontWeight (400|500|700), fontFamily, textColor, textAlign ('left'|'center'|'right'), verticalAlign ('top'|'center'|'bottom'), borderRadius (0|8), opacity (0.0-1.0).
+
+EXAMPLE: [{"type":"rectangle","x":100,"y":860,"width":220,"height":60,"text":"POST /entities","backgroundColor":"#a5d8ff","strokeColor":"#1971c2","borderRadius":8},{"type":"rectangle","x":480,"y":860,"width":220,"height":60,"text":"Valida Schema","backgroundColor":"#1971c2","strokeColor":"#e8e8f0","borderRadius":8},{"type":"rectangle","x":480,"y":1060,"width":220,"height":60,"text":"config_schemas","backgroundColor":"#b2f2bb","strokeColor":"#2f9e44","borderRadius":8}]`),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("elements", mcp.Description("JSON array of element objects [{type, x, y, width, height...}]. DO NOT pass 'id'."), mcp.Required()),
 	), s.handleBatchAddDrawingElements)
@@ -117,7 +160,8 @@ func (s *Server) registerDrawingTools() {
 	), s.handleBatchDeleteDrawingElements)
 
 	s.mcp.AddTool(mcp.NewTool("batch_update_drawing_elements",
-		mcp.WithDescription("Update multiple drawing elements at once. DO NOT pass 'id' in the patch, only pass 'elementId' and the allowed patch fields. Pass a JSON array of patch objects (each with elementId and properties to update)."),
+		mcp.WithDescription(`Update multiple drawing elements at once. Pass a JSON array of patch objects, each with 'elementId' and properties to update. DO NOT pass 'id' in the patch.
+Patchable fields: x, y, width, height, text, fillColor, strokeColor, strokeWidth (1|2|4), strokeDasharray (''|'8 4'|'2 4'), fontSize (10-48), fontWeight (400|500|700), fontFamily, textColor, textAlign, verticalAlign, borderRadius (0|8), opacity (0.0-1.0), backgroundColor.`),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("patches", mcp.Description("JSON array of patch objects [{elementId, x?, y?, width?, height?...}]. DO NOT pass 'id'."), mcp.Required()),
 	), s.handleBatchUpdateDrawingElements)
@@ -301,6 +345,37 @@ func (s *Server) handleAddDrawingElement(ctx context.Context, req mcp.CallToolRe
 	}
 	if stroke, ok := args["strokeColor"].(string); ok {
 		el.StrokeColor = service.SanitizeColor(stroke, "#e8e8f0")
+	}
+	if v, ok := args["fontSize"].(float64); ok {
+		el.FontSize = &v
+	}
+	if v, ok := args["fontWeight"].(float64); ok {
+		el.FontWeight = &v
+	}
+	if v, ok := args["fontFamily"].(string); ok {
+		el.FontFamily = &v
+	}
+	if v, ok := args["textColor"].(string); ok {
+		tc := service.SanitizeColor(v, "#e8e8f0")
+		el.TextColor = &tc
+	}
+	if v, ok := args["textAlign"].(string); ok {
+		el.TextAlign = &v
+	}
+	if v, ok := args["verticalAlign"].(string); ok {
+		el.VerticalAlign = &v
+	}
+	if v, ok := args["borderRadius"].(float64); ok {
+		el.BorderRadius = &v
+	}
+	if v, ok := args["strokeWidth"].(float64); ok {
+		el.StrokeWidth = v
+	}
+	if v, ok := args["strokeDasharray"].(string); ok {
+		el.StrokeDasharray = &v
+	}
+	if v, ok := args["opacity"].(float64); ok {
+		el.Opacity = &v
 	}
 
 	if err := s.drawing.AddElement(ctx, pageID, el); err != nil {

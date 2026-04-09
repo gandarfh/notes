@@ -9,69 +9,83 @@ import (
 
 func (s *Server) registerMarkdownTools() {
 	s.mcp.AddTool(mcp.NewTool("write_markdown",
-		mcp.WithDescription("Create a new markdown block with content, or update an existing one"),
+		mcp.WithDescription("Write markdown content to a document page (boardMode=document or split). Replaces the full document content."),
 		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
 		mcp.WithString("content", mcp.Description("Markdown content"), mcp.Required()),
-		mcp.WithString("blockId", mcp.Description("Existing block ID to update (optional — creates new if omitted)")),
 	), s.handleWriteMarkdown)
 
 	s.mcp.AddTool(mcp.NewTool("append_markdown",
-		mcp.WithDescription("Append text to an existing markdown block"),
-		mcp.WithString("blockId", mcp.Description("Block ID"), mcp.Required()),
-		mcp.WithString("content", mcp.Description("Text to append"), mcp.Required()),
+		mcp.WithDescription("Append markdown content to a document page (boardMode=document or split)"),
+		mcp.WithString("pageId", mcp.Description("Page ID (optional, defaults to active page)")),
+		mcp.WithString("content", mcp.Description("Markdown content to append"), mcp.Required()),
 	), s.handleAppendMarkdown)
 }
 
 func (s *Server) handleWriteMarkdown(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
 	content, _ := args["content"].(string)
-
-	// Update existing block
-	if blockID, ok := args["blockId"].(string); ok && blockID != "" {
-		if err := s.blocks.UpdateBlockContent(blockID, content); err != nil {
-			return nil, fmt.Errorf("update markdown: %w", err)
-		}
-		block, _ := s.blocks.GetBlock(blockID)
-		if block != nil {
-			s.emitBlocksChanged(ctx, block.PageID)
-		}
-		return textResult(fmt.Sprintf("Markdown block %s updated", blockID)), nil
+	if content == "" {
+		return nil, fmt.Errorf("content is required and must be a non-empty string")
 	}
 
-	// Create new block
 	pageID, err := s.resolvePageID(args)
 	if err != nil {
 		return nil, err
 	}
-	existing, _ := s.blocks.ListBlocks(pageID)
-	x, y := s.layout.NextPosition(existing, 480, 360)
 
-	block, err := s.blocks.CreateBlock(pageID, "markdown", x, y, 480, 360, "dashboard")
+	state, err := s.notebooks.GetPageState(pageID)
 	if err != nil {
-		return nil, fmt.Errorf("create markdown block: %w", err)
+		return nil, fmt.Errorf("get page: %w", err)
 	}
-	if s.plugins != nil {
-		_ = s.plugins.OnCreate(block.ID, pageID, "markdown")
+
+	if !isDocumentPage(state.Page.PageType, state.Page.BoardMode) {
+		return nil, fmt.Errorf("write_markdown requires a document or split page (got pageType=%q boardMode=%q); use create_block for canvas/dashboard pages", state.Page.PageType, state.Page.BoardMode)
 	}
-	if err := s.blocks.UpdateBlockContent(block.ID, content); err != nil {
-		return nil, fmt.Errorf("set content: %w", err)
+
+	if err := s.notebooks.UpdateBoardContent(pageID, content); err != nil {
+		return nil, fmt.Errorf("write document: %w", err)
 	}
-	s.emitBlocksChanged(ctx, pageID)
-	return jsonResult(block)
+	s.emitBoardContentChanged(ctx, pageID, content)
+	return textResult(fmt.Sprintf("Document content written (%d chars)", len(content))), nil
 }
 
 func (s *Server) handleAppendMarkdown(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	block, err := s.getBlockForTool(args)
+	content, _ := args["content"].(string)
+	if content == "" {
+		return nil, fmt.Errorf("content is required and must be a non-empty string")
+	}
+
+	pageID, err := s.resolvePageID(args)
 	if err != nil {
 		return nil, err
 	}
-	appendText, _ := args["content"].(string)
-	newContent := block.Content + appendText
 
-	if err := s.blocks.UpdateBlockContent(block.ID, newContent); err != nil {
-		return nil, fmt.Errorf("append markdown: %w", err)
+	state, err := s.notebooks.GetPageState(pageID)
+	if err != nil {
+		return nil, fmt.Errorf("get page: %w", err)
 	}
-	s.emitBlocksChanged(ctx, block.PageID)
-	return textResult(fmt.Sprintf("Appended %d chars to block %s", len(appendText), block.ID)), nil
+
+	if !isDocumentPage(state.Page.PageType, state.Page.BoardMode) {
+		return nil, fmt.Errorf("append_markdown requires a document or split page (got pageType=%q boardMode=%q); use create_block for canvas/dashboard pages", state.Page.PageType, state.Page.BoardMode)
+	}
+
+	existing := state.Page.BoardContent
+	var newContent string
+	if existing == "" {
+		newContent = content
+	} else {
+		newContent = existing + "\n\n" + content
+	}
+
+	if err := s.notebooks.UpdateBoardContent(pageID, newContent); err != nil {
+		return nil, fmt.Errorf("append document: %w", err)
+	}
+	s.emitBoardContentChanged(ctx, pageID, newContent)
+	return textResult(fmt.Sprintf("Appended %d chars to document", len(content))), nil
+}
+
+// isDocumentPage reports whether pageType + boardMode represent a document or split page.
+func isDocumentPage(pageType, boardMode string) bool {
+	return pageType == "board" && (boardMode == "document" || boardMode == "split")
 }

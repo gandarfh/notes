@@ -14,6 +14,7 @@ install: build
 	@mkdir -p $(HOME)/.local/bin
 	@echo "Installing notes to $(HOME)/.local/bin/notes..."
 	cp build/bin/notes.app/Contents/MacOS/notes $(HOME)/.local/bin/notes
+	codesign --force --sign - $(HOME)/.local/bin/notes
 	@echo "Done. Run 'notes' to open the app or 'notes --mcp' for the MCP server."
 	@echo "Make sure $(HOME)/.local/bin is in your PATH."
 
